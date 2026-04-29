@@ -76,20 +76,26 @@
       const compressed = await compressImage(file);
       const blob = await fetch(compressed.data).then(r => r.blob());
       const { error } = await supabase.storage.from('wave-media').upload(filePath, blob);
-      if (error) { showToast('Ошибка загрузки фото'); return null; }
+      if (error) { 
+        showToast('Ошибка загрузки фото: ' + error.message); 
+        return null; 
+      }
       const { data: { publicUrl } } = supabase.storage.from('wave-media').getPublicUrl(filePath);
       return { url: publicUrl, type: 'image', name: file.name };
     } else if (file.type.startsWith('video/')) {
       if (file.size > 50 * 1024 * 1024) { showToast('Видео > 50 МБ'); return null; }
       const { error } = await supabase.storage.from('wave-media').upload(filePath, file);
-      if (error) { showToast('Ошибка загрузки видео'); return null; }
+      if (error) { 
+        showToast('Ошибка загрузки видео: ' + error.message); 
+        return null; 
+      }
       const { data: { publicUrl } } = supabase.storage.from('wave-media').getPublicUrl(filePath);
       return { url: publicUrl, type: 'video', name: file.name };
     }
     return null;
   }
   
-  // ========== КОМПОНЕНТ ВВОДА ПОСТА (ИЗОЛИРОВАННЫЙ, НЕ ТЕРЯЕТ ФОКУС) ==========
+  // ========== КОМПОНЕНТ ВВОДА ПОСТА (ИЗОЛИРОВАННЫЙ) ==========
   function PostInputComponent({ user, onPostSuccess, showToast }) {
     const [content, setContent] = React.useState('');
     const [media, setMedia] = React.useState(null);
@@ -113,7 +119,8 @@
         return;
       }
       setLoading(true);
-      await supabase.from('posts').insert({
+      
+      const { error } = await supabase.from('posts').insert({
         user_id: user.id,
         username: user.username,
         user_avatar: user.avatar,
@@ -124,6 +131,13 @@
         comments: [],
         created_at: new Date()
       });
+      
+      if (error) {
+        showToast('Ошибка: ' + error.message);
+        setLoading(false);
+        return;
+      }
+      
       setContent('');
       setMedia(null);
       onPostSuccess();
@@ -307,13 +321,10 @@
     const [editingName, setEditingName] = React.useState(false);
     const [newName, setNewName] = React.useState(user.full_name);
     
-    // Состояния для чата (локальные)
+    // Состояния для чата
     const [newMessage, setNewMessage] = React.useState('');
     const [newMessageMedia, setNewMessageMedia] = React.useState(null);
     const [uploadingMessage, setUploadingMessage] = React.useState(false);
-    
-    // Состояния для комментариев
-    const [commentStates, setCommentStates] = React.useState({});
     
     const showToast = (msg) => {
       const toast = document.createElement('div');
@@ -321,17 +332,6 @@
       toast.innerText = msg;
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 2500);
-    };
-    
-    const getCommentState = (postId) => {
-      return commentStates[postId] || { text: '', media: null };
-    };
-    
-    const setCommentState = (postId, updates) => {
-      setCommentStates(prev => ({
-        ...prev,
-        [postId]: { ...getCommentState(postId), ...updates }
-      }));
     };
     
     const loadData = React.useCallback(async () => {
@@ -906,19 +906,57 @@
     );
   }
   
+  // ========== ГЛАВНЫЙ КОМПОНЕНТ С СОХРАНЕНИЕМ СЕССИИ ==========
   function App() {
     const [siteAccess, setSiteAccess] = React.useState(false);
     const [currentUser, setCurrentUser] = React.useState(null);
+    const [loading, setLoading] = React.useState(true);
   
     React.useEffect(() => {
+      // Проверяем пароль доступа к сайту
       if (localStorage.getItem('wave_site_access') === 'granted') {
         setSiteAccess(true);
       }
+      
+      // Восстанавливаем сессию пользователя
+      const savedUser = localStorage.getItem('wave_current_user');
+      if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+          setCurrentUser(user);
+        } catch(e) {
+          console.error('Ошибка восстановления сессии', e);
+        }
+      }
+      
+      setLoading(false);
     }, []);
   
-    if (!siteAccess) return <SitePasswordGate onSuccess={() => setSiteAccess(true)} />;
-    if (currentUser) return <MainApp user={currentUser} onLogout={() => setCurrentUser(null)} />;
-    return <LoginRegister onLogin={(user) => setCurrentUser(user)} />;
+    // Сохраняем пользователя при входе
+    const handleLogin = (user) => {
+      localStorage.setItem('wave_current_user', JSON.stringify(user));
+      setCurrentUser(user);
+    };
+  
+    // Удаляем при выходе
+    const handleLogout = () => {
+      localStorage.removeItem('wave_current_user');
+      setCurrentUser(null);
+    };
+  
+    if (loading) {
+      return <div className="min-h-screen bg-black flex items-center justify-center text-white">Загрузка...</div>;
+    }
+  
+    if (!siteAccess) {
+      return <SitePasswordGate onSuccess={() => setSiteAccess(true)} />;
+    }
+  
+    if (currentUser) {
+      return <MainApp user={currentUser} onLogout={handleLogout} />;
+    }
+  
+    return <LoginRegister onLogin={handleLogin} />;
   }
   
   ReactDOM.createRoot(document.getElementById("root")).render(<App />);
