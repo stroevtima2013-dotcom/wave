@@ -89,6 +89,81 @@
     return null;
   }
   
+  // ========== КОМПОНЕНТ ВВОДА ПОСТА (ИЗОЛИРОВАННЫЙ, НЕ ТЕРЯЕТ ФОКУС) ==========
+  function PostInputComponent({ user, onPostSuccess, showToast }) {
+    const [content, setContent] = React.useState('');
+    const [media, setMedia] = React.useState(null);
+    const [uploading, setUploading] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
+    
+    const handleMediaUpload = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        setUploading(true);
+        const mediaData = await uploadMedia(file, showToast);
+        if (mediaData) setMedia(mediaData);
+        setUploading(false);
+      }
+      e.target.value = '';
+    };
+    
+    const handleAddPost = async () => {
+      if (!content.trim() && !media) {
+        showToast('Напишите текст или добавьте медиа');
+        return;
+      }
+      setLoading(true);
+      await supabase.from('posts').insert({
+        user_id: user.id,
+        username: user.username,
+        user_avatar: user.avatar,
+        content: content,
+        media: media?.url || null,
+        media_type: media?.type || null,
+        likes: 0,
+        comments: [],
+        created_at: new Date()
+      });
+      setContent('');
+      setMedia(null);
+      onPostSuccess();
+      setLoading(false);
+      showToast('Пост опубликован!');
+    };
+    
+    return (
+      <div className="bg-[#0a0a0a] rounded-2xl p-4 border border-gray-800 mb-6">
+        <div className="flex gap-3">
+          <img src={user.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full object-cover" />
+          <div className="flex-1">
+            <textarea 
+              rows="2" 
+              placeholder="Что нового, волна?" 
+              className="w-full p-3 border border-gray-800 rounded-2xl bg-black text-white resize-none focus:outline-none focus:border-gray-600" 
+              value={content} 
+              onChange={e => setContent(e.target.value)}
+            />
+            <div className="flex gap-2 mt-2 flex-wrap">
+              <label className={`cursor-pointer bg-gray-900 px-4 py-2 rounded-xl text-sm flex gap-2 hover:bg-gray-800 text-white ${uploading ? 'opacity-50' : ''}`}>
+                <i className="fas fa-image text-blue-400"></i> {uploading ? 'Загрузка...' : 'Медиа'}
+                <input type="file" accept="image/*,video/*" onChange={handleMediaUpload} className="hidden" disabled={uploading} />
+              </label>
+              {media && (
+                <div className="bg-gray-900 rounded-xl px-3 py-1 text-sm flex gap-2">
+                  <i className={`fas fa-${media.type === 'image' ? 'image' : 'video'}`}></i> {media.name}
+                  <button onClick={() => setMedia(null)} className="text-red-400 ml-2">✖</button>
+                </div>
+              )}
+              <button onClick={handleAddPost} disabled={loading} className="bg-gray-800 text-white px-5 py-2 rounded-full text-sm ml-auto hover:bg-gray-700 disabled:opacity-50">
+                {loading ? 'Публикация...' : 'Опубликовать'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   // ========== КОМПОНЕНТЫ ==========
   
   function SitePasswordGate({ onSuccess }) {
@@ -231,18 +306,14 @@
     const [fullscreenImage, setFullscreenImage] = React.useState(null);
     const [editingName, setEditingName] = React.useState(false);
     const [newName, setNewName] = React.useState(user.full_name);
-    const [loading, setLoading] = React.useState(false);
     
-    // Состояния для форм (локальные, чтобы не терять фокус!)
-    const [newPostContent, setNewPostContent] = React.useState('');
-    const [newPostMedia, setNewPostMedia] = React.useState(null);
-    const [uploadingPost, setUploadingPost] = React.useState(false);
-    
-    const [commentStates, setCommentStates] = React.useState({});
-    
+    // Состояния для чата (локальные)
     const [newMessage, setNewMessage] = React.useState('');
     const [newMessageMedia, setNewMessageMedia] = React.useState(null);
     const [uploadingMessage, setUploadingMessage] = React.useState(false);
+    
+    // Состояния для комментариев
+    const [commentStates, setCommentStates] = React.useState({});
     
     const showToast = (msg) => {
       const toast = document.createElement('div');
@@ -316,52 +387,11 @@
       };
     }, [loadData]);
     
-    // Посты
-    const handleAddPost = async () => {
-      if (!newPostContent.trim() && !newPostMedia) {
-        showToast('Напишите текст или добавьте медиа');
-        return;
-      }
-      setLoading(true);
-      await supabase.from('posts').insert({
-        user_id: user.id,
-        username: user.username,
-        user_avatar: user.avatar,
-        content: newPostContent,
-        media: newPostMedia?.url || null,
-        media_type: newPostMedia?.type || null,
-        likes: 0,
-        comments: [],
-        created_at: new Date()
-      });
-      setNewPostContent('');
-      setNewPostMedia(null);
-      await loadData();
-      setLoading(false);
-      showToast('Пост опубликован!');
-    };
-    
-    const handlePostMediaUpload = async (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        setUploadingPost(true);
-        const mediaData = await uploadMedia(file, showToast);
-        if (mediaData) setNewPostMedia(mediaData);
-        setUploadingPost(false);
-      }
-      e.target.value = '';
-    };
-    
+    // Лайки
     const handleLike = async (postId) => {
       const post = posts.find(p => p.id === postId);
       await supabase.from('posts').update({ likes: (post.likes || 0) + 1 }).eq('id', postId);
       loadData();
-    };
-    
-    const handleDeletePost = async (postId) => {
-      await supabase.from('posts').delete().eq('id', postId).eq('user_id', user.id);
-      loadData();
-      showToast('Пост удалён');
     };
     
     // Комментарии
@@ -403,6 +433,12 @@
       await supabase.from('posts').update({ comments }).eq('id', postId);
       loadData();
       showToast('Комментарий удалён');
+    };
+    
+    const handleDeletePost = async (postId) => {
+      await supabase.from('posts').delete().eq('id', postId).eq('user_id', user.id);
+      loadData();
+      showToast('Пост удалён');
     };
     
     // Подписки
@@ -663,30 +699,7 @@
     // Лента
     const Feed = () => (
       <div className="max-w-2xl mx-auto px-3 py-4">
-        <div className="bg-[#0a0a0a] rounded-2xl p-4 border border-gray-800 mb-6">
-          <div className="flex gap-3">
-            <img src={user.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full object-cover" />
-            <div className="flex-1">
-              <textarea 
-                rows="2" 
-                placeholder="Что нового, волна?" 
-                className="w-full p-3 border border-gray-800 rounded-2xl bg-black text-white resize-none" 
-                value={newPostContent} 
-                onChange={e => setNewPostContent(e.target.value)}
-              />
-              <div className="flex gap-2 mt-2 flex-wrap">
-                <label className={`cursor-pointer bg-gray-900 px-4 py-2 rounded-xl text-sm flex gap-2 hover:bg-gray-800 text-white ${uploadingPost ? 'opacity-50' : ''}`}>
-                  <i className="fas fa-image text-blue-400"></i> {uploadingPost ? 'Загрузка...' : 'Медиа'}
-                  <input type="file" accept="image/*,video/*" onChange={handlePostMediaUpload} className="hidden" disabled={uploadingPost} />
-                </label>
-                {newPostMedia && (<div className="bg-gray-900 rounded-xl px-3 py-1 text-sm flex gap-2"><i className={`fas fa-${newPostMedia.type === 'image' ? 'image' : 'video'}`}></i> {newPostMedia.name}<button onClick={() => setNewPostMedia(null)} className="text-red-400 ml-2">✖</button></div>)}
-                <button onClick={handleAddPost} disabled={loading} className="bg-gray-800 text-white px-5 py-2 rounded-full text-sm ml-auto hover:bg-gray-700 disabled:opacity-50">
-                  {loading ? 'Публикация...' : 'Опубликовать'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PostInputComponent user={user} onPostSuccess={loadData} showToast={showToast} />
         {posts.length === 0 && <div className="text-center text-gray-500 py-12">Нет постов. Будьте первым!</div>}
         {posts.map(post => <PostItem key={post.id} post={post} />)}
       </div>
