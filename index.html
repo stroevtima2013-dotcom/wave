@@ -2,32 +2,15 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-  <title>Wave Social — Полная версия</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Wave Social</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    * { font-family: 'Inter', sans-serif; }
+    * { font-family: system-ui, -apple-system, sans-serif; }
     body { background: #0a0a0a; }
-    .card-bg { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 20px; }
-    .chat-btn { background: #22c55e; transition: all 0.2s ease; }
-    .chat-btn:hover { background: #16a34a; transform: scale(1.02); }
-    .toast-notify { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; border: 1px solid #2a2a2a; color: white; padding: 8px 16px; border-radius: 40px; z-index: 1000; font-size: 14px; }
-    input, textarea { background: #1a1a1a; border: 1px solid #2a2a2a; color: white; outline: none; border-radius: 16px; }
-    input:focus, textarea:focus { border-color: #4a4a4a; }
-    .photo-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-    .photo-modal img, .photo-modal video { max-width: 95vw; max-height: 95vh; border-radius: 24px; box-shadow: 0 0 50px rgba(255,255,255,0.2); }
-    .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; z-index: 50; min-width: 140px; }
-    .media-preview { position: relative; display: inline-block; margin: 5px; border-radius: 12px; overflow: hidden; border: 2px solid #2a2a2a; cursor: pointer; }
-    .media-preview img { width: 80px; height: 80px; object-fit: cover; }
-    .media-preview video { width: 80px; height: 80px; object-fit: cover; }
-    .media-preview .play-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: white; text-shadow: 0 0 5px black; }
-    .media-preview .remove-media { position: absolute; top: -8px; right: -8px; background: #ef4444; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; color: white; font-weight: bold; z-index: 10; }
-    .notification-badge { position: absolute; top: -5px; right: -10px; background: #ef4444; color: white; font-size: 10px; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-    .mention { color: #60a5fa; cursor: pointer; font-weight: 500; }
-    .mention:hover { text-decoration: underline; }
+    .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 16px; }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1a1a1a; border: 1px solid #2a2a2a; color: white; padding: 8px 16px; border-radius: 40px; z-index: 1000; }
   </style>
 </head>
 <body>
@@ -38,44 +21,35 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 
 <script type="text/babel">
-  const SITE_PASSWORD = "8554social";
+  // ========== ВСТАВЬ СВОИ КЛЮЧИ ==========
   const SUPABASE_URL = "https://udjyttttghwtylzjavmw.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_U_lF6X0ZakHsq6I_f8byHA_91hFjf3y";
+  // ======================================
+  
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // Простая утилита для уведомлений
   function showToast(msg) {
     const toast = document.createElement('div');
-    toast.className = 'toast-notify';
+    toast.className = 'toast';
     toast.innerText = msg;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 2500);
   }
 
-  // Компонент полноэкранного просмотра
-  const FullscreenMedia = ({ src, onClose }) => (
-    <div className="photo-modal" onClick={onClose}>
-      {src?.includes('mp4') || src?.includes('webm') ? 
-        <video src={src} controls autoPlay className="max-w-[95vw] max-h-[95vh] rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.3)]" onClick={(e) => e.stopPropagation()} /> :
-        <img src={src} className="max-w-[95vw] max-h-[95vh] rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.3)]" onClick={(e) => e.stopPropagation()} />
-      }
-    </div>
-  );
-
-  // ========== ЭКРАН ВХОДА ==========
-  function SitePasswordGate({ onSuccess }) {
+  // ========== ВХОД ПО ПАРОЛЮ ==========
+  function PasswordGate({ onSuccess }) {
     const [password, setPassword] = React.useState('');
     const [error, setError] = React.useState('');
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] p-4">
-        <div className="card-bg p-8 max-w-md w-full text-center">
-          <i className="fas fa-lock text-5xl text-white opacity-80"></i>
-          <h1 className="text-3xl font-bold mt-4 text-white">Wave Social</h1>
-          <p className="text-gray-500 mt-2">Введите пароль</p>
-          <form onSubmit={(e) => { e.preventDefault(); if (password === SITE_PASSWORD) { localStorage.setItem('wave_site_access', 'granted'); onSuccess(); } else setError('Неверный пароль'); }} className="space-y-4 mt-6">
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-2xl text-white text-center text-xl" autoFocus />
-            {error && <div className="text-red-400 text-sm">{error}</div>}
-            <button type="submit" className="w-full bg-gray-800 text-white py-3 rounded-2xl font-semibold hover:bg-gray-700 transition">Войти</button>
+        <div className="card p-8 max-w-md w-full text-center">
+          <i className="fas fa-lock text-4xl text-white mb-4"></i>
+          <h1 className="text-2xl font-bold text-white">Wave Social</h1>
+          <p className="text-gray-500 mt-2">Введите пароль: 8554social</p>
+          <form onSubmit={(e) => { e.preventDefault(); if (password === '8554social') { localStorage.setItem('wave_access', 'ok'); onSuccess(); } else setError('Неверный пароль'); }} className="mt-6">
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white text-center" autoFocus />
+            {error && <div className="text-red-400 text-sm mt-2">{error}</div>}
+            <button type="submit" className="w-full mt-4 bg-gray-800 text-white py-2 rounded-xl">Войти</button>
           </form>
         </div>
       </div>
@@ -95,6 +69,7 @@
       e.preventDefault();
       setError('');
       setLoading(true);
+      
       if (isLogin) {
         const { data: userData } = await supabase.from('users').select('*').eq('username', username).single();
         if (!userData) { setError('Пользователь не найден'); setLoading(false); return; }
@@ -104,7 +79,9 @@
         if (password.length < 4) { setError('Пароль минимум 4 символа'); setLoading(false); return; }
         const { data: existing } = await supabase.from('users').select('username').eq('username', username).single();
         if (existing) { setError('Имя уже занято'); setLoading(false); return; }
-        const { data: newUser } = await supabase.from('users').insert({ username, full_name: fullName || username, password_hash: password, bio: 'Новый пользователь!' }).select().single();
+        const { data: newUser } = await supabase.from('users').insert({ 
+          username, full_name: fullName || username, password_hash: password, bio: 'Новый пользователь!' 
+        }).select().single();
         if (newUser) onLogin(newUser);
         else setError('Ошибка регистрации');
       }
@@ -113,428 +90,118 @@
   
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] p-4">
-        <div className="card-bg p-8 max-w-md w-full">
-          <div className="text-center"><i className="fas fa-water text-5xl text-white opacity-80"></i><h1 className="text-3xl font-bold mt-2 text-white">Wave Social</h1></div>
+        <div className="card p-8 max-w-md w-full">
+          <div className="text-center"><i className="fas fa-water text-4xl text-white"></i><h1 className="text-2xl font-bold mt-2 text-white">Wave Social</h1></div>
           <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-            <input type="text" placeholder="Логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-2xl text-white" required />
-            <input type="password" placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-2xl text-white" required />
-            {!isLogin && <input type="text" placeholder="Имя" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-2xl text-white" />}
+            <input type="text" placeholder="Логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" required />
+            <input type="password" placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" required />
+            {!isLogin && <input type="text" placeholder="Имя" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" />}
             {error && <div className="text-red-400 text-sm">{error}</div>}
-            <button type="submit" disabled={loading} className="w-full bg-gray-800 text-white py-3 rounded-2xl font-semibold hover:bg-gray-700 transition">{loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}</button>
+            <button type="submit" disabled={loading} className="w-full bg-gray-800 text-white py-3 rounded-xl font-semibold">{loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}</button>
           </form>
-          <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="w-full mt-4 text-gray-500 text-sm hover:text-gray-400 transition">{isLogin ? 'Нет аккаунта? Зарегистрируйтесь' : 'Уже есть аккаунт? Войдите'}</button>
+          <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="w-full mt-4 text-gray-500 text-sm">{isLogin ? 'Нет аккаунта?' : 'Уже есть аккаунт?'}</button>
         </div>
       </div>
     );
   }
 
-  // ========== ОСНОВНОЕ ПРИЛОЖЕНИЕ ==========
+  // ========== ГЛАВНОЕ ПРИЛОЖЕНИЕ ==========
   function MainApp({ user, onLogout }) {
-    const [activeTab, setActiveTab] = React.useState('feed');
     const [posts, setPosts] = React.useState([]);
-    const [users, setUsers] = React.useState([]);
-    const [chatUser, setChatUser] = React.useState(null);
-    const [messages, setMessages] = React.useState([]);
-    const [chatList, setChatList] = React.useState([]);
-    const [unreadCounts, setUnreadCounts] = React.useState({});
-    const [notifications, setNotifications] = React.useState([]);
-    const [viewingUser, setViewingUser] = React.useState(null);
+    const [newPost, setNewPost] = React.useState('');
     const [loading, setLoading] = React.useState(true);
-    const [fullscreenMedia, setFullscreenMedia] = React.useState(null);
+    const [showComments, setShowComments] = React.useState(null);
+    const [commentTexts, setCommentTexts] = React.useState({});
     
-    // Загрузка данных
-    const loadData = async () => {
-      const [postsRes, usersRes, messagesRes, notifsRes] = await Promise.all([
-        supabase.from('posts').select('*').order('created_at', { ascending: false }),
-        supabase.from('users').select('*'),
-        supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
-        supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-      ]);
-      setPosts(postsRes.data || []);
-      setUsers(usersRes.data || []);
-      setNotifications(notifsRes.data || []);
-      
-      const msgs = messagesRes.data || [];
-      const chatUsersSet = new Set();
-      msgs.forEach(m => { if (m.from_user !== user.id) chatUsersSet.add(m.from_user); if (m.to_user !== user.id) chatUsersSet.add(m.to_user); });
-      setChatList(usersRes.data?.filter(u => chatUsersSet.has(u.id)) || []);
-      
-      const counts = {};
-      msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
-      setUnreadCounts(counts);
-      
-      if (chatUser) {
-        const chatMsgs = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-        setMessages(chatMsgs);
-        await supabase.from('messages').update({ read: true }).eq('to_user', user.id).eq('from_user', chatUser.id);
-      }
+    const loadPosts = async () => {
+      const { data } = await supabase.from('posts').select('*').order('created_at', { ascending: false });
+      setPosts(data || []);
       setLoading(false);
     };
     
-    React.useEffect(() => { loadData(); const interval = setInterval(loadData, 30000); return () => clearInterval(interval); }, [chatUser]);
+    React.useEffect(() => { loadPosts(); }, []);
     
-    // Добавление уведомления
-    const addNotification = async (type, fromUserId, postId = null) => {
-      const fromUser = users.find(u => u.id === fromUserId);
-      if (!fromUser || fromUserId === user.id) return;
-      let text = '';
-      if (type === 'comment') text = `${fromUser.full_name || fromUser.username} оставил комментарий`;
-      else if (type === 'message') text = `${fromUser.full_name || fromUser.username} отправил сообщение`;
-      else if (type === 'mention') text = `${fromUser.full_name || fromUser.username} отметил вас в посте`;
-      await supabase.from('notifications').insert({
-        user_id: user.id, type, from_user_id: fromUserId, from_username: fromUser.username,
-        post_id: postId, text, read: false, created_at: new Date()
+    const createPost = async () => {
+      if (!newPost.trim()) return;
+      await supabase.from('posts').insert({
+        user_id: user.id, username: user.username, user_avatar: user.avatar,
+        content: newPost, likes: 0, comments: [], created_at: new Date()
       });
-      loadData();
+      setNewPost('');
+      loadPosts();
+      showToast('Пост опубликован!');
     };
     
-    // Компонент поста (упрощённый, но с медиа)
-    const PostItem = ({ post }) => {
-      const [showComments, setShowComments] = React.useState(false);
-      const [commentText, setCommentText] = React.useState('');
-      const [localLikes, setLocalLikes] = React.useState(post.likes || 0);
-      const [localComments, setLocalComments] = React.useState(post.comments || []);
-      const isAuthor = post.user_id === user.id;
-      const mediaList = post.media || [];
-      
-      const handleLike = async () => {
-        setLocalLikes(prev => prev + 1);
-        await supabase.from('posts').update({ likes: localLikes + 1 }).eq('id', post.id);
-      };
-      
-      const handleAddComment = async () => {
-        if (!commentText.trim()) return;
-        const newComment = {
-          id: 'c_' + Date.now(),
-          user_id: user.id,
-          username: user.username,
-          user_avatar: user.avatar,
-          text: commentText,
-          likes: 0,
-          created_at: new Date().toISOString()
-        };
-        const newComments = [newComment, ...localComments];
-        setLocalComments(newComments);
-        await supabase.from('posts').update({ comments: newComments }).eq('id', post.id);
-        setCommentText('');
-        addNotification('comment', post.user_id, post.id);
-      };
-      
-      const renderContentWithMentions = (text) => {
-        if (!text) return null;
-        const parts = text.split(/(@\w+)/g);
-        return parts.map((part, i) => {
-          if (part.startsWith('@')) {
-            return <span key={i} className="mention" onClick={() => {
-              const username = part.slice(1);
-              const mentionedUser = users.find(u => u.username === username);
-              if (mentionedUser) setViewingUser(mentionedUser);
-            }}>{part}</span>;
-          }
-          return <span key={i}>{part}</span>;
-        });
-      };
-      
-      return (
-        <div className="card-bg overflow-hidden mb-4">
-          {fullscreenMedia && <FullscreenMedia src={fullscreenMedia} onClose={() => setFullscreenMedia(null)} />}
-          <div className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 cursor-pointer" onClick={() => {
-                if (post.user_id === user.id) setActiveTab('profile');
-                else setViewingUser(users.find(u => u.id === post.user_id));
-              }}>
-                <img src={post.user_avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full object-cover" />
-                <div><div className="font-bold text-white hover:underline">@{post.username}</div><div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleString()}</div></div>
-              </div>
-              <div className="flex gap-2">
-                {!isAuthor && <button onClick={() => { setChatUser(users.find(u => u.id === post.user_id)); setActiveTab('chat'); }} className="chat-btn text-white px-3 py-1 rounded-full text-sm">Чат</button>}
-                {isAuthor && <button onClick={async () => { await supabase.from('posts').delete().eq('id', post.id); loadData(); }} className="text-gray-500 hover:text-white">🗑️</button>}
-              </div>
-            </div>
-            <p className="mt-3 text-white whitespace-pre-wrap">{renderContentWithMentions(post.content)}</p>
-            {mediaList.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-3">
-                {mediaList.map((m, idx) => m.isVideo ? (
-                  <video key={idx} src={m.url} className="w-full h-48 object-cover rounded-2xl cursor-pointer" onClick={() => setFullscreenMedia(m.url)} />
-                ) : (
-                  <img key={idx} src={m.url} className="w-full h-48 object-cover rounded-2xl cursor-pointer" onClick={() => setFullscreenMedia(m.url)} />
-                ))}
-              </div>
-            )}
-            <div className="flex gap-6 mt-4 text-gray-500">
-              <button onClick={handleLike} className="flex gap-1 hover:text-red-400 transition text-red-500"><i className="fas fa-heart"></i> {localLikes}</button>
-              <button onClick={() => setShowComments(!showComments)} className="flex gap-1 hover:text-blue-400"><i className="far fa-comment"></i> {localComments.length}</button>
-            </div>
-            {showComments && (
-              <div className="mt-4 pt-4 border-t border-gray-800">
-                {localComments.map(c => (
-                  <div key={c.id} className="flex gap-2 mb-3">
-                    <img src={c.user_avatar || 'https://via.placeholder.com/32'} className="w-8 h-8 rounded-full cursor-pointer" onClick={() => {
-                      if (c.user_id === user.id) setActiveTab('profile');
-                      else setViewingUser(users.find(u => u.id === c.user_id));
-                    }} />
-                    <div className="flex-1 bg-[#2a2a2a] rounded-2xl p-3">
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-sm text-white cursor-pointer hover:underline" onClick={() => {
-                          if (c.user_id === user.id) setActiveTab('profile');
-                          else setViewingUser(users.find(u => u.id === c.user_id));
-                        }}>@{c.username}</span>
-                        {c.user_id === user.id && <button onClick={async () => {
-                          const newComments = localComments.filter(x => x.id !== c.id);
-                          setLocalComments(newComments);
-                          await supabase.from('posts').update({ comments: newComments }).eq('id', post.id);
-                        }} className="text-xs text-red-400">🗑️</button>}
-                      </div>
-                      <p className="text-sm text-gray-300">{c.text}</p>
-                      <div className="text-xs text-gray-500 mt-1">{new Date(c.created_at).toLocaleString()}</div>
-                    </div>
-                  </div>
-                ))}
-                <div className="flex gap-2 mt-3">
-                  <input type="text" placeholder="Комментарий..." value={commentText} onChange={e => setCommentText(e.target.value)} className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-sm text-white" />
-                  <button onClick={handleAddComment} className="bg-[#2a2a2a] text-white px-4 rounded-xl">→</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      );
+    const likePost = async (postId, currentLikes) => {
+      await supabase.from('posts').update({ likes: currentLikes + 1 }).eq('id', postId);
+      loadPosts();
     };
     
-    // Форма создания поста
-    const PostInput = ({ onSuccess }) => {
-      const [content, setContent] = React.useState('');
-      const [mediaList, setMediaList] = React.useState([]);
-      const [uploading, setUploading] = React.useState(false);
-      
-      const handleMediaUpload = async (e) => {
-        const files = Array.from(e.target.files);
-        if (mediaList.length + files.length > 5) { showToast('Максимум 5 файлов'); return; }
-        setUploading(true);
-        const newMedia = [];
-        for (const file of files) {
-          const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
-          const { error } = await supabase.storage.from('wave-media').upload(`media/${fileName}`, file);
-          if (!error) {
-            const { data: { publicUrl } } = supabase.storage.from('wave-media').getPublicUrl(`media/${fileName}`);
-            newMedia.push({ url: publicUrl, isVideo: file.type.startsWith('video/'), name: file.name });
-          }
-        }
-        setMediaList([...mediaList, ...newMedia]);
-        setUploading(false);
-        e.target.value = '';
-      };
-      
-      const removeMedia = (index) => setMediaList(mediaList.filter((_, i) => i !== index));
-      
-      const handlePost = async () => {
-        if (!content.trim() && mediaList.length === 0) { showToast('Напишите текст или добавьте медиа'); return; }
-        const mentions = [...content.matchAll(/@(\w+)/g)].map(m => m[1]);
-        await supabase.from('posts').insert({
-          user_id: user.id, username: user.username, user_avatar: user.avatar,
-          content, media: mediaList, likes: 0, comments: [], mentions, created_at: new Date()
-        });
-        for (const mention of mentions) {
-          const mentionedUser = users.find(u => u.username === mention);
-          if (mentionedUser && mentionedUser.id !== user.id) {
-            await supabase.from('notifications').insert({
-              user_id: mentionedUser.id, type: 'mention', from_user_id: user.id, from_username: user.username,
-              text: `${user.username} отметил вас в посте`, read: false, created_at: new Date()
-            });
-          }
-        }
-        setContent(''); setMediaList([]); onSuccess(); showToast('Пост опубликован!');
-      };
-      
-      return (
-        <div className="card-bg p-4 mb-6">
-          <div className="flex gap-3">
-            <img src={user.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full object-cover" />
-            <div className="flex-1">
-              <textarea rows="3" placeholder="Что нового? Используй @ для упоминаний..." className="w-full p-3 bg-[#2a2a2a] rounded-2xl text-white resize-none" value={content} onChange={e => setContent(e.target.value)} />
-              <div className="flex flex-wrap gap-2 mt-2">
-                {mediaList.map((m, idx) => (
-                  <div key={idx} className="relative inline-block">
-                    {m.isVideo ? (
-                      <video src={m.url} className="w-20 h-20 object-cover rounded-lg" />
-                    ) : (
-                      <img src={m.url} className="w-20 h-20 object-cover rounded-lg" />
-                    )}
-                    <button onClick={() => removeMedia(idx)} className="absolute -top-2 -right-2 bg-red-500 rounded-full w-5 h-5 text-xs text-white">×</button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2 mt-2">
-                <label className={`cursor-pointer bg-[#2a2a2a] px-4 py-2 rounded-xl text-sm ${uploading || mediaList.length >= 5 ? 'opacity-50' : ''}`}>
-                  <i className="fas fa-image"></i> {uploading ? 'Загрузка...' : 'Медиа (до 5)'}
-                  <input type="file" accept="image/*,video/*" multiple onChange={handleMediaUpload} className="hidden" disabled={uploading || mediaList.length >= 5} />
-                </label>
-                <button onClick={handlePost} className="bg-blue-600 text-white px-6 py-2 rounded-full text-sm ml-auto">Опубликовать</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
+    const addComment = async (postId) => {
+      const text = commentTexts[postId] || '';
+      if (!text.trim()) return;
+      const post = posts.find(p => p.id === postId);
+      const newComments = [...(post.comments || []), {
+        id: Date.now(),
+        user_id: user.id,
+        username: user.username,
+        text: text,
+        created_at: new Date().toISOString()
+      }];
+      await supabase.from('posts').update({ comments: newComments }).eq('id', postId);
+      setCommentTexts({ ...commentTexts, [postId]: '' });
+      loadPosts();
+      showToast('Комментарий добавлен');
     };
     
-    // Профиль
-    const Profile = () => (
-      <div className="max-w-2xl mx-auto px-3 py-4">
-        <div className="card-bg rounded-3xl overflow-hidden p-6 text-center">
-          <img src={user.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
-          <h2 className="text-xl font-bold text-white mt-2">{user.full_name || user.username}</h2>
-          <p className="text-gray-400">@{user.username}</p>
-          <p className="text-gray-500 text-sm mt-1">{user.bio || 'Нет описания'}</p>
-          <button onClick={onLogout} className="mt-4 bg-gray-800 text-white px-4 py-2 rounded-full text-sm">Выйти</button>
-        </div>
-      </div>
-    );
-    
-    // Чат
-    const Chat = () => {
-      const [newMessage, setNewMessage] = React.useState('');
-      const messagesEndRef = React.useRef(null);
-      React.useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-      
-      const sendMessage = async () => {
-        if (!newMessage.trim() || !chatUser) return;
-        const newMsg = { from_user: user.id, to_user: chatUser.id, content: newMessage, read: false, created_at: new Date() };
-        setMessages(prev => [...prev, newMsg]);
-        await supabase.from('messages').insert(newMsg);
-        setNewMessage('');
-        addNotification('message', chatUser.id);
-      };
-      
-      return (
-        <div className="flex h-[calc(100vh-60px)]">
-          <div className="w-80 bg-[#1a1a1a] border-r border-gray-800 overflow-y-auto">
-            <div className="p-4 font-bold text-white border-b border-gray-800">Чаты</div>
-            {chatList.map(cu => (
-              <div key={cu.id} onClick={() => setChatUser(cu)} className={`p-4 hover:bg-[#2a2a2a] cursor-pointer border-b border-gray-800 flex items-center gap-3 ${chatUser?.id === cu.id ? 'bg-[#2a2a2a]' : ''}`}>
-                <img src={cu.avatar || 'https://via.placeholder.com/48'} className="w-12 h-12 rounded-full" />
-                <div className="flex-1"><div className="font-semibold text-white">@{cu.username}</div><div className="text-xs text-gray-500">{cu.full_name}</div></div>
-                {unreadCounts[cu.id] > 0 && <div className="bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">{unreadCounts[cu.id]}</div>}
-              </div>
-            ))}
-          </div>
-          <div className="flex-1 flex flex-col">
-            {chatUser ? (
-              <>
-                <div className="p-4 border-b border-gray-800 bg-[#1a1a1a]">
-                  <button onClick={() => setChatUser(null)} className="text-gray-400 mr-3">←</button>
-                  <span className="font-bold text-white">@{chatUser.username}</span>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {messages.map((msg, idx) => (
-                    <div key={idx} className={`flex ${msg.from_user === user.id ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[70%] ${msg.from_user === user.id ? 'bg-blue-600' : 'bg-[#2a2a2a]'} rounded-2xl p-3`}>
-                        <p className="text-white text-sm">{msg.content}</p>
-                        <div className="text-xs text-gray-400 mt-1">{new Date(msg.created_at).toLocaleTimeString()}</div>
-                      </div>
-                    </div>
-                  ))}
-                  <div ref={messagesEndRef} />
-                </div>
-                <div className="p-3 border-t border-gray-800 bg-black">
-                  <div className="flex gap-2">
-                    <input type="text" placeholder="Сообщение..." value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()} className="flex-1 p-3 bg-[#2a2a2a] rounded-2xl text-sm text-white" />
-                    <button onClick={sendMessage} className="bg-[#2a2a2a] text-white px-4 rounded-2xl">📩</button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-500">Выберите чат</div>
-            )}
-          </div>
-        </div>
-      );
-    };
-    
-    // Поиск
-    const Search = () => {
-      const [query, setQuery] = React.useState('');
-      const [results, setResults] = React.useState([]);
-      const doSearch = () => {
-        if (query.trim()) setResults(users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(query.toLowerCase())));
-        else setResults([]);
-      };
-      return (
-        <div className="max-w-2xl mx-auto px-3 py-4">
-          <div className="card-bg p-4 mb-6 flex gap-2">
-            <input type="text" placeholder="Поиск..." value={query} onChange={e => setQuery(e.target.value)} onKeyPress={e => e.key === 'Enter' && doSearch()} className="flex-1 p-3 bg-[#2a2a2a] rounded-2xl text-white" />
-            <button onClick={doSearch} className="bg-[#2a2a2a] text-white px-5 rounded-2xl">🔍</button>
-          </div>
-          {results.map(u => (
-            <div key={u.id} className="card-bg p-4 mb-3 flex items-center justify-between">
-              <div className="flex gap-3 cursor-pointer" onClick={() => setViewingUser(u)}>
-                <img src={u.avatar || 'https://via.placeholder.com/48'} className="w-12 h-12 rounded-full" />
-                <div><div className="font-bold text-white">{u.full_name || u.username}</div><div className="text-sm text-gray-400">@{u.username}</div></div>
-              </div>
-              <button onClick={() => { setChatUser(u); setActiveTab('chat'); }} className="chat-btn text-white px-3 py-1 rounded-full text-sm">Чат</button>
-            </div>
-          ))}
-        </div>
-      );
-    };
-    
-    // Уведомления
-    const Notifications = () => (
-      <div className="max-w-2xl mx-auto px-3 py-4">
-        <h2 className="text-xl font-bold text-white mb-4">Уведомления</h2>
-        {notifications.length === 0 && <div className="text-center text-gray-500">Нет уведомлений</div>}
-        {notifications.map(n => (
-          <div key={n.id} className="card-bg p-4 mb-3 cursor-pointer hover:bg-[#2a2a2a] transition">
-            <p className="text-white">{n.text}</p>
-            <p className="text-xs text-gray-500">{new Date(n.created_at).toLocaleString()}</p>
-          </div>
-        ))}
-      </div>
-    );
-    
-    // Профиль другого пользователя
-    const OtherUserProfile = ({ user: otherUser }) => {
-      const [otherPosts, setOtherPosts] = React.useState([]);
-      React.useEffect(() => { supabase.from('posts').select('*').eq('user_id', otherUser.id).order('created_at', { ascending: false }).then(res => setOtherPosts(res.data || [])); }, [otherUser]);
-      return (
-        <div className="max-w-2xl mx-auto px-3 py-4">
-          <button onClick={() => setViewingUser(null)} className="text-gray-400 mb-4">← Назад</button>
-          <div className="card-bg rounded-3xl overflow-hidden p-6 text-center mb-6">
-            <img src={otherUser.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
-            <h2 className="text-xl font-bold text-white mt-2">{otherUser.full_name || otherUser.username}</h2>
-            <p className="text-gray-400">@{otherUser.username}</p>
-            <p className="text-gray-500 text-sm mt-1">{otherUser.bio || 'Нет описания'}</p>
-            <button onClick={() => { setChatUser(otherUser); setActiveTab('chat'); setViewingUser(null); }} className="chat-btn text-white px-4 py-2 rounded-full text-sm mt-3">Чат</button>
-          </div>
-          {otherPosts.map(post => <PostItem key={post.id} post={post} />)}
-        </div>
-      );
-    };
-    
-    if (loading) return <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">Загрузка...</div>;
-    if (viewingUser) return <OtherUserProfile user={viewingUser} />;
+    if (loading) return <div className="p-4 text-white text-center">Загрузка...</div>;
     
     return (
       <div className="min-h-screen bg-[#0a0a0a]">
-        <header className="sticky top-0 z-20 border-b border-gray-800 bg-[#0a0a0a]/90 backdrop-blur-md py-3 px-4">
-          <div className="max-w-6xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-2"><i className="fas fa-water text-white text-2xl"></i><span className="text-white font-bold text-xl">Wave</span></div>
-            <div className="flex gap-4 text-gray-400 items-center">
-              <button onClick={() => setActiveTab('feed')} className={`text-xl ${activeTab === 'feed' ? 'text-white' : 'hover:text-white'}`}>🏠</button>
-              <button onClick={() => setActiveTab('search')} className={`text-xl ${activeTab === 'search' ? 'text-white' : 'hover:text-white'}`}>🔍</button>
-              <button onClick={() => setActiveTab('chat')} className={`text-xl relative ${activeTab === 'chat' ? 'text-white' : 'hover:text-white'}`}>💬{Object.values(unreadCounts).reduce((a,b)=>a+b,0)>0 && <span className="notification-badge">{Object.values(unreadCounts).reduce((a,b)=>a+b,0)}</span>}</button>
-              <button onClick={() => setActiveTab('notifications')} className={`text-xl relative ${activeTab === 'notifications' ? 'text-white' : 'hover:text-white'}`}>🔔{notifications.filter(n => !n.read).length > 0 && <span className="notification-badge">{notifications.filter(n => !n.read).length}</span>}</button>
-              <button onClick={() => setActiveTab('profile')} className={`text-xl ${activeTab === 'profile' ? 'text-white' : 'hover:text-white'}`}>👤</button>
-              <button onClick={onLogout} className="text-sm bg-gray-800 px-3 py-1 rounded-full hover:bg-gray-700">🚪</button>
-            </div>
+        <header className="sticky top-0 border-b border-gray-800 bg-[#0a0a0a]/90 p-4 flex justify-between items-center">
+          <div className="flex items-center gap-2"><i className="fas fa-water text-white text-2xl"></i><span className="text-white font-bold">Wave</span></div>
+          <div className="flex items-center gap-3">
+            <span className="text-gray-400 text-sm">@{user.username}</span>
+            <button onClick={onLogout} className="bg-gray-800 text-white px-3 py-1 rounded-full text-sm">Выйти</button>
           </div>
         </header>
-        <main>
-          {activeTab === 'feed' && <div className="max-w-2xl mx-auto px-3 py-4"><PostInput onSuccess={loadData} /><div>{posts.map(post => <PostItem key={post.id} post={post} />)}</div></div>}
-          {activeTab === 'search' && <Search />}
-          {activeTab === 'chat' && <Chat />}
-          {activeTab === 'notifications' && <Notifications />}
-          {activeTab === 'profile' && <Profile />}
+        
+        <main className="max-w-2xl mx-auto p-4">
+          {/* Форма поста */}
+          <div className="card p-4 mb-6">
+            <textarea rows="3" placeholder="Что нового?" className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" value={newPost} onChange={e => setNewPost(e.target.value)} />
+            <button onClick={createPost} className="mt-2 bg-blue-600 text-white px-6 py-2 rounded-full text-sm">Опубликовать</button>
+          </div>
+          
+          {/* Лента */}
+          {posts.map(post => (
+            <div key={post.id} className="card p-4 mb-4">
+              <div className="flex items-center gap-3 mb-2">
+                <img src={post.user_avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full" />
+                <div><div className="font-bold text-white">@{post.username}</div><div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleString()}</div></div>
+              </div>
+              <p className="text-white">{post.content}</p>
+              <div className="flex gap-4 mt-3 text-gray-500">
+                <button onClick={() => likePost(post.id, post.likes || 0)} className="flex gap-1 hover:text-red-400">❤️ {post.likes || 0}</button>
+                <button onClick={() => setShowComments(showComments === post.id ? null : post.id)} className="flex gap-1 hover:text-blue-400">💬 {(post.comments || []).length}</button>
+              </div>
+              
+              {showComments === post.id && (
+                <div className="mt-3 pt-3 border-t border-gray-800">
+                  {(post.comments || []).map(c => (
+                    <div key={c.id} className="flex gap-2 mb-2 text-sm">
+                      <span className="font-bold text-gray-300">@{c.username}</span>
+                      <span className="text-gray-400">{c.text}</span>
+                    </div>
+                  ))}
+                  <div className="flex gap-2 mt-2">
+                    <input type="text" placeholder="Написать комментарий..." className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-sm text-white" value={commentTexts[post.id] || ''} onChange={e => setCommentTexts({ ...commentTexts, [post.id]: e.target.value })} />
+                    <button onClick={() => addComment(post.id)} className="bg-gray-800 text-white px-3 rounded-xl text-sm">→</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </main>
       </div>
     );
@@ -542,23 +209,26 @@
 
   // ========== ГЛАВНЫЙ КОМПОНЕНТ ==========
   function App() {
-    const [siteAccess, setSiteAccess] = React.useState(false);
-    const [currentUser, setCurrentUser] = React.useState(null);
+    const [access, setAccess] = React.useState(false);
+    const [user, setUser] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
+    
     React.useEffect(() => {
-      if (localStorage.getItem('wave_site_access') === 'granted') setSiteAccess(true);
-      const saved = localStorage.getItem('wave_current_user');
-      if (saved) setCurrentUser(JSON.parse(saved));
+      if (localStorage.getItem('wave_access') === 'ok') setAccess(true);
+      const saved = localStorage.getItem('wave_user');
+      if (saved) setUser(JSON.parse(saved));
       setLoading(false);
     }, []);
-    const handleLogin = (user) => { localStorage.setItem('wave_current_user', JSON.stringify(user)); setCurrentUser(user); };
-    const handleLogout = () => { localStorage.removeItem('wave_current_user'); setCurrentUser(null); };
-    if (loading) return <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">Загрузка...</div>;
-    if (!siteAccess) return <SitePasswordGate onSuccess={() => setSiteAccess(true)} />;
-    if (currentUser) return <MainApp user={currentUser} onLogout={handleLogout} />;
+    
+    const handleLogin = (u) => { localStorage.setItem('wave_user', JSON.stringify(u)); setUser(u); };
+    const handleLogout = () => { localStorage.removeItem('wave_user'); setUser(null); };
+    
+    if (loading) return <div className="p-4 text-white">Загрузка...</div>;
+    if (!access) return <PasswordGate onSuccess={() => setAccess(true)} />;
+    if (user) return <MainApp user={user} onLogout={handleLogout} />;
     return <LoginRegister onLogin={handleLogin} />;
   }
-
+  
   ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
 </body>
