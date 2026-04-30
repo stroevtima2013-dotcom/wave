@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-  <title>Wave Social — Рабочая версия</title>
+  <title>Wave Social — Полная версия</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
@@ -67,27 +67,20 @@
   
   async function uploadMedia(file, showToast) {
     if (!file) return null;
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
     const filePath = `media/${fileName}`;
     
     if (file.type.startsWith('image/')) {
       const compressed = await compressImage(file);
       const blob = await fetch(compressed.data).then(r => r.blob());
       const { error } = await supabase.storage.from('wave-media').upload(filePath, blob);
-      if (error) { 
-        showToast('Ошибка загрузки фото'); 
-        return null; 
-      }
+      if (error) { showToast('Ошибка загрузки фото'); return null; }
       const { data: { publicUrl } } = supabase.storage.from('wave-media').getPublicUrl(filePath);
       return { url: publicUrl, type: 'image', name: file.name };
     } else if (file.type.startsWith('video/')) {
       if (file.size > 50 * 1024 * 1024) { showToast('Видео > 50 МБ'); return null; }
       const { error } = await supabase.storage.from('wave-media').upload(filePath, file);
-      if (error) { 
-        showToast('Ошибка загрузки видео'); 
-        return null; 
-      }
+      if (error) { showToast('Ошибка загрузки видео'); return null; }
       const { data: { publicUrl } } = supabase.storage.from('wave-media').getPublicUrl(filePath);
       return { url: publicUrl, type: 'video', name: file.name };
     }
@@ -95,7 +88,7 @@
   }
   
   // ========== КОМПОНЕНТ ВВОДА ПОСТА ==========
-  function PostInputComponent({ user, onPostSuccess, showToast }) {
+  const PostInput = React.memo(({ user, onPostSuccess, showToast }) => {
     const [content, setContent] = React.useState('');
     const [media, setMedia] = React.useState(null);
     const [uploading, setUploading] = React.useState(false);
@@ -112,35 +105,16 @@
       e.target.value = '';
     };
     
-    const handleAddPost = async () => {
-      if (!content.trim() && !media) {
-        showToast('Напишите текст или добавьте медиа');
-        return;
-      }
+    const handlePost = async () => {
+      if (!content.trim() && !media) { showToast('Напишите текст или добавьте медиа'); return; }
       setLoading(true);
-      
       const { error } = await supabase.from('posts').insert({
-        user_id: user.id,
-        username: user.username,
-        user_avatar: user.avatar,
-        content: content,
-        media: media?.url || null,
-        media_type: media?.type || null,
-        likes: 0,
-        comments: [],
-        created_at: new Date()
+        user_id: user.id, username: user.username, user_avatar: user.avatar,
+        content: content, media: media?.url || null, media_type: media?.type || null,
+        likes: 0, comments: [], created_at: new Date()
       });
-      
-      if (error) {
-        showToast('Ошибка: ' + error.message);
-        setLoading(false);
-        return;
-      }
-      
-      setContent('');
-      setMedia(null);
-      onPostSuccess();
-      setLoading(false);
+      if (error) { showToast('Ошибка: ' + error.message); setLoading(false); return; }
+      setContent(''); setMedia(null); onPostSuccess(); setLoading(false);
       showToast('Пост опубликован!');
     };
     
@@ -149,49 +123,235 @@
         <div className="flex gap-3">
           <img src={user.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full object-cover" />
           <div className="flex-1">
-            <textarea 
-              rows="2" 
-              placeholder="Что нового, волна?" 
-              className="w-full p-3 border border-gray-800 rounded-2xl bg-black text-white resize-none focus:outline-none focus:border-gray-600" 
-              value={content} 
-              onChange={e => setContent(e.target.value)}
-            />
+            <textarea rows="2" placeholder="Что нового, волна?" className="w-full p-3 border border-gray-800 rounded-2xl bg-black text-white resize-none focus:outline-none focus:border-gray-600" value={content} onChange={e => setContent(e.target.value)} />
             <div className="flex gap-2 mt-2 flex-wrap">
               <label className={`cursor-pointer bg-gray-900 px-4 py-2 rounded-xl text-sm flex gap-2 hover:bg-gray-800 text-white ${uploading ? 'opacity-50' : ''}`}>
                 <i className="fas fa-image text-blue-400"></i> {uploading ? 'Загрузка...' : 'Медиа'}
                 <input type="file" accept="image/*,video/*" onChange={handleMediaUpload} className="hidden" disabled={uploading} />
               </label>
-              {media && (
-                <div className="bg-gray-900 rounded-xl px-3 py-1 text-sm flex gap-2">
-                  <i className={`fas fa-${media.type === 'image' ? 'image' : 'video'}`}></i> {media.name}
-                  <button onClick={() => setMedia(null)} className="text-red-400 ml-2">✖</button>
-                </div>
-              )}
-              <button onClick={handleAddPost} disabled={loading} className="bg-gray-800 text-white px-5 py-2 rounded-full text-sm ml-auto hover:bg-gray-700 disabled:opacity-50">
-                {loading ? 'Публикация...' : 'Опубликовать'}
-              </button>
+              {media && <div className="text-xs text-gray-400">{media.name}</div>}
+              <button onClick={handlePost} disabled={loading} className="bg-gray-800 text-white px-5 py-2 rounded-full text-sm ml-auto hover:bg-gray-700">{loading ? 'Публикация...' : 'Опубликовать'}</button>
             </div>
           </div>
         </div>
       </div>
     );
+  });
+  
+  // ========== КОМПОНЕНТ ПОСТА ==========
+  const PostItem = React.memo(({ post, currentUser, onLike, onCommentUpdate, onDelete, onStartChat, users }) => {
+    const [showComments, setShowComments] = React.useState(false);
+    const [commentText, setCommentText] = React.useState('');
+    const [commentMedia, setCommentMedia] = React.useState(null);
+    const [loadingComment, setLoadingComment] = React.useState(false);
+    const [localLikes, setLocalLikes] = React.useState(post.likes || 0);
+    const [localComments, setLocalComments] = React.useState(post.comments || []);
+    const isAuthor = post.user_id === currentUser.id;
+    const isFollowing = users?.find(u => u.id === currentUser.id)?.following?.includes(post.user_id) || false;
+    
+    const handleLike = async () => {
+      setLocalLikes(prev => prev + 1);
+      await supabase.from('posts').update({ likes: (post.likes || 0) + 1 }).eq('id', post.id);
+      onLike();
+    };
+    
+    const handleAddComment = async () => {
+      if (!commentText.trim() && !commentMedia) return;
+      setLoadingComment(true);
+      const newComment = {
+        id: 'c_' + Date.now(),
+        user_id: currentUser.id,
+        username: currentUser.username,
+        user_avatar: currentUser.avatar,
+        text: commentText,
+        media: commentMedia?.url || null,
+        media_type: commentMedia?.type || null,
+        likes: 0,
+        created_at: new Date().toISOString()
+      };
+      const newComments = [newComment, ...localComments];
+      setLocalComments(newComments);
+      await supabase.from('posts').update({ comments: newComments }).eq('id', post.id);
+      setCommentText('');
+      setCommentMedia(null);
+      setLoadingComment(false);
+      onCommentUpdate();
+    };
+    
+    const handleCommentMedia = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const mediaData = await uploadMedia(file, () => {});
+        if (mediaData) setCommentMedia(mediaData);
+      }
+      e.target.value = '';
+    };
+    
+    const handleDeleteComment = async (commentId) => {
+      const newComments = localComments.filter(c => c.id !== commentId);
+      setLocalComments(newComments);
+      await supabase.from('posts').update({ comments: newComments }).eq('id', post.id);
+      onCommentUpdate();
+    };
+    
+    const handleLikeComment = async (commentId) => {
+      const newComments = localComments.map(c => {
+        if (c.id === commentId) return { ...c, likes: (c.likes || 0) + 1 };
+        return c;
+      });
+      setLocalComments(newComments);
+      await supabase.from('posts').update({ comments: newComments }).eq('id', post.id);
+    };
+    
+    return (
+      <div className="bg-[#0a0a0a] rounded-2xl overflow-hidden border border-gray-800 mb-4">
+        <div className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src={post.user_avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full object-cover" />
+              <div><div className="font-bold text-white">@{post.username}</div><div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleString()}</div></div>
+            </div>
+            <div className="flex items-center gap-2">
+              {post.user_id !== currentUser.id && (
+                <button onClick={() => onStartChat(post.user_id)} className="text-xs px-3 py-1 rounded-full bg-gray-700 text-white hover:bg-gray-600">Чат</button>
+              )}
+              {isAuthor && (
+                <div className="relative">
+                  <button onClick={() => onDelete(post.id)} className="text-gray-500 hover:text-white p-1"><i className="fas fa-trash-alt"></i></button>
+                </div>
+              )}
+            </div>
+          </div>
+          <p className="mt-3 text-gray-200 whitespace-pre-line">{post.content}</p>
+          {post.media && post.media_type === 'image' && <img src={post.media} className="mt-3 w-full rounded-2xl post-media object-contain cursor-pointer" onClick={() => window.open(post.media)} />}
+          {post.media && post.media_type === 'video' && <video src={post.media} controls className="mt-3 w-full rounded-2xl post-media"></video>}
+          <div className="flex gap-6 mt-4 text-gray-500">
+            <button onClick={handleLike} className="flex items-center gap-1 hover:text-red-400 transition text-red-500"><i className="fas fa-heart"></i> {localLikes}</button>
+            <button onClick={() => setShowComments(!showComments)} className="flex items-center gap-1 hover:text-blue-400"><i className="far fa-comment"></i> {localComments.length}</button>
+          </div>
+          {showComments && (
+            <div className="mt-4 pt-4 border-t border-gray-800">
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                {localComments.map(c => (
+                  <div key={c.id} className="flex gap-2 mb-3">
+                    <img src={c.user_avatar || 'https://via.placeholder.com/32'} className="w-8 h-8 rounded-full object-cover" />
+                    <div className="flex-1 bg-[#0a0a0a] rounded-2xl p-3 border border-gray-800">
+                      <div className="flex justify-between items-start">
+                        <span className="font-semibold text-sm text-white">@{c.username}</span>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleLikeComment(c.id)} className="text-xs text-gray-500 hover:text-red-400"><i className="fas fa-heart"></i> {c.likes || 0}</button>
+                          {c.user_id === currentUser.id && (
+                            <button onClick={() => handleDeleteComment(c.id)} className="text-xs text-red-400"><i className="fas fa-trash-alt"></i></button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-200 mt-1">{c.text}</p>
+                      {c.media && c.media_type === 'image' && <img src={c.media} className="mt-2 rounded-2xl max-h-32 object-contain cursor-pointer" onClick={() => window.open(c.media)} />}
+                      {c.media && c.media_type === 'video' && <video src={c.media} controls className="mt-2 rounded-2xl max-h-32"></video>}
+                      <span className="text-xs text-gray-600 mt-1">{new Date(c.created_at).toLocaleString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-col gap-2 mt-3">
+                <div className="flex gap-2">
+                  <input type="text" placeholder="Написать комментарий..." value={commentText} onChange={e => setCommentText(e.target.value)} className="flex-1 p-2 border border-gray-800 rounded-xl text-sm bg-black text-white" />
+                  <label className="cursor-pointer bg-gray-900 p-2 rounded-xl hover:bg-gray-800 text-white">
+                    <i className="fas fa-paperclip"></i>
+                    <input type="file" accept="image/*,video/*" onChange={handleCommentMedia} className="hidden" />
+                  </label>
+                  <button onClick={handleAddComment} disabled={loadingComment} className="bg-gray-800 text-white px-4 rounded-xl text-sm hover:bg-gray-700">→</button>
+                </div>
+                {commentMedia && <div className="text-xs text-gray-400">{commentMedia.name}</div>}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  });
+  
+  // ========== КОМПОНЕНТ ЧАТА ==========
+  function ChatComponent({ currentUser, chatUser, setChatUser, messages, setMessages, showToast }) {
+    const [newMessage, setNewMessage] = React.useState('');
+    const [newMessageMedia, setNewMessageMedia] = React.useState(null);
+    const [uploading, setUploading] = React.useState(false);
+    const messagesEndRef = React.useRef(null);
+    
+    const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    React.useEffect(scrollToBottom, [messages]);
+    
+    const sendMessage = async () => {
+      if ((!newMessage.trim() && !newMessageMedia) || !chatUser) return;
+      const newMsg = {
+        id: 'msg_' + Date.now(),
+        from_user: currentUser.id,
+        to_user: chatUser.id,
+        content: newMessage,
+        media: newMessageMedia?.url || null,
+        media_type: newMessageMedia?.type || null,
+        read: false,
+        created_at: new Date()
+      };
+      setMessages(prev => [...prev, newMsg]);
+      await supabase.from('messages').insert(newMsg);
+      setNewMessage('');
+      setNewMessageMedia(null);
+    };
+    
+    const handleMediaUpload = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        setUploading(true);
+        const mediaData = await uploadMedia(file, showToast);
+        if (mediaData) setNewMessageMedia(mediaData);
+        setUploading(false);
+      }
+      e.target.value = '';
+    };
+    
+    return (
+      <div className="flex-1 flex flex-col bg-black">
+        <div className="p-4 border-b border-gray-800 flex items-center gap-3 bg-[#0a0a0a]">
+          <button onClick={() => setChatUser(null)} className="text-gray-400 hover:text-white"><i className="fas fa-arrow-left"></i></button>
+          <img src={chatUser?.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full object-cover" />
+          <div><div className="font-bold text-white">@{chatUser?.username}</div></div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {messages.map(msg => {
+            const isMy = msg.from_user === currentUser.id;
+            return (
+              <div key={msg.id} className={`flex ${isMy ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] ${isMy ? 'bg-gray-800 text-white' : 'bg-[#0a0a0a] text-white'} rounded-2xl p-3 border border-gray-800`}>
+                  {msg.content && <p className="text-sm">{msg.content}</p>}
+                  {msg.media && msg.media_type === 'image' && <img src={msg.media} className="mt-2 rounded-2xl max-h-48 object-contain cursor-pointer" onClick={() => window.open(msg.media)} />}
+                  {msg.media && msg.media_type === 'video' && <video src={msg.media} controls className="mt-2 rounded-2xl max-h-48"></video>}
+                  <div className={`text-xs mt-1 ${isMy ? 'text-gray-400' : 'text-gray-500'}`}>{new Date(msg.created_at).toLocaleTimeString()}</div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </div>
+        <div className="p-3 border-t border-gray-800 bg-black">
+          <div className="flex gap-2">
+            <input type="text" placeholder="Сообщение..." value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()} className="flex-1 p-3 border border-gray-800 rounded-2xl text-sm bg-black text-white" />
+            <label className={`cursor-pointer bg-gray-900 p-3 rounded-2xl hover:bg-gray-800 text-white ${uploading ? 'opacity-50' : ''}`}>
+              <i className="fas fa-paperclip"></i>
+              <input type="file" accept="image/*,video/*" onChange={handleMediaUpload} className="hidden" disabled={uploading} />
+            </label>
+            <button onClick={sendMessage} className="bg-gray-800 text-white px-4 rounded-2xl hover:bg-gray-700"><i className="fas fa-paper-plane"></i></button>
+          </div>
+          {newMessageMedia && <div className="text-xs text-gray-400 mt-2">{newMessageMedia.name}</div>}
+        </div>
+      </div>
+    );
   }
   
-  // ========== КОМПОНЕНТЫ ==========
-  
+  // ========== ОСТАЛЬНЫЕ КОМПОНЕНТЫ ==========
   function SitePasswordGate({ onSuccess }) {
     const [password, setPassword] = React.useState('');
     const [error, setError] = React.useState('');
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      if (password === SITE_PASSWORD) {
-        localStorage.setItem('wave_site_access', 'granted');
-        onSuccess();
-      } else {
-        setError('Неверный пароль');
-        setPassword('');
-      }
-    };
     return (
       <div className="min-h-screen flex items-center justify-center bg-black p-4">
         <div className="bg-[#0a0a0a] rounded-3xl p-8 max-w-md w-full border border-gray-800">
@@ -200,9 +360,9 @@
             <h1 className="text-3xl font-bold mt-4 text-white">Wave Social</h1>
             <p className="text-gray-500 mt-2">Введите пароль</p>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); if (password === SITE_PASSWORD) { localStorage.setItem('wave_site_access', 'granted'); onSuccess(); } else setError('Неверный пароль'); }} className="space-y-4">
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-800 rounded-2xl bg-black text-white text-center text-xl" autoFocus />
-            {error && <div className="text-red-400 text-sm text-center">{error}</div>}
+            {error && <div className="text-red-400 text-sm">{error}</div>}
             <button type="submit" className="w-full bg-gray-800 text-white py-3 rounded-2xl font-semibold hover:bg-gray-700">Войти</button>
           </form>
         </div>
@@ -222,58 +382,19 @@
       e.preventDefault();
       setError('');
       setLoading(true);
-  
       if (isLogin) {
-        const { data: userData, error: findError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('username', username)
-          .single();
-        if (findError || !userData) {
-          setError('Пользователь не найден');
-          setLoading(false);
-          return;
-        }
-        if (password === userData.password_hash) {
-          onLogin(userData);
-        } else {
-          setError('Неверный пароль');
-        }
-        setLoading(false);
-        return;
+        const { data: userData } = await supabase.from('users').select('*').eq('username', username).single();
+        if (!userData) { setError('Пользователь не найден'); setLoading(false); return; }
+        if (password === userData.password_hash) onLogin(userData);
+        else setError('Неверный пароль');
+      } else {
+        if (password.length < 4) { setError('Пароль минимум 4 символа'); setLoading(false); return; }
+        const { data: existing } = await supabase.from('users').select('username').eq('username', username).single();
+        if (existing) { setError('Имя пользователя уже занято'); setLoading(false); return; }
+        const { data: newUser } = await supabase.from('users').insert({ username, full_name: fullName || username, password_hash: password, bio: 'Новый пользователь Wave! 🌊' }).select().single();
+        if (newUser) onLogin(newUser);
+        else setError('Ошибка регистрации');
       }
-  
-      if (password.length < 4) {
-        setError('Пароль минимум 4 символа');
-        setLoading(false);
-        return;
-      }
-  
-      const { data: existing } = await supabase.from('users').select('username').eq('username', username).single();
-      if (existing) {
-        setError('Имя пользователя уже занято');
-        setLoading(false);
-        return;
-      }
-  
-      const { data: newUser, error: insertError } = await supabase
-        .from('users')
-        .insert({
-          username: username,
-          full_name: fullName || username,
-          password_hash: password,
-          bio: 'Новый пользователь Wave! 🌊'
-        })
-        .select()
-        .single();
-  
-      if (insertError) {
-        setError('Ошибка: ' + insertError.message);
-        setLoading(false);
-        return;
-      }
-  
-      onLogin(newUser);
       setLoading(false);
     };
   
@@ -283,20 +404,15 @@
           <div className="text-center mb-8">
             <i className="fas fa-water text-5xl text-white opacity-80"></i>
             <h1 className="text-3xl font-bold mt-2 text-white">Wave Social</h1>
-            <p className="text-gray-500 mt-2">Только для своих</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <input type="text" placeholder="Имя пользователя" value={username} onChange={e => setUsername(e.target.value)} className="w-full px-4 py-3 border border-gray-800 rounded-2xl bg-black text-white" required />
             <input type="password" placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-800 rounded-2xl bg-black text-white" required />
             {!isLogin && <input type="text" placeholder="Полное имя" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full px-4 py-3 border border-gray-800 rounded-2xl bg-black text-white" />}
             {error && <div className="text-red-400 text-sm text-center">{error}</div>}
-            <button type="submit" disabled={loading} className="w-full bg-gray-800 text-white py-3 rounded-2xl font-semibold hover:bg-gray-700">
-              {loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}
-            </button>
+            <button type="submit" disabled={loading} className="w-full bg-gray-800 text-white py-3 rounded-2xl font-semibold hover:bg-gray-700">{loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}</button>
           </form>
-          <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="w-full mt-4 text-gray-400 text-sm">
-            {isLogin ? 'Нет аккаунта? Зарегистрируйтесь' : 'Уже есть аккаунт? Войдите'}
-          </button>
+          <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="w-full mt-4 text-gray-400 text-sm">{isLogin ? 'Нет аккаунта? Зарегистрируйтесь' : 'Уже есть аккаунт? Войдите'}</button>
         </div>
       </div>
     );
@@ -306,23 +422,19 @@
     const [activeTab, setActiveTab] = React.useState('feed');
     const [posts, setPosts] = React.useState([]);
     const [users, setUsers] = React.useState([]);
-    const [showComments, setShowComments] = React.useState(null);
-    const [showAvatarModal, setShowAvatarModal] = React.useState(false);
-    const [tempAvatar, setTempAvatar] = React.useState(null);
-    const [currentBio, setCurrentBio] = React.useState(user.bio || '');
-    const [currentFullName, setCurrentFullName] = React.useState(user.full_name);
     const [chatUser, setChatUser] = React.useState(null);
     const [messages, setMessages] = React.useState([]);
     const [chatList, setChatList] = React.useState([]);
     const [unreadCounts, setUnreadCounts] = React.useState({});
-    const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = React.useState(false);
-    const [fullscreenImage, setFullscreenImage] = React.useState(null);
+    const [loading, setLoading] = React.useState(true);
+    const [showAvatarModal, setShowAvatarModal] = React.useState(false);
+    const [tempAvatar, setTempAvatar] = React.useState(null);
+    const [currentBio, setCurrentBio] = React.useState(user.bio || '');
+    const [currentFullName, setCurrentFullName] = React.useState(user.full_name);
     const [editingName, setEditingName] = React.useState(false);
     const [newName, setNewName] = React.useState(user.full_name);
-    
-    const [newMessage, setNewMessage] = React.useState('');
-    const [newMessageMedia, setNewMessageMedia] = React.useState(null);
-    const [uploadingMessage, setUploadingMessage] = React.useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+    const [fullscreenImage, setFullscreenImage] = React.useState(null);
     
     const showToast = (msg) => {
       const toast = document.createElement('div');
@@ -332,401 +444,160 @@
       setTimeout(() => toast.remove(), 2500);
     };
     
-    const loadData = React.useCallback(async () => {
-      const { data: postsData } = await supabase.from('posts').select('*').order('created_at', { ascending: false });
-      setPosts(postsData || []);
-      const { data: usersData } = await supabase.from('users').select('*');
-      setUsers(usersData || []);
+    const loadData = async () => {
+      const [postsRes, usersRes, messagesRes] = await Promise.all([
+        supabase.from('posts').select('*').order('created_at', { ascending: false }),
+        supabase.from('users').select('*'),
+        supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`)
+      ]);
+      setPosts(postsRes.data || []);
+      setUsers(usersRes.data || []);
       
-      const { data: messagesData } = await supabase.from('messages')
-        .select('*')
-        .or(`from_user.eq.${user.id},to_user.eq.${user.id}`);
-      
-      const uniqueUsers = new Set();
-      (messagesData || []).forEach(m => {
-        if (m.from_user !== user.id) uniqueUsers.add(m.from_user);
-        if (m.to_user !== user.id) uniqueUsers.add(m.to_user);
-      });
-      const chatUsersList = usersData?.filter(u => uniqueUsers.has(u.id)) || [];
-      setChatList(chatUsersList);
+      const msgs = messagesRes.data || [];
+      const chatUsersSet = new Set();
+      msgs.forEach(m => { if (m.from_user !== user.id) chatUsersSet.add(m.from_user); if (m.to_user !== user.id) chatUsersSet.add(m.to_user); });
+      setChatList(usersRes.data?.filter(u => chatUsersSet.has(u.id)) || []);
       
       const counts = {};
-      (messagesData || []).forEach(m => {
-        if (m.to_user === user.id && !m.read) {
-          counts[m.from_user] = (counts[m.from_user] || 0) + 1;
-        }
-      });
+      msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
       setUnreadCounts(counts);
       
       if (chatUser) {
-        const { data: chatMsgs } = await supabase.from('messages')
-          .select('*')
-          .or(`and(from_user.eq.${user.id},to_user.eq.${chatUser.id}),and(from_user.eq.${chatUser.id},to_user.eq.${user.id})`)
-          .order('created_at', { ascending: true });
-        setMessages(chatMsgs || []);
+        const chatMsgs = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id));
+        setMessages(chatMsgs.sort((a,b) => new Date(a.created_at) - new Date(b.created_at)));
         await supabase.from('messages').update({ read: true }).eq('to_user', user.id).eq('from_user', chatUser.id);
       }
-    }, [user.id, chatUser]);
-    
-    React.useEffect(() => {
-      loadData();
-      const interval = setInterval(() => loadData(), 5000);
-      return () => clearInterval(interval);
-    }, [loadData]);
-    
-    const handleLike = async (postId) => {
-      const post = posts.find(p => p.id === postId);
-      await supabase.from('posts').update({ likes: (post.likes || 0) + 1 }).eq('id', postId);
-      loadData();
+      setLoading(false);
     };
     
-    const handleAddComment = async (postId, text, media) => {
-      if (!text.trim() && !media) return;
-      const { data: post } = await supabase.from('posts').select('comments').eq('id', postId).single();
-      let comments = post.comments || [];
-      comments.unshift({
-        id: 'c_' + Date.now(),
-        user_id: user.id,
-        username: user.username,
-        user_avatar: user.avatar,
-        text: text,
-        media: media?.url || null,
-        media_type: media?.type || null,
-        likes: 0,
-        created_at: new Date().toISOString()
-      });
-      await supabase.from('posts').update({ comments }).eq('id', postId);
-      loadData();
-      showToast('Комментарий добавлен');
-    };
+    React.useEffect(() => { loadData(); const interval = setInterval(loadData, 3000); return () => clearInterval(interval); }, [chatUser]);
     
-    const handleLikeComment = async (postId, commentId) => {
-      const { data: post } = await supabase.from('posts').select('comments').eq('id', postId).single();
-      let comments = post.comments || [];
-      const idx = comments.findIndex(c => c.id === commentId);
-      if (idx !== -1) {
-        comments[idx].likes = (comments[idx].likes || 0) + 1;
-        await supabase.from('posts').update({ comments }).eq('id', postId);
-        loadData();
-      }
-    };
-    
-    const handleDeleteComment = async (postId, commentId) => {
-      const { data: post } = await supabase.from('posts').select('comments').eq('id', postId).single();
-      let comments = post.comments || [];
-      comments = comments.filter(c => c.id !== commentId);
-      await supabase.from('posts').update({ comments }).eq('id', postId);
-      loadData();
-      showToast('Комментарий удалён');
-    };
-    
-    const handleDeletePost = async (postId) => {
-      await supabase.from('posts').delete().eq('id', postId).eq('user_id', user.id);
-      loadData();
-      showToast('Пост удалён');
-    };
-    
-    const handleFollow = async (targetUserId) => {
-      const currentUserData = users.find(u => u.id === user.id);
-      let following = currentUserData?.following || [];
-      if (following.includes(targetUserId)) {
-        following = following.filter(id => id !== targetUserId);
-      } else {
-        following.push(targetUserId);
-      }
-      await supabase.from('users').update({ following }).eq('id', user.id);
-      
-      const targetUserData = users.find(u => u.id === targetUserId);
-      let followers = targetUserData?.followers || [];
-      if (followers.includes(user.id)) {
-        followers = followers.filter(id => id !== user.id);
-      } else {
-        followers.push(user.id);
-      }
-      await supabase.from('users').update({ followers }).eq('id', targetUserId);
-      loadData();
-    };
-    
-    const handleSendMessage = async (text, media) => {
-      if (!chatUser) return;
-      if (!text.trim() && !media) return;
-      await supabase.from('messages').insert({
-        from_user: user.id,
-        to_user: chatUser.id,
-        content: text,
-        media: media?.url || null,
-        media_type: media?.type || null,
-        read: false,
-        created_at: new Date()
-      });
-      setNewMessage('');
-      setNewMessageMedia(null);
-      loadData();
-    };
-    
-    const handleMessageMediaUpload = async (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        setUploadingMessage(true);
-        const mediaData = await uploadMedia(file, showToast);
-        if (mediaData) setNewMessageMedia(mediaData);
-        setUploadingMessage(false);
-      }
-      e.target.value = '';
-    };
-    
-    const handleSaveBio = async (newBio) => {
-      await supabase.from('users').update({ bio: newBio }).eq('id', user.id);
-      user.bio = newBio;
-      setCurrentBio(newBio);
-      showToast('Bio обновлена');
-      loadData();
-    };
-    
-    const handleSaveName = async () => {
-      if (newName.trim()) {
-        await supabase.from('users').update({ full_name: newName }).eq('id', user.id);
-        user.full_name = newName;
-        setCurrentFullName(newName);
-        setEditingName(false);
-        showToast('Имя обновлено');
-        loadData();
-      }
-    };
-    
-    const saveAvatar = async () => {
-      if (tempAvatar) {
-        await supabase.from('users').update({ avatar: tempAvatar }).eq('id', user.id);
-        user.avatar = tempAvatar;
-        setShowAvatarModal(false);
-        loadData();
-        showToast('Аватар обновлен!');
-      }
-    };
-    
-    const handleDeleteAccount = async () => {
-      await supabase.from('users').delete().eq('id', user.id);
-      showToast('Аккаунт удалён');
-      onLogout();
-    };
-    
-    const startChat = (otherUser) => {
+    const handleDeletePost = async (postId) => { await supabase.from('posts').delete().eq('id', postId).eq('user_id', user.id); await loadData(); showToast('Пост удалён'); };
+    const handleLikeComment = async (postId, commentId) => { /* обрабатывается локально */ };
+    const handleStartChat = async (targetUserId) => {
+      const otherUser = users.find(u => u.id === targetUserId);
       setChatUser(otherUser);
       setActiveTab('chat');
     };
+    const handleSendMessage = async (text, media) => {
+      if (!chatUser) return;
+      await supabase.from('messages').insert({ from_user: user.id, to_user: chatUser.id, content: text, media: media?.url || null, media_type: media?.type || null, read: false, created_at: new Date() });
+      await loadData();
+    };
+    const handleSaveBio = async (newBio) => { await supabase.from('users').update({ bio: newBio }).eq('id', user.id); user.bio = newBio; setCurrentBio(newBio); showToast('Bio обновлена'); };
+    const handleSaveName = async () => { if (newName.trim()) { await supabase.from('users').update({ full_name: newName }).eq('id', user.id); user.full_name = newName; setCurrentFullName(newName); setEditingName(false); showToast('Имя обновлено'); } };
+    const saveAvatar = async () => { if (tempAvatar) { await supabase.from('users').update({ avatar: tempAvatar }).eq('id', user.id); user.avatar = tempAvatar; setShowAvatarModal(false); showToast('Аватар обновлен'); loadData(); } };
+    const handleDeleteAccount = async () => { await supabase.from('users').delete().eq('id', user.id); showToast('Аккаунт удалён'); onLogout(); };
+    const handleFollow = async (targetUserId) => {
+      const currentUserData = users.find(u => u.id === user.id);
+      let following = currentUserData?.following || [];
+      if (following.includes(targetUserId)) following = following.filter(id => id !== targetUserId);
+      else following.push(targetUserId);
+      await supabase.from('users').update({ following }).eq('id', user.id);
+      await loadData();
+    };
+    const handleSearch = async (query) => {
+      if (!query) return [];
+      return users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(query.toLowerCase()));
+    };
     
-    function DropdownMenu({ onDelete, onEdit }) {
-      const [isOpen, setIsOpen] = React.useState(false);
-      const menuRef = React.useRef(null);
-      React.useEffect(() => {
-        const fn = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setIsOpen(false); };
-        document.addEventListener('click', fn);
-        return () => document.removeEventListener('click', fn);
-      }, []);
+    const DropdownMenu = ({ onDelete, onEdit }) => {
+      const [open, setOpen] = React.useState(false);
+      const ref = React.useRef(null);
+      React.useEffect(() => { const fn = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }; document.addEventListener('click', fn); return () => document.removeEventListener('click', fn); }, []);
       return (
-        <div className="relative" ref={menuRef}>
-          <button onClick={() => setIsOpen(!isOpen)} className="text-gray-500 hover:text-white p-1">
-            <i className="fas fa-ellipsis-h"></i>
-          </button>
-          {isOpen && (
+        <div className="relative" ref={ref}>
+          <button onClick={() => setOpen(!open)} className="text-gray-500 hover:text-white p-1"><i className="fas fa-ellipsis-h"></i></button>
+          {open && (
             <div className="dropdown-menu">
-              {onEdit && <button onClick={() => { onEdit(); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-800 rounded-t-xl"><i className="fas fa-pen mr-2"></i> Редактировать</button>}
-              <button onClick={() => { onDelete(); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-800 rounded-b-xl"><i className="fas fa-trash-alt mr-2"></i> Удалить</button>
+              {onEdit && <button onClick={() => { onEdit(); setOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-800 rounded-t-xl"><i className="fas fa-pen mr-2"></i> Редактировать</button>}
+              <button onClick={() => { onDelete(); setOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-800 rounded-b-xl"><i className="fas fa-trash-alt mr-2"></i> Удалить аккаунт</button>
             </div>
           )}
-        </div>
-      );
-    }
-    
-    function EditableBio({ initialBio, onSave }) {
-      const [isEditing, setIsEditing] = React.useState(false);
-      const [bioText, setBioText] = React.useState(initialBio);
-      return (
-        <div>
-          {isEditing ? (
-            <div className="mt-2 flex gap-2 justify-center md:justify-start">
-              <input value={bioText} onChange={e => setBioText(e.target.value)} className="flex-1 p-2 border border-gray-800 rounded-xl text-sm bg-black text-white" autoFocus />
-              <button onClick={() => { onSave(bioText); setIsEditing(false); }} className="bg-green-700 text-white px-3 rounded-xl hover:bg-green-600">💾</button>
-              <button onClick={() => { setIsEditing(false); setBioText(initialBio); }} className="bg-gray-700 text-white px-3 rounded-xl hover:bg-gray-600">✖</button>
-            </div>
-          ) : (
-            <p className="mt-2 text-gray-400 cursor-pointer hover:bg-gray-900 inline-block px-2 py-1 rounded-xl" onClick={() => setIsEditing(true)}>
-              {initialBio || 'Напишите о себе...'} <i className="fas fa-edit text-xs ml-1"></i>
-            </p>
-          )}
-        </div>
-      );
-    }
-    
-    function ConfirmModal({ message, onConfirm, onCancel }) {
-      return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={onCancel}>
-          <div className="bg-[#0a0a0a] rounded-3xl p-6 max-w-sm w-full border border-gray-800" onClick={e => e.stopPropagation()}>
-            <p className="text-white mb-6">{message}</p>
-            <div className="flex gap-3">
-              <button onClick={onConfirm} className="flex-1 bg-red-900 text-white py-2 rounded-xl hover:bg-red-800">Удалить</button>
-              <button onClick={onCancel} className="flex-1 bg-gray-800 text-white py-2 rounded-xl hover:bg-gray-700">Отмена</button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    
-    function ImageModal({ src, onClose }) {
-      return (
-        <div className="photo-modal" onClick={onClose}>
-          <img src={src} alt="Full screen" onClick={(e) => e.stopPropagation()} />
-        </div>
-      );
-    }
-    
-    const CommentItem = React.memo(({ comment, postId }) => {
-      const isAuthor = comment.user_id === user.id;
-      return (
-        <div className="flex gap-2 mb-3">
-          <img src={comment.user_avatar || 'https://via.placeholder.com/32'} className="w-8 h-8 rounded-full object-cover" />
-          <div className="flex-1 bg-[#0a0a0a] rounded-2xl p-3 border border-gray-800">
-            <div className="flex justify-between items-start">
-              <span className="font-semibold text-sm text-white">@{comment.username}</span>
-              <div className="flex items-center gap-2">
-                <button onClick={() => handleLikeComment(postId, comment.id)} className="text-xs flex items-center gap-1 text-gray-500 hover:text-red-400 transition"><i className="fas fa-heart"></i> {comment.likes || 0}</button>
-                {isAuthor && <DropdownMenu onDelete={() => handleDeleteComment(postId, comment.id)} />}
-              </div>
-            </div>
-            <p className="text-sm text-gray-200 mt-1">{comment.text}</p>
-            {comment.media && comment.media_type === 'image' && <img src={comment.media} className="mt-2 rounded-2xl max-h-48 object-contain cursor-pointer" onClick={() => setFullscreenImage(comment.media)} />}
-            {comment.media && comment.media_type === 'video' && <video src={comment.media} controls className="mt-2 rounded-2xl max-h-48"></video>}
-            <span className="text-xs text-gray-600 mt-1 block">{new Date(comment.created_at).toLocaleString()}</span>
-          </div>
-        </div>
-      );
-    });
-    
-    const PostItem = React.memo(({ post }) => {
-      const isAuthor = post.user_id === user.id;
-      const commentsList = post.comments || [];
-      const [localCommentText, setLocalCommentText] = React.useState('');
-      const [localCommentMedia, setLocalCommentMedia] = React.useState(null);
-      const [uploadingComment, setUploadingComment] = React.useState(false);
-      
-      const handleAddLocalComment = async () => {
-        if (!localCommentText.trim() && !localCommentMedia) return;
-        await handleAddComment(post.id, localCommentText, localCommentMedia);
-        setLocalCommentText('');
-        setLocalCommentMedia(null);
-      };
-      
-      const handleCommentMediaUpload = async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          setUploadingComment(true);
-          const mediaData = await uploadMedia(file, showToast);
-          if (mediaData) setLocalCommentMedia(mediaData);
-          setUploadingComment(false);
-        }
-        e.target.value = '';
-      };
-      
-      return (
-        <div className="bg-[#0a0a0a] rounded-2xl overflow-hidden border border-gray-800 mb-4">
-          <div className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <img src={post.user_avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full object-cover" />
-                <div><div className="font-bold text-white">@{post.username}</div><div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleString()}</div></div>
-              </div>
-              <div className="flex items-center gap-2">
-                {post.user_id !== user.id && (
-                  <button onClick={() => handleFollow(post.user_id)} className={`text-xs px-3 py-1 rounded-full font-semibold ${(users.find(u => u.id === user.id)?.following || []).includes(post.user_id) ? 'bg-gray-800 text-gray-300' : 'bg-gray-700 text-white'}`}>
-                    {(users.find(u => u.id === user.id)?.following || []).includes(post.user_id) ? '✔️ Подписан' : '+ Подписаться'}
-                  </button>
-                )}
-                {isAuthor && <DropdownMenu onDelete={() => handleDeletePost(post.id)} />}
-              </div>
-            </div>
-            <p className="mt-3 text-gray-200 whitespace-pre-line">{post.content}</p>
-            {post.media && post.media_type === 'image' && <img src={post.media} className="mt-3 w-full rounded-2xl post-media object-contain" onClick={() => setFullscreenImage(post.media)} />}
-            {post.media && post.media_type === 'video' && <video src={post.media} controls className="mt-3 w-full rounded-2xl post-media"></video>}
-            <div className="flex gap-6 mt-4 text-gray-500">
-              <button onClick={() => handleLike(post.id)} className="flex items-center gap-1 hover:text-red-400 transition text-red-500"><i className="fas fa-heart"></i> {post.likes || 0}</button>
-              <button onClick={() => setShowComments(showComments === post.id ? null : post.id)} className="flex items-center gap-1 hover:text-blue-400"><i className="far fa-comment"></i> {commentsList.length}</button>
-              <button onClick={() => startChat(users.find(u => u.id === post.user_id))} className="flex items-center gap-1 hover:text-green-400"><i className="far fa-comment-dots"></i> Чат</button>
-            </div>
-            {showComments === post.id && (
-              <div className="mt-4 pt-4 border-t border-gray-800">
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {commentsList.map(c => <CommentItem key={c.id} comment={c} postId={post.id} />)}
-                </div>
-                <div className="flex flex-col gap-2 mt-3">
-                  <div className="flex gap-2">
-                    <input type="text" placeholder="Написать комментарий..." value={localCommentText} onChange={e => setLocalCommentText(e.target.value)} className="flex-1 p-2 border border-gray-800 rounded-xl text-sm bg-black text-white" />
-                    <label className="cursor-pointer bg-gray-900 p-2 rounded-xl hover:bg-gray-800 text-white">
-                      <i className="fas fa-paperclip"></i>
-                      <input type="file" accept="image/*,video/*" onChange={handleCommentMediaUpload} className="hidden" />
-                    </label>
-                    <button onClick={handleAddLocalComment} className="bg-gray-800 text-white px-4 rounded-xl text-sm hover:bg-gray-700">→</button>
-                  </div>
-                  {localCommentMedia && <div className="bg-gray-900 rounded-xl px-3 py-1 text-sm flex gap-2"><i className="fas fa-file"></i> {localCommentMedia.name}<button onClick={() => setLocalCommentMedia(null)} className="text-red-400 ml-2">✖</button></div>}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    });
-    
-    const Feed = () => (
-      <div className="max-w-2xl mx-auto px-3 py-4">
-        <PostInputComponent user={user} onPostSuccess={loadData} showToast={showToast} />
-        {posts.length === 0 && <div className="text-center text-gray-500 py-12">Нет постов. Будьте первым!</div>}
-        {posts.map(post => <PostItem key={post.id} post={post} />)}
-      </div>
-    );
-    
-    const ProfileView = () => {
-      const userPosts = posts.filter(p => p.user_id === user.id);
-      return (
-        <div className="max-w-2xl mx-auto px-3 py-4">
-          <div className="bg-[#0a0a0a] rounded-3xl overflow-hidden border border-gray-800 mb-6">
-            <div className="h-28 bg-gradient-to-r from-gray-800 to-gray-900"></div>
-            <div className="px-4 pb-6 pt-0">
-              <div className="flex justify-end -mt-2">
-                <DropdownMenu onDelete={() => setShowDeleteAccountConfirm(true)} onEdit={() => setEditingName(true)} />
-              </div>
-              <div className="flex flex-col items-center md:flex-row md:items-end gap-4 -mt-8 mb-4">
-                <div className="relative">
-                  <img src={user.avatar || 'https://via.placeholder.com/96'} className="w-20 h-20 rounded-full border-4 border-black shadow-md object-cover" />
-                  <button onClick={() => setShowAvatarModal(true)} className="absolute bottom-0 right-0 bg-gray-800 rounded-full p-1 shadow-md hover:bg-gray-700">
-                    <i className="fas fa-camera text-xs text-white"></i>
-                  </button>
-                </div>
-                <div className="flex-1 text-center md:text-left">
-                  {editingName ? (
-                    <div className="flex gap-2">
-                      <input value={newName} onChange={e => setNewName(e.target.value)} className="text-xl font-bold bg-black border border-gray-800 rounded-lg px-2 py-1 text-white" />
-                      <button onClick={handleSaveName} className="bg-green-700 text-white px-3 rounded-lg">💾</button>
-                      <button onClick={() => { setEditingName(false); setNewName(currentFullName); }} className="bg-gray-700 text-white px-3 rounded-lg">✖</button>
-                    </div>
-                  ) : (
-                    <h2 className="text-xl font-bold text-white">{user.full_name || user.username}</h2>
-                  )}
-                  <p className="text-gray-400 text-sm">@{user.username}</p>
-                  <EditableBio initialBio={currentBio} onSave={handleSaveBio} />
-                </div>
-              </div>
-              <div className="flex gap-6 justify-center md:justify-start mt-2">
-                <div><span className="font-black text-white">{userPosts.length}</span> <span className="text-gray-500 text-sm">постов</span></div>
-                <div><span className="font-black text-white">{user.followers?.length || 0}</span> <span className="text-gray-500 text-sm">подписчиков</span></div>
-                <div><span className="font-black text-white">{user.following?.length || 0}</span> <span className="text-gray-500 text-sm">подписок</span></div>
-              </div>
-            </div>
-          </div>
-          <h3 className="font-bold text-lg text-white px-2 mb-3">Мои посты</h3>
-          {userPosts.length === 0 && <div className="text-center text-gray-500 py-8">У вас пока нет постов</div>}
-          {userPosts.map(post => <PostItem key={post.id} post={post} />)}
         </div>
       );
     };
+    
+    const EditableBio = ({ initialBio, onSave }) => {
+      const [editing, setEditing] = React.useState(false);
+      const [bio, setBio] = React.useState(initialBio);
+      return editing ? (
+        <div className="flex gap-2 mt-2">
+          <input value={bio} onChange={e => setBio(e.target.value)} className="flex-1 p-2 border border-gray-800 rounded-xl text-sm bg-black text-white" autoFocus />
+          <button onClick={() => { onSave(bio); setEditing(false); }} className="bg-green-700 text-white px-3 rounded-xl">💾</button>
+          <button onClick={() => { setEditing(false); setBio(initialBio); }} className="bg-gray-700 text-white px-3 rounded-xl">✖</button>
+        </div>
+      ) : (
+        <p className="mt-2 text-gray-400 cursor-pointer hover:bg-gray-900 inline-block px-2 py-1 rounded-xl" onClick={() => setEditing(true)}>{initialBio || 'Напишите о себе...'} <i className="fas fa-edit text-xs ml-1"></i></p>
+      );
+    };
+    
+    const Search = () => {
+      const [query, setQuery] = React.useState('');
+      const [results, setResults] = React.useState([]);
+      const doSearch = async () => { if (query.trim()) setResults(await handleSearch(query)); else setResults([]); };
+      return (
+        <div className="max-w-2xl mx-auto px-3 py-4">
+          <div className="bg-[#0a0a0a] rounded-2xl p-4 border border-gray-800 mb-6">
+            <div className="flex gap-2">
+              <input type="text" placeholder="Поиск пользователей..." value={query} onChange={e => setQuery(e.target.value)} onKeyPress={e => e.key === 'Enter' && doSearch()} className="flex-1 p-3 border border-gray-800 rounded-2xl bg-black text-white" />
+              <button onClick={doSearch} className="bg-gray-800 text-white px-5 rounded-2xl hover:bg-gray-700"><i className="fas fa-search"></i></button>
+            </div>
+          </div>
+          {results.map(fu => (
+            <div key={fu.id} className="bg-[#0a0a0a] rounded-2xl p-4 flex items-center justify-between border border-gray-800">
+              <div className="flex items-center gap-3">
+                <img src={fu.avatar || 'https://via.placeholder.com/48'} className="w-12 h-12 rounded-full object-cover" />
+                <div><div className="font-bold text-white">{fu.full_name || fu.username}</div><div className="text-sm text-gray-400">@{fu.username}</div></div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => handleStartChat(fu.id)} className="bg-gray-800 text-white px-3 py-2 rounded-full text-sm hover:bg-gray-700"><i className="fas fa-comment"></i></button>
+                <button onClick={() => handleFollow(fu.id)} className={`px-3 py-2 rounded-full text-sm ${(user.following || []).includes(fu.id) ? 'bg-gray-800 text-gray-300' : 'bg-gray-700 text-white'}`}>
+                  {(user.following || []).includes(fu.id) ? 'Отписаться' : 'Подписаться'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    };
+    
+    const Profile = () => (
+      <div className="max-w-2xl mx-auto px-3 py-4">
+        <div className="bg-[#0a0a0a] rounded-3xl overflow-hidden border border-gray-800 mb-6">
+          <div className="h-28 bg-gradient-to-r from-gray-800 to-gray-900"></div>
+          <div className="px-4 pb-6 pt-0">
+            <div className="flex justify-end -mt-2">
+              <DropdownMenu onDelete={() => setShowDeleteConfirm(true)} onEdit={() => setEditingName(true)} />
+            </div>
+            <div className="flex flex-col items-center md:flex-row md:items-end gap-4 -mt-8 mb-4">
+              <div className="relative">
+                <img src={user.avatar || 'https://via.placeholder.com/96'} className="w-20 h-20 rounded-full border-4 border-black shadow-md object-cover" />
+                <button onClick={() => setShowAvatarModal(true)} className="absolute bottom-0 right-0 bg-gray-800 rounded-full p-1 shadow-md hover:bg-gray-700"><i className="fas fa-camera text-xs text-white"></i></button>
+              </div>
+              <div className="flex-1 text-center md:text-left">
+                {editingName ? (
+                  <div className="flex gap-2">
+                    <input value={newName} onChange={e => setNewName(e.target.value)} className="text-xl font-bold bg-black border border-gray-800 rounded-lg px-2 py-1 text-white" />
+                    <button onClick={handleSaveName} className="bg-green-700 text-white px-3 rounded-lg">💾</button>
+                    <button onClick={() => { setEditingName(false); setNewName(currentFullName); }} className="bg-gray-700 text-white px-3 rounded-lg">✖</button>
+                  </div>
+                ) : (
+                  <h2 className="text-xl font-bold text-white">{user.full_name || user.username}</h2>
+                )}
+                <p className="text-gray-400 text-sm">@{user.username}</p>
+                <EditableBio initialBio={currentBio} onSave={handleSaveBio} />
+              </div>
+            </div>
+            <div className="flex gap-6 justify-center md:justify-start mt-2">
+              <div><span className="font-black text-white">{posts.filter(p => p.user_id === user.id).length}</span><span className="text-gray-500 text-sm ml-1">постов</span></div>
+              <div><span className="font-black text-white">{user.followers?.length || 0}</span><span className="text-gray-500 text-sm ml-1">подписчиков</span></div>
+              <div><span className="font-black text-white">{user.following?.length || 0}</span><span className="text-gray-500 text-sm ml-1">подписок</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
     
     const Chat = () => (
       <div className="max-w-4xl mx-auto h-[calc(100vh-60px)]">
@@ -734,146 +605,72 @@
           <div className="w-80 bg-[#0a0a0a] border-r border-gray-800 flex flex-col">
             <div className="p-4 border-b border-gray-800 font-bold text-white">Чаты</div>
             <div className="flex-1 overflow-y-auto">
-              {chatList.length === 0 && <div className="p-4 text-center text-gray-500">Нет чатов. Начните диалог!</div>}
+              {chatList.length === 0 && <div className="p-4 text-center text-gray-500">Нет чатов</div>}
               {chatList.map(cu => (
-                <div key={cu.id} onClick={() => startChat(cu)} className={`p-4 hover:bg-gray-900 cursor-pointer transition border-b border-gray-800 ${chatUser?.id === cu.id ? 'bg-gray-900' : ''}`}>
+                <div key={cu.id} onClick={() => setChatUser(cu)} className={`p-4 hover:bg-gray-900 cursor-pointer transition border-b border-gray-800 ${chatUser?.id === cu.id ? 'bg-gray-900' : ''}`}>
                   <div className="flex items-center gap-3">
                     <img src={cu.avatar || 'https://via.placeholder.com/48'} className="w-12 h-12 rounded-full object-cover" />
-                    <div className="flex-1">
-                      <div className="font-semibold text-white">@{cu.username}</div>
-                      <div className="text-xs text-gray-500">{cu.full_name}</div>
-                    </div>
+                    <div className="flex-1"><div className="font-semibold text-white">@{cu.username}</div><div className="text-xs text-gray-500">{cu.full_name}</div></div>
                     {unreadCounts[cu.id] > 0 && <div className="bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">{unreadCounts[cu.id]}</div>}
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          <div className="flex-1 flex flex-col bg-black">
-            {chatUser ? (
-              <>
-                <div className="p-4 border-b border-gray-800 flex items-center gap-3 bg-[#0a0a0a]">
-                  <img src={chatUser.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full object-cover" />
-                  <div><div className="font-bold text-white">@{chatUser.username}</div></div>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {messages.map(msg => {
-                    const isMy = msg.from_user === user.id;
-                    return (
-                      <div key={msg.id} className={`flex ${isMy ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] ${isMy ? 'bg-gray-800 text-white' : 'bg-[#0a0a0a] text-white'} rounded-2xl p-3 border border-gray-800`}>
-                          {msg.content && <p className="text-sm">{msg.content}</p>}
-                          {msg.media && msg.media_type === 'image' && <img src={msg.media} className="mt-2 rounded-2xl max-h-48 object-contain cursor-pointer" onClick={() => setFullscreenImage(msg.media)} />}
-                          {msg.media && msg.media_type === 'video' && <video src={msg.media} controls className="mt-2 rounded-2xl max-h-48"></video>}
-                          <div className={`text-xs mt-1 ${isMy ? 'text-gray-400' : 'text-gray-500'}`}>
-                            {new Date(msg.created_at).toLocaleTimeString()}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="p-3 border-t border-gray-800 bg-black">
-                  <div className="flex gap-2">
-                    <input type="text" placeholder="Сообщение..." value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendMessage(newMessage, newMessageMedia)} className="flex-1 p-3 border border-gray-800 rounded-2xl text-sm bg-black text-white" />
-                    <label className={`cursor-pointer bg-gray-900 p-3 rounded-2xl hover:bg-gray-800 text-white ${uploadingMessage ? 'opacity-50' : ''}`}>
-                      <i className="fas fa-paperclip"></i>
-                      <input type="file" accept="image/*,video/*" onChange={handleMessageMediaUpload} className="hidden" disabled={uploadingMessage} />
-                    </label>
-                    <button onClick={() => handleSendMessage(newMessage, newMessageMedia)} className="bg-gray-800 text-white px-4 rounded-2xl hover:bg-gray-700"><i className="fas fa-paper-plane"></i></button>
-                  </div>
-                  {newMessageMedia && (<div className="bg-gray-900 rounded-xl px-3 py-1 text-sm mt-2 flex gap-2"><i className="fas fa-file"></i> {newMessageMedia.name}<button onClick={() => setNewMessageMedia(null)} className="text-red-400 ml-2">✖</button></div>)}
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-500">
-                <div className="text-center"><i className="fas fa-comments text-4xl mb-3 opacity-30"></i><p>Выберите чат</p></div>
-              </div>
-            )}
-          </div>
+          {chatUser ? (
+            <ChatComponent currentUser={user} chatUser={chatUser} setChatUser={setChatUser} messages={messages} setMessages={setMessages} showToast={showToast} />
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-gray-500"><i className="fas fa-comments text-4xl mb-3 opacity-30"></i><p>Выберите чат</p></div>
+          )}
         </div>
       </div>
     );
     
-    const Search = () => {
-      const [query, setQuery] = React.useState('');
-      const [results, setResults] = React.useState([]);
-      const handleSearch = () => {
-        if (query.trim()) {
-          const filtered = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(query.toLowerCase()));
-          setResults(filtered);
-        } else {
-          setResults([]);
-        }
-      };
-      return (
-        <div className="max-w-2xl mx-auto px-3 py-4">
-          <div className="bg-[#0a0a0a] rounded-2xl p-4 border border-gray-800 mb-6">
-            <div className="flex gap-2">
-              <input type="text" placeholder="Поиск пользователей..." value={query} onChange={e => setQuery(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSearch()} className="flex-1 p-3 border border-gray-800 rounded-2xl bg-black text-white" />
-              <button onClick={handleSearch} className="bg-gray-800 text-white px-5 rounded-2xl hover:bg-gray-700"><i className="fas fa-search"></i></button>
-            </div>
-          </div>
-          <div className="space-y-3">
-            {results.map(fu => (
-              <div key={fu.id} className="bg-[#0a0a0a] rounded-2xl p-4 flex items-center justify-between border border-gray-800">
-                <div className="flex items-center gap-3">
-                  <img src={fu.avatar || 'https://via.placeholder.com/48'} className="w-12 h-12 rounded-full object-cover" />
-                  <div><div className="font-bold text-white">{fu.full_name || fu.username}</div><div className="text-sm text-gray-400">@{fu.username}</div></div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => startChat(fu)} className="bg-gray-800 text-white px-3 py-2 rounded-full text-sm hover:bg-gray-700"><i className="fas fa-comment"></i> Чат</button>
-                  <button onClick={() => handleFollow(fu.id)} className={`px-3 py-2 rounded-full text-sm ${(user.following || []).includes(fu.id) ? 'bg-gray-800 text-gray-300' : 'bg-gray-700 text-white'}`}>
-                    {(user.following || []).includes(fu.id) ? 'Отписаться' : 'Подписаться'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    };
+    if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white">Загрузка...</div>;
     
     return (
       <div className="min-h-screen bg-black">
-        {fullscreenImage && <ImageModal src={fullscreenImage} onClose={() => setFullscreenImage(null)} />}
-        {showDeleteAccountConfirm && <ConfirmModal message="Удалить аккаунт навсегда?" onConfirm={handleDeleteAccount} onCancel={() => setShowDeleteAccountConfirm(false)} />}
         {showAvatarModal && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setShowAvatarModal(false)}>
             <div className="bg-[#0a0a0a] rounded-3xl p-6 max-w-sm w-full border border-gray-800" onClick={e => e.stopPropagation()}>
               <h3 className="text-xl font-bold mb-4 text-white">Загрузить аватар</h3>
-              <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files[0]; if (file) { const r = new FileReader(); r.onloadend = () => setTempAvatar(r.result); r.readAsDataURL(file); } }} className="mb-4 w-full bg-black border border-gray-800 rounded-xl p-2 text-white" />
+              <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onloadend = () => setTempAvatar(r.result); r.readAsDataURL(f); } }} className="mb-4 w-full bg-black border border-gray-800 rounded-xl p-2 text-white" />
               {tempAvatar && <img src={tempAvatar} className="w-24 h-24 rounded-full mx-auto mb-4 object-cover" />}
-              <div className="flex gap-2">
-                <button onClick={saveAvatar} className="flex-1 bg-gray-800 text-white py-2 rounded-xl hover:bg-gray-700">Сохранить</button>
-                <button onClick={() => setShowAvatarModal(false)} className="flex-1 bg-gray-800 text-white py-2 rounded-xl hover:bg-gray-700">Отмена</button>
-              </div>
+              <div className="flex gap-2"><button onClick={saveAvatar} className="flex-1 bg-gray-800 text-white py-2 rounded-xl hover:bg-gray-700">Сохранить</button><button onClick={() => setShowAvatarModal(false)} className="flex-1 bg-gray-800 text-white py-2 rounded-xl hover:bg-gray-700">Отмена</button></div>
             </div>
           </div>
         )}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setShowDeleteConfirm(false)}>
+            <div className="bg-[#0a0a0a] rounded-3xl p-6 max-w-sm w-full border border-gray-800" onClick={e => e.stopPropagation()}>
+              <p className="text-white mb-6">Удалить аккаунт навсегда?</p>
+              <div className="flex gap-3"><button onClick={handleDeleteAccount} className="flex-1 bg-red-900 text-white py-2 rounded-xl hover:bg-red-800">Да</button><button onClick={() => setShowDeleteConfirm(false)} className="flex-1 bg-gray-800 text-white py-2 rounded-xl hover:bg-gray-700">Нет</button></div>
+            </div>
+          </div>
+        )}
+        {fullscreenImage && <div className="photo-modal" onClick={() => setFullscreenImage(null)}><img src={fullscreenImage} onClick={e => e.stopPropagation()} /></div>}
         
         <header className="sticky top-0 z-20 border-b border-gray-800 bg-black/90 backdrop-blur-md py-3 px-4">
           <div className="max-w-6xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <i className="fas fa-water text-white text-2xl"></i>
-              <span className="text-white font-bold text-xl">Wave</span>
-            </div>
+            <div className="flex items-center gap-2"><i className="fas fa-water text-white text-2xl"></i><span className="text-white font-bold text-xl">Wave</span></div>
             <div className="flex gap-4 text-gray-400 items-center">
-              <button onClick={() => { setActiveTab('feed'); setChatUser(null); }} className={`text-xl transition ${activeTab === 'feed' ? 'text-white' : 'hover:text-white'}`}><i className="fas fa-home"></i></button>
-              <button onClick={() => { setActiveTab('search'); setChatUser(null); }} className={`text-xl transition ${activeTab === 'search' ? 'text-white' : 'hover:text-white'}`}><i className="fas fa-search"></i></button>
-              <button onClick={() => { setActiveTab('chat'); }} className={`text-xl relative transition ${activeTab === 'chat' ? 'text-white' : 'hover:text-white'}`}>
-                <i className="fas fa-comments"></i>
-                {Object.values(unreadCounts).reduce((a,b) => a+b, 0) > 0 && <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{Object.values(unreadCounts).reduce((a,b) => a+b, 0)}</span>}
-              </button>
-              <button onClick={() => { setActiveTab('profile'); setChatUser(null); }} className={`text-xl transition ${activeTab === 'profile' ? 'text-white' : 'hover:text-white'}`}><i className="fas fa-user"></i></button>
+              <button onClick={() => { setActiveTab('feed'); setChatUser(null); }} className={`text-xl ${activeTab === 'feed' ? 'text-white' : 'hover:text-white'}`}><i className="fas fa-home"></i></button>
+              <button onClick={() => { setActiveTab('search'); setChatUser(null); }} className={`text-xl ${activeTab === 'search' ? 'text-white' : 'hover:text-white'}`}><i className="fas fa-search"></i></button>
+              <button onClick={() => { setActiveTab('chat'); }} className={`text-xl relative ${activeTab === 'chat' ? 'text-white' : 'hover:text-white'}`}><i className="fas fa-comments"></i>{Object.values(unreadCounts).reduce((a,b)=>a+b,0)>0 && <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] rounded-full w-4 h-4">{Object.values(unreadCounts).reduce((a,b)=>a+b,0)}</span>}</button>
+              <button onClick={() => { setActiveTab('profile'); setChatUser(null); }} className={`text-xl ${activeTab === 'profile' ? 'text-white' : 'hover:text-white'}`}><i className="fas fa-user"></i></button>
               <button onClick={onLogout} className="text-sm bg-gray-800 px-3 py-1 rounded-full hover:bg-gray-700"><i className="fas fa-sign-out-alt"></i></button>
             </div>
           </div>
         </header>
         
         <main>
-          {activeTab === 'feed' && <Feed />}
-          {activeTab === 'profile' && <ProfileView />}
+          {activeTab === 'feed' && (
+            <div className="max-w-2xl mx-auto px-3 py-4">
+              <PostInput user={user} onPostSuccess={loadData} showToast={showToast} />
+              {posts.map(post => <PostItem key={post.id} post={post} currentUser={user} users={users} onLike={loadData} onCommentUpdate={loadData} onDelete={handleDeletePost} onStartChat={handleStartChat} />)}
+            </div>
+          )}
+          {activeTab === 'profile' && <Profile />}
           {activeTab === 'search' && <Search />}
           {activeTab === 'chat' && <Chat />}
         </main>
@@ -881,35 +678,20 @@
     );
   }
   
-  // ========== ГЛАВНЫЙ КОМПОНЕНТ ==========
   function App() {
     const [siteAccess, setSiteAccess] = React.useState(false);
     const [currentUser, setCurrentUser] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
   
     React.useEffect(() => {
-      if (localStorage.getItem('wave_site_access') === 'granted') {
-        setSiteAccess(true);
-      }
-      
-      const savedUser = localStorage.getItem('wave_current_user');
-      if (savedUser) {
-        try {
-          setCurrentUser(JSON.parse(savedUser));
-        } catch(e) {}
-      }
+      if (localStorage.getItem('wave_site_access') === 'granted') setSiteAccess(true);
+      const saved = localStorage.getItem('wave_current_user');
+      if (saved) setCurrentUser(JSON.parse(saved));
       setLoading(false);
     }, []);
   
-    const handleLogin = (user) => {
-      localStorage.setItem('wave_current_user', JSON.stringify(user));
-      setCurrentUser(user);
-    };
-  
-    const handleLogout = () => {
-      localStorage.removeItem('wave_current_user');
-      setCurrentUser(null);
-    };
+    const handleLogin = (user) => { localStorage.setItem('wave_current_user', JSON.stringify(user)); setCurrentUser(user); };
+    const handleLogout = () => { localStorage.removeItem('wave_current_user'); setCurrentUser(null); };
   
     if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white">Загрузка...</div>;
     if (!siteAccess) return <SitePasswordGate onSuccess={() => setSiteAccess(true)} />;
