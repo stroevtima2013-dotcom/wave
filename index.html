@@ -3,33 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-  <title>Wave Social — Полная версия</title>
+  <title>Wave Social</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     * { font-family: 'Inter', sans-serif; }
-    body { background: #0a0a0a; }
-    .card-bg { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 20px; }
-    .chat-btn { background: #22c55e; transition: all 0.2s ease; }
-    .chat-btn:hover { background: #16a34a; transform: scale(1.02); }
-    .toast-notify { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; border: 1px solid #2a2a2a; color: white; padding: 8px 16px; border-radius: 40px; z-index: 1000; font-size: 14px; }
-    input, textarea { background: #1a1a1a; border: 1px solid #2a2a2a; color: white; outline: none; border-radius: 16px; }
-    input:focus, textarea:focus { border-color: #4a4a4a; }
+    body { background: #1a1a1a; }
+    
+    /* Серые карточки */
+    .card-bg { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 20px; }
+    
+    /* Свечение при наведении */
+    .hover-glow { transition: all 0.2s ease; }
+    .hover-glow:hover { filter: drop-shadow(0 0 8px rgba(100,100,100,0.4)); transform: translateY(-1px); }
+    
+    /* Зелёная кнопка чата */
+    .chat-btn { background: #22c55e; transition: all 0.2s ease; padding: 6px 14px; border-radius: 24px; font-weight: 500; box-shadow: 0 0 5px rgba(34,197,94,0.3); }
+    .chat-btn:hover { background: #16a34a; transform: scale(1.02); box-shadow: 0 0 12px rgba(34,197,94,0.6); }
+    
+    /* Синяя кнопка публикации */
+    .publish-btn { background: #3b82f6; transition: all 0.2s ease; padding: 10px 24px; border-radius: 28px; font-weight: 600; box-shadow: 0 0 5px rgba(59,130,246,0.3); }
+    .publish-btn:hover { background: #2563eb; transform: scale(1.02); box-shadow: 0 0 12px rgba(59,130,246,0.6); }
+    
+    /* Серая кнопка */
+    .gray-btn { background: #3a3a3a; transition: all 0.2s ease; padding: 8px 18px; border-radius: 24px; font-weight: 500; }
+    .gray-btn:hover { background: #4a4a4a; transform: scale(1.02); box-shadow: 0 0 8px rgba(100,100,100,0.3); }
+    
+    .toast-notify { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #2a2a2a; border: 1px solid #3a3a3a; color: white; padding: 10px 20px; border-radius: 40px; z-index: 1000; font-size: 14px; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
+    
+    input, textarea { background: #2a2a2a; border: 1px solid #3a3a3a; color: white; outline: none; border-radius: 16px; padding: 12px; }
+    input:focus, textarea:focus { border-color: #5a5a5a; box-shadow: 0 0 8px rgba(100,100,100,0.2); }
+    
     .photo-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-    .photo-modal img, .photo-modal video { max-width: 95vw; max-height: 95vh; border-radius: 24px; box-shadow: 0 0 50px rgba(255,255,255,0.2); }
-    .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; z-index: 50; min-width: 140px; }
-    .media-preview { position: relative; display: inline-block; margin: 5px; border-radius: 12px; overflow: hidden; border: 2px solid #2a2a2a; cursor: pointer; }
+    .photo-modal img, .photo-modal video { max-width: 95vw; max-height: 95vh; border-radius: 24px; box-shadow: 0 0 50px rgba(255,255,255,0.15); }
+    
+    .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 12px; z-index: 50; min-width: 140px; }
+    
+    .media-preview { position: relative; display: inline-block; margin: 5px; border-radius: 12px; overflow: hidden; border: 2px solid #3a3a3a; cursor: pointer; }
     .media-preview img { width: 80px; height: 80px; object-fit: cover; }
     .media-preview video { width: 80px; height: 80px; object-fit: cover; }
     .media-preview .play-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: white; text-shadow: 0 0 5px black; }
     .media-preview .remove-media { position: absolute; top: -8px; right: -8px; background: #ef4444; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; color: white; font-weight: bold; z-index: 10; }
+    
     .notification-badge { position: absolute; top: -5px; right: -10px; background: #ef4444; color: white; font-size: 10px; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
     .mention { color: #60a5fa; cursor: pointer; font-weight: 500; }
     .mention:hover { text-decoration: underline; }
     .avatar-upload { position: relative; cursor: pointer; }
     .avatar-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; border-radius: 50%; }
+    
+    /* Стили для поиска */
+    .search-result { transition: all 0.2s ease; }
+    .search-result:hover { background: #3a3a3a; transform: translateX(2px); }
   </style>
 </head>
 <body>
@@ -118,14 +144,14 @@
   const FullscreenMedia = ({ src, onClose }) => (
     <div className="photo-modal" onClick={onClose}>
       {src?.includes('mp4') || src?.includes('webm') ? 
-        <video src={src} controls autoPlay className="max-w-[95vw] max-h-[95vh] rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.3)]" onClick={(e) => e.stopPropagation()} /> :
-        <img src={src} className="max-w-[95vw] max-h-[95vh] rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.3)]" onClick={(e) => e.stopPropagation()} />
+        <video src={src} controls autoPlay className="max-w-[95vw] max-h-[95vh] rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.15)]" onClick={(e) => e.stopPropagation()} /> :
+        <img src={src} className="max-w-[95vw] max-h-[95vh] rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.15)]" onClick={(e) => e.stopPropagation()} />
       }
     </div>
   );
 
   const MediaPreview = ({ media, onRemove, onOpen }) => (
-    <div className="media-preview" onClick={() => onOpen(media.url)}>
+    <div className="media-preview hover-glow" onClick={() => onOpen(media.url)}>
       {media.isVideo ? (
         <>
           <video src={media.url} className="w-20 h-20 object-cover" />
@@ -142,15 +168,15 @@
     const [password, setPassword] = React.useState('');
     const [error, setError] = React.useState('');
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] p-4">
-        <div className="card-bg p-8 max-w-md w-full text-center">
+      <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a] p-4">
+        <div className="card-bg p-8 max-w-md w-full text-center hover-glow">
           <i className="fas fa-lock text-5xl text-white opacity-80"></i>
           <h1 className="text-3xl font-bold mt-4 text-white">Wave Social</h1>
-          <p className="text-gray-500 mt-2">Введите пароль</p>
+          <p className="text-gray-400 mt-2">Введите пароль</p>
           <form onSubmit={(e) => { e.preventDefault(); if (password === SITE_PASSWORD) { localStorage.setItem('wave_site_access', 'granted'); onSuccess(); } else setError('Неверный пароль'); }} className="space-y-4 mt-6">
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-2xl text-white text-center text-xl" autoFocus />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#2a2a2a] border border-gray-600 rounded-2xl text-white text-center text-xl" autoFocus />
             {error && <div className="text-red-400 text-sm">{error}</div>}
-            <button type="submit" className="w-full bg-gray-800 text-white py-3 rounded-2xl font-semibold hover:bg-gray-700 transition">Войти</button>
+            <button type="submit" className="w-full gray-btn py-3 text-white">Войти</button>
           </form>
         </div>
       </div>
@@ -186,17 +212,17 @@
     };
   
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] p-4">
+      <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a] p-4">
         <div className="card-bg p-8 max-w-md w-full">
           <div className="text-center"><i className="fas fa-water text-5xl text-white opacity-80"></i><h1 className="text-3xl font-bold mt-2 text-white">Wave Social</h1></div>
           <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-            <input type="text" placeholder="Логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-2xl text-white" required />
-            <input type="password" placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-2xl text-white" required />
-            {!isLogin && <input type="text" placeholder="Имя" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-2xl text-white" />}
+            <input type="text" placeholder="Логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full p-3 bg-[#2a2a2a] border border-gray-600 rounded-2xl text-white" required />
+            <input type="password" placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#2a2a2a] border border-gray-600 rounded-2xl text-white" required />
+            {!isLogin && <input type="text" placeholder="Имя" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full p-3 bg-[#2a2a2a] border border-gray-600 rounded-2xl text-white" />}
             {error && <div className="text-red-400 text-sm">{error}</div>}
-            <button type="submit" disabled={loading} className="w-full bg-gray-800 text-white py-3 rounded-2xl font-semibold hover:bg-gray-700 transition">{loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}</button>
+            <button type="submit" disabled={loading} className="w-full gray-btn py-3 text-white font-semibold">{loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}</button>
           </form>
-          <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="w-full mt-4 text-gray-500 text-sm hover:text-gray-400 transition">{isLogin ? 'Нет аккаунта?' : 'Уже есть аккаунт?'}</button>
+          <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="w-full mt-4 text-gray-400 text-sm hover:text-white transition">{isLogin ? 'Нет аккаунта?' : 'Уже есть аккаунт?'}</button>
         </div>
       </div>
     );
@@ -224,30 +250,32 @@
     const textareaRef = React.useRef(null);
     
     const loadData = async () => {
-      const [postsRes, usersRes, messagesRes, notifsRes] = await Promise.all([
-        supabase.from('posts').select('*').order('created_at', { ascending: false }),
-        supabase.from('users').select('*'),
-        supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
-        supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-      ]);
-      setPosts(postsRes.data || []);
-      setUsers(usersRes.data || []);
-      setNotifications(notifsRes.data || []);
-      
-      const msgs = messagesRes.data || [];
-      const chatUsersSet = new Set();
-      msgs.forEach(m => { if (m.from_user !== user.id) chatUsersSet.add(m.from_user); if (m.to_user !== user.id) chatUsersSet.add(m.to_user); });
-      setChatList(usersRes.data?.filter(u => chatUsersSet.has(u.id)) || []);
-      
-      const counts = {};
-      msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
-      setUnreadCounts(counts);
-      
-      if (chatUser) {
-        const chatMsgs = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-        setMessages(chatMsgs);
-        await supabase.from('messages').update({ read: true }).eq('to_user', user.id).eq('from_user', chatUser.id);
-      }
+      try {
+        const [postsRes, usersRes, messagesRes, notifsRes] = await Promise.all([
+          supabase.from('posts').select('*').order('created_at', { ascending: false }),
+          supabase.from('users').select('*'),
+          supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
+          supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+        ]);
+        setPosts(postsRes.data || []);
+        setUsers(usersRes.data || []);
+        setNotifications(notifsRes.data || []);
+        
+        const msgs = messagesRes.data || [];
+        const chatUsersSet = new Set();
+        msgs.forEach(m => { if (m.from_user !== user.id) chatUsersSet.add(m.from_user); if (m.to_user !== user.id) chatUsersSet.add(m.to_user); });
+        setChatList(usersRes.data?.filter(u => chatUsersSet.has(u.id)) || []);
+        
+        const counts = {};
+        msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
+        setUnreadCounts(counts);
+        
+        if (chatUser) {
+          const chatMsgs = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+          setMessages(chatMsgs);
+          await supabase.from('messages').update({ read: true }).eq('to_user', user.id).eq('from_user', chatUser.id);
+        }
+      } catch(e) { console.error(e); }
       setLoading(false);
     };
     
@@ -372,27 +400,27 @@
       showToast('Пост опубликован!');
     };
     
-    if (loading) return <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">Загрузка...</div>;
+    if (loading) return <div className="min-h-screen bg-[#1a1a1a] text-white flex items-center justify-center">Загрузка...</div>;
     
     if (viewingUser) {
       const otherUser = viewingUser;
       const isFollowing = (user.following || []).includes(otherUser.id);
       const userPosts = posts.filter(p => p.user_id === otherUser.id);
       return (
-        <div className="min-h-screen bg-[#0a0a0a] p-4">
-          <button onClick={() => setViewingUser(null)} className="text-gray-400 mb-4 hover:text-white"><i className="fas fa-arrow-left mr-2"></i> Назад</button>
-          <div className="card-bg rounded-3xl overflow-hidden p-6 text-center mb-6">
+        <div className="min-h-screen bg-[#1a1a1a] p-4">
+          <button onClick={() => setViewingUser(null)} className="text-gray-400 mb-4 hover:text-white transition"><i className="fas fa-arrow-left mr-2"></i> Назад</button>
+          <div className="card-bg rounded-3xl overflow-hidden p-6 text-center mb-6 hover-glow">
             <img src={otherUser.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
             <h2 className="text-xl font-bold text-white mt-2">{otherUser.full_name || otherUser.username}</h2>
             <p className="text-gray-400">@{otherUser.username}</p>
             <p className="text-gray-500 text-sm mt-1">{otherUser.bio || 'Нет описания'}</p>
             <div className="flex gap-3 justify-center mt-4">
-              <button onClick={() => { setChatUser(otherUser); setActiveTab('chat'); setViewingUser(null); }} className="chat-btn text-white px-4 py-1 rounded-full text-sm">Чат</button>
-              <button onClick={() => handleFollow(otherUser.id)} className={`px-4 py-1 rounded-full text-sm ${isFollowing ? 'bg-gray-700' : 'bg-blue-600 text-white'}`}>{isFollowing ? 'Отписаться' : 'Подписаться'}</button>
+              <button onClick={() => { setChatUser(otherUser); setActiveTab('chat'); setViewingUser(null); }} className="chat-btn text-white">Чат</button>
+              <button onClick={() => handleFollow(otherUser.id)} className={`px-4 py-1.5 rounded-full text-sm ${isFollowing ? 'bg-gray-600 text-gray-300' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>{isFollowing ? 'Отписаться' : 'Подписаться'}</button>
             </div>
           </div>
           {userPosts.map(post => (
-            <div key={post.id} className="card-bg p-4 mb-4">
+            <div key={post.id} className="card-bg p-4 mb-4 hover-glow">
               <p className="text-white">{post.content}</p>
               {post.media && post.media.length > 0 && (
                 <div className="grid grid-cols-2 gap-2 mt-2">
@@ -410,18 +438,18 @@
     }
     
     return (
-      <div className="min-h-screen bg-[#0a0a0a]">
+      <div className="min-h-screen bg-[#1a1a1a]">
         {fullscreenMedia && <FullscreenMedia src={fullscreenMedia} onClose={() => setFullscreenMedia(null)} />}
-        <header className="sticky top-0 z-20 border-b border-gray-800 bg-[#0a0a0a]/90 backdrop-blur-md py-3 px-4">
+        <header className="sticky top-0 z-20 border-b border-gray-700 bg-[#1a1a1a]/90 backdrop-blur-md py-3 px-4">
           <div className="max-w-6xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-2"><i className="fas fa-water text-white text-2xl"></i><span className="text-white font-bold text-xl">Wave</span></div>
             <div className="flex gap-4 text-gray-400 items-center relative">
-              <button onClick={() => { setActiveTab('feed'); setChatUser(null); setViewingUser(null); }} className={`text-xl transition ${activeTab === 'feed' ? 'text-white' : 'hover:text-white'}`}><i className="fas fa-home"></i></button>
-              <button onClick={() => { setActiveTab('search'); setChatUser(null); setViewingUser(null); }} className="text-xl transition hover:text-white"><i className="fas fa-search"></i></button>
-              <button onClick={() => { setActiveTab('chat'); setViewingUser(null); }} className="text-xl relative transition hover:text-white"><i className="fas fa-comments"></i>{Object.values(unreadCounts).reduce((a,b)=>a+b,0)>0 && <div className="notification-badge">{Object.values(unreadCounts).reduce((a,b)=>a+b,0)}</div>}</button>
-              <button onClick={() => { setActiveTab('notifications'); setChatUser(null); setViewingUser(null); }} className="text-xl relative transition hover:text-white"><i className="fas fa-bell"></i>{notifications.filter(n => !n.read).length > 0 && <div className="notification-badge">{notifications.filter(n => !n.read).length}</div>}</button>
-              <button onClick={() => { setActiveTab('profile'); setChatUser(null); setViewingUser(null); }} className="text-xl transition hover:text-white"><i className="fas fa-user"></i></button>
-              <button onClick={onLogout} className="text-sm bg-gray-800 px-3 py-1 rounded-full hover:bg-gray-700 transition"><i className="fas fa-sign-out-alt"></i></button>
+              <button onClick={() => { setActiveTab('feed'); setChatUser(null); setViewingUser(null); }} className={`text-xl transition hover:text-white hover-glow ${activeTab === 'feed' ? 'text-white' : ''}`}><i className="fas fa-home"></i></button>
+              <button onClick={() => { setActiveTab('search'); setChatUser(null); setViewingUser(null); }} className="text-xl transition hover:text-white hover-glow"><i className="fas fa-search"></i></button>
+              <button onClick={() => { setActiveTab('chat'); setViewingUser(null); }} className="text-xl relative transition hover:text-white hover-glow"><i className="fas fa-comments"></i>{Object.values(unreadCounts).reduce((a,b)=>a+b,0)>0 && <div className="notification-badge">{Object.values(unreadCounts).reduce((a,b)=>a+b,0)}</div>}</button>
+              <button onClick={() => { setActiveTab('notifications'); setChatUser(null); setViewingUser(null); }} className="text-xl relative transition hover:text-white hover-glow"><i className="fas fa-bell"></i>{notifications.filter(n => !n.read).length > 0 && <div className="notification-badge">{notifications.filter(n => !n.read).length}</div>}</button>
+              <button onClick={() => { setActiveTab('profile'); setChatUser(null); setViewingUser(null); }} className="text-xl transition hover:text-white hover-glow"><i className="fas fa-user"></i></button>
+              <button onClick={onLogout} className="text-sm bg-gray-700 px-3 py-1 rounded-full hover:bg-gray-600 transition"><i className="fas fa-sign-out-alt"></i></button>
             </div>
           </div>
         </header>
@@ -429,15 +457,15 @@
         <main className="max-w-2xl mx-auto p-4">
           {activeTab === 'feed' && (
             <>
-              <div className="card-bg p-4 mb-6">
+              <div className="card-bg p-4 mb-6 hover-glow">
                 <div className="flex gap-3">
                   <img src={user.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full object-cover" />
                   <div className="flex-1 relative">
-                    <textarea ref={textareaRef} rows="3" placeholder="Что нового? Используй @ для упоминаний..." className="w-full p-3 bg-[#2a2a2a] rounded-2xl text-white resize-none" value={newPostContent} onChange={handleContentChange} />
+                    <textarea ref={textareaRef} rows="3" placeholder="Что нового? Используй @ для упоминаний..." className="w-full p-3 bg-[#2a2a2a] border border-gray-600 rounded-2xl text-white resize-none" value={newPostContent} onChange={handleContentChange} />
                     {showMentions && filteredUsers.length > 0 && (
-                      <div className="absolute bottom-full left-0 bg-[#1a1a1a] border border-gray-700 rounded-xl max-h-48 overflow-y-auto z-50 mb-1 w-48">
+                      <div className="absolute bottom-full left-0 bg-[#2a2a2a] border border-gray-600 rounded-xl max-h-48 overflow-y-auto z-50 mb-1 w-48">
                         {filteredUsers.map(u => (
-                          <div key={u.id} className="p-2 hover:bg-[#2a2a2a] cursor-pointer flex items-center gap-2" onClick={() => insertMention(u.username)}>
+                          <div key={u.id} className="p-2 hover:bg-[#3a3a3a] cursor-pointer flex items-center gap-2 transition" onClick={() => insertMention(u.username)}>
                             <img src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
                             <span className="text-white text-sm">@{u.username}</span>
                           </div>
@@ -448,23 +476,23 @@
                       {mediaList.map((m, idx) => <MediaPreview key={idx} media={m} onRemove={() => removeMedia(idx)} onOpen={(url) => setFullscreenMedia(url)} />)}
                     </div>
                     <div className="flex gap-2 mt-2">
-                      <label className={`cursor-pointer bg-[#2a2a2a] px-4 py-2 rounded-xl text-sm ${uploading || mediaList.length >= 5 ? 'opacity-50' : ''}`}>
-                        <i className="fas fa-image text-blue-400"></i> {uploading ? 'Загрузка...' : 'Медиа (до 5)'}
+                      <label className={`cursor-pointer bg-[#2a2a2a] p-2 rounded-xl hover:bg-[#3a3a3a] transition ${uploading || mediaList.length >= 5 ? 'opacity-50' : ''}`}>
+                        <i className="fas fa-paperclip text-gray-400 text-lg"></i>
                         <input type="file" accept="image/*,video/*" multiple onChange={handleMediaUpload} className="hidden" disabled={uploading || mediaList.length >= 5} />
                       </label>
-                      <button onClick={handleCreatePost} className="bg-blue-600 text-white px-6 py-2 rounded-full text-sm ml-auto">Опубликовать</button>
+                      <button onClick={handleCreatePost} className="publish-btn text-white ml-auto">Опубликовать</button>
                     </div>
                   </div>
                 </div>
               </div>
               {posts.map(post => (
-                <div key={post.id} className="card-bg p-4 mb-4">
+                <div key={post.id} className="card-bg p-4 mb-4 hover-glow">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3 cursor-pointer" onClick={() => post.user_id !== user.id && setViewingUser(users.find(u => u.id === post.user_id))}>
                       <img src={post.user_avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full" />
                       <div><div className="font-bold text-white">@{post.username}</div><div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleString()}</div></div>
                     </div>
-                    {post.user_id !== user.id && <button onClick={() => { setChatUser(users.find(u => u.id === post.user_id)); setActiveTab('chat'); }} className="chat-btn text-white px-3 py-1 rounded-full text-sm">Чат</button>}
+                    {post.user_id !== user.id && <button onClick={() => { setChatUser(users.find(u => u.id === post.user_id)); setActiveTab('chat'); }} className="chat-btn text-white text-xs py-1 px-3">Чат</button>}
                   </div>
                   <p className="text-white whitespace-pre-wrap">{post.content}</p>
                   {post.media && post.media.length > 0 && (
@@ -482,7 +510,7 @@
                       if (commentsDiv) commentsDiv.classList.toggle('hidden');
                     }} className="flex gap-1 hover:text-blue-400 transition"><i className="far fa-comment"></i> {(post.comments || []).length}</button>
                   </div>
-                  <div id={`comments-${post.id}`} className="hidden mt-3 pt-3 border-t border-gray-800">
+                  <div id={`comments-${post.id}`} className="hidden mt-3 pt-3 border-t border-gray-700">
                     {(post.comments || []).map(c => (
                       <div key={c.id} className="flex gap-2 mb-2 text-sm">
                         <span className="font-bold text-gray-300 cursor-pointer" onClick={() => c.user_id !== user.id && setViewingUser(users.find(u => u.id === c.user_id))}>@{c.username}</span>
@@ -490,8 +518,8 @@
                       </div>
                     ))}
                     <div className="flex gap-2 mt-2">
-                      <input type="text" id={`comment-${post.id}`} placeholder="Написать комментарий..." className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-sm text-white" value={commentTexts[post.id] || ''} onChange={e => setCommentTexts({ ...commentTexts, [post.id]: e.target.value })} />
-                      <button onClick={() => handleAddComment(post.id)} className="bg-gray-800 text-white px-3 rounded-xl text-sm">→</button>
+                      <input type="text" id={`comment-${post.id}`} placeholder="Написать комментарий..." className="flex-1 p-2 bg-[#2a2a2a] border border-gray-600 rounded-xl text-sm text-white" value={commentTexts[post.id] || ''} onChange={e => setCommentTexts({ ...commentTexts, [post.id]: e.target.value })} />
+                      <button onClick={() => handleAddComment(post.id)} className="bg-gray-600 text-white px-4 rounded-xl hover:bg-gray-500 transition">→</button>
                     </div>
                   </div>
                 </div>
@@ -502,19 +530,19 @@
           {activeTab === 'search' && (
             <div>
               <div className="card-bg p-4 mb-6">
-                <input type="text" id="searchInput" placeholder="Поиск пользователей..." className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" />
-                <button id="searchBtn" className="mt-2 bg-gray-800 text-white px-4 py-2 rounded-xl text-sm" onClick={() => {
+                <input type="text" id="searchInput" placeholder="Поиск пользователей..." className="w-full p-3 bg-[#2a2a2a] border border-gray-600 rounded-xl text-white" />
+                <button id="searchBtn" className="mt-2 gray-btn text-white" onClick={() => {
                   const query = document.getElementById('searchInput').value;
                   if (query.trim()) {
                     const results = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(query.toLowerCase()));
                     const resultsDiv = document.getElementById('searchResults');
                     if (resultsDiv) resultsDiv.innerHTML = results.map(u => `
-                      <div class="card-bg p-4 mb-3 flex items-center justify-between">
+                      <div class="card-bg p-4 mb-3 flex items-center justify-between search-result">
                         <div class="flex gap-3 cursor-pointer" onclick="window.dispatchEvent(new CustomEvent('viewProfile', { detail: { userId: '${u.id}' } }))">
                           <img src="${u.avatar || 'https://via.placeholder.com/48'}" class="w-12 h-12 rounded-full" />
                           <div><div class="font-bold text-white">${u.full_name || u.username}</div><div class="text-sm text-gray-400">@${u.username}</div></div>
                         </div>
-                        <button class="chat-btn text-white px-3 py-1 rounded-full text-sm" onclick="window.dispatchEvent(new CustomEvent('startChat', { detail: { userId: '${u.id}' } }))">Чат</button>
+                        <button class="chat-btn text-white text-sm" onclick="window.dispatchEvent(new CustomEvent('startChat', { detail: { userId: '${u.id}' } }))">Чат</button>
                       </div>
                     `).join('');
                   }
@@ -528,12 +556,12 @@
             <div className="flex flex-col h-[70vh]">
               <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
                 {chatList.map(cu => (
-                  <button key={cu.id} onClick={() => { setChatUser(cu); loadData(); }} className={`px-3 py-1 rounded-full text-sm ${chatUser?.id === cu.id ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300'}`}>@{cu.username}</button>
+                  <button key={cu.id} onClick={() => { setChatUser(cu); loadData(); }} className={`px-3 py-1.5 rounded-full text-sm transition ${chatUser?.id === cu.id ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>@{cu.username}</button>
                 ))}
               </div>
               {chatUser ? (
                 <div className="card-bg flex flex-col h-full">
-                  <div className="p-3 border-b border-gray-800 font-bold text-white">Чат с @{chatUser.username}</div>
+                  <div className="p-3 border-b border-gray-700 font-bold text-white">Чат с @{chatUser.username}</div>
                   <div className="flex-1 overflow-y-auto p-3 space-y-2">
                     {messages.map((msg, idx) => (
                       <div key={idx} className={`flex ${msg.from_user === user.id ? 'justify-end' : 'justify-start'}`}>
@@ -544,9 +572,9 @@
                       </div>
                     ))}
                   </div>
-                  <div className="p-3 border-t border-gray-800 flex gap-2">
-                    <input id="msgInput" type="text" placeholder="Сообщение..." className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} />
-                    <button onClick={handleSendMessage} className="bg-blue-600 text-white px-4 rounded-xl">→</button>
+                  <div className="p-3 border-t border-gray-700 flex gap-2">
+                    <input id="msgInput" type="text" placeholder="Сообщение..." className="flex-1 p-2 bg-[#2a2a2a] border border-gray-600 rounded-xl text-white text-sm" onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} />
+                    <button onClick={handleSendMessage} className="bg-blue-600 text-white px-4 rounded-xl hover:bg-blue-700 transition">→</button>
                   </div>
                 </div>
               ) : (
@@ -560,7 +588,7 @@
               <h2 className="text-xl font-bold text-white mb-4">Уведомления</h2>
               {notifications.length === 0 && <div className="card-bg p-8 text-center text-gray-500">Нет уведомлений</div>}
               {notifications.map(n => (
-                <div key={n.id} className={`card-bg p-4 mb-3 cursor-pointer hover:bg-[#2a2a2a] ${!n.read ? 'border-l-4 border-green-500' : ''}`} onClick={async () => {
+                <div key={n.id} className={`card-bg p-4 mb-3 cursor-pointer hover:bg-[#2a2a2a] transition ${!n.read ? 'border-l-4 border-green-500' : ''}`} onClick={async () => {
                   await supabase.from('notifications').update({ read: true }).eq('id', n.id);
                   loadData();
                   if (n.type === 'message') {
@@ -577,7 +605,7 @@
           )}
           
           {activeTab === 'profile' && (
-            <div className="card-bg rounded-3xl overflow-hidden p-6 text-center">
+            <div className="card-bg rounded-3xl overflow-hidden p-6 text-center hover-glow">
               <div className="avatar-upload relative w-24 h-24 mx-auto">
                 <img src={user.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
                 <input type="file" accept="image/*" onChange={async (e) => {
@@ -599,6 +627,17 @@
             </div>
           )}
         </main>
+        
+        <script>
+          window.addEventListener('viewProfile', (e) => {
+            const userToView = users.find(u => u.id === e.detail.userId);
+            if (userToView) setViewingUser(userToView);
+          });
+          window.addEventListener('startChat', (e) => {
+            const chatTarget = users.find(u => u.id === e.detail.userId);
+            if (chatTarget) { setChatUser(chatTarget); setActiveTab('chat'); }
+          });
+        </script>
       </div>
     );
   }
@@ -615,7 +654,7 @@
     }, []);
     const handleLogin = (user) => { localStorage.setItem('wave_current_user', JSON.stringify(user)); setCurrentUser(user); };
     const handleLogout = () => { localStorage.removeItem('wave_current_user'); setCurrentUser(null); };
-    if (loading) return <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">Загрузка...</div>;
+    if (loading) return <div className="min-h-screen bg-[#1a1a1a] text-white flex items-center justify-center">Загрузка...</div>;
     if (!siteAccess) return <SitePasswordGate onSuccess={() => setSiteAccess(true)} />;
     if (currentUser) return <MainApp user={currentUser} onLogout={handleLogout} />;
     return <LoginRegister onLogin={handleLogin} />;
