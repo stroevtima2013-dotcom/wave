@@ -11,12 +11,22 @@
   <style>
     * { font-family: 'Inter', sans-serif; }
     body { background: #1a1a1a; }
-    .card { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 20px; }
+    .card { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 20px; transition: all 0.2s; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
     .btn { transition: all 0.2s; cursor: pointer; }
     .btn:hover { transform: scale(1.02); filter: brightness(1.05); }
     .mention { color: #3b82f6; font-weight: 500; cursor: pointer; }
     .mention:hover { text-decoration: underline; }
+    .hashtag { color: #eab308; font-weight: 500; cursor: pointer; }
+    .hashtag:hover { text-decoration: underline; }
     .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2a2a2a; border: 1px solid #3a3a3a; color: white; padding: 8px 16px; border-radius: 40px; z-index: 1000; font-size: 14px; }
+    .media-preview { position: relative; display: inline-block; margin: 5px; border-radius: 12px; overflow: hidden; border: 2px solid #4a4a4a; }
+    .media-preview img { width: 80px; height: 80px; object-fit: cover; }
+    .media-preview video { width: 80px; height: 80px; object-fit: cover; }
+    .remove-media { position: absolute; top: -8px; right: -8px; background: #ef4444; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; color: white; }
+    .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: #2a2a2a; border: 1px solid #4a4a4a; border-radius: 12px; z-index: 50; min-width: 150px; }
+    .profile-avatar { position: relative; display: inline-block; cursor: pointer; }
+    .profile-avatar input { position: absolute; inset: 0; opacity: 0; cursor: pointer; border-radius: 50%; }
   </style>
 </head>
 <body>
@@ -28,7 +38,7 @@
 
 <script type="text/babel">
   const SUPABASE_URL = "https://udjyttttghwtylzjavmw.supabase.co";
-  const SUPABASE_ANON_KEY = "https://udjyttttghwtylzjavmw.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_U_lF6X0ZakHsq6I_f8byHA_91hFjf3y";
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   function showToast(msg) {
@@ -39,7 +49,7 @@
     setTimeout(() => t.remove(), 2500);
   }
 
-  // ========== ВХОД ПО ПАРОЛЮ ==========
+  // ========== ЭКРАН ВХОДА ==========
   function PasswordGate({ onSuccess }) {
     const [pass, setPass] = React.useState('');
     const [err, setErr] = React.useState('');
@@ -121,17 +131,23 @@
     const [commentTexts, setCommentTexts] = React.useState({});
     const [msgText, setMsgText] = React.useState('');
     const [searchQuery, setSearchQuery] = React.useState('');
-    const [searchResults, setSearchResults] = React.useState([]);
+    const [searchUserResults, setSearchUserResults] = React.useState([]);
+    const [searchPostResults, setSearchPostResults] = React.useState([]);
+    const [searchType, setSearchType] = React.useState('users');
     const [showSubscribers, setShowSubscribers] = React.useState(false);
     const [showFollowing, setShowFollowing] = React.useState(false);
     const [avatarUploading, setAvatarUploading] = React.useState(false);
+    const [editingName, setEditingName] = React.useState(false);
+    const [newName, setNewName] = React.useState(user.full_name);
+    const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+    const [mediaList, setMediaList] = React.useState([]);
+    const [uploadingMedia, setUploadingMedia] = React.useState(false);
     const [showMentions, setShowMentions] = React.useState(false);
     const [mentionQuery, setMentionQuery] = React.useState('');
     const [mentionPos, setMentionPos] = React.useState(0);
     const textareaRef = React.useRef(null);
     const messagesEndRef = React.useRef(null);
 
-    // Автоскролл чата
     React.useEffect(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -157,8 +173,8 @@
       setUnread(counts);
       
       if (chatUser) {
-        const chatMsgs = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-        setMessages(chatMsgs);
+        const chatMsg = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+        setMessages(chatMsg);
         await supabase.from('messages').update({ read: true }).eq('to_user', user.id).eq('from_user', chatUser.id);
       }
       setLoading(false);
@@ -166,73 +182,53 @@
 
     React.useEffect(() => { loadData(); }, [chatUser]);
 
-    // Realtime подписка на новые сообщения
+    // Realtime для сообщений
     React.useEffect(() => {
       if (!chatUser) return;
-      const subscription = supabase
-        .channel('messages-channel')
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `to_user=eq.${user.id},from_user=eq.${chatUser.id}`
-        }, (payload) => {
-          const newMsg = payload.new;
-          setMessages(prev => [...prev, newMsg]);
-          supabase.from('messages').update({ read: true }).eq('id', newMsg.id);
+      const sub = supabase
+        .channel('msgs')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `to_user=eq.${user.id},from_user=eq.${chatUser.id}` }, (payload) => {
+          setMessages(prev => [...prev, payload.new]);
+          supabase.from('messages').update({ read: true }).eq('id', payload.new.id);
           setUnread(prev => ({ ...prev, [chatUser.id]: 0 }));
         })
         .subscribe();
-      return () => subscription.unsubscribe();
+      return () => sub.unsubscribe();
     }, [chatUser, user.id]);
 
-    const createPost = async () => {
-      if (!newPost.trim()) return;
-      const mentions = [...newPost.matchAll(/@(\w+)/g)].map(m => m[1]);
-      const tempId = Date.now();
-      const newPostObj = { id: tempId, user_id: user.id, username: user.username, content: newPost, likes: 0, comments: [], mentions, created_at: new Date().toISOString() };
-      setPosts([newPostObj, ...posts]);
-      setNewPost('');
-      const { data: inserted } = await supabase.from('posts').insert({
-        user_id: user.id, username: user.username, content: newPost, likes: 0, comments: [], mentions, created_at: new Date()
-      }).select().single();
-      if (inserted) setPosts(prev => prev.map(p => p.id === tempId ? inserted : p));
-      for (const mention of mentions) {
-        const mentioned = users.find(u => u.username === mention);
-        if (mentioned && mentioned.id !== user.id) {
-          await supabase.from('notifications').insert({ user_id: mentioned.id, type: 'mention', from_user_id: user.id, from_username: user.username, text: `${user.username} отметил вас в посте`, read: false, created_at: new Date() });
-        }
+    // Поиск в реальном времени
+    React.useEffect(() => {
+      if (!searchQuery.trim()) { setSearchUserResults([]); setSearchPostResults([]); return; }
+      if (searchType === 'users') {
+        const filtered = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(searchQuery.toLowerCase()));
+        setSearchUserResults(filtered);
+        setSearchPostResults([]);
+      } else {
+        const filtered = posts.filter(p => 
+          p.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (searchQuery.startsWith('#') && p.content.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+        setSearchPostResults(filtered);
+        setSearchUserResults([]);
       }
+    }, [searchQuery, searchType, users, posts]);
+
+    const extractHashtags = (text) => {
+      const matches = text.match(/#[\wа-яё]+/gi);
+      return matches || [];
     };
 
-    const likePost = async (postId, likes) => {
-      setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: likes + 1 } : p));
-      await supabase.from('posts').update({ likes: likes + 1 }).eq('id', postId);
-    };
-
-    const addComment = async (postId) => {
-      const text = commentTexts[postId] || '';
-      if (!text.trim()) return;
-      const post = posts.find(p => p.id === postId);
-      const newComment = { id: Date.now(), user_id: user.id, username: user.username, text, created_at: new Date().toISOString() };
-      const newComments = [...(post.comments || []), newComment];
-      setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: newComments } : p));
-      setCommentTexts({ ...commentTexts, [postId]: '' });
-      await supabase.from('posts').update({ comments: newComments }).eq('id', postId);
-      if (post.user_id !== user.id) {
-        await supabase.from('notifications').insert({ user_id: post.user_id, type: 'comment', from_user_id: user.id, from_username: user.username, post_id: postId, text: `${user.username} прокомментировал ваш пост`, read: false, created_at: new Date() });
-      }
+    const checkUserExists = async (username) => {
+      const { data } = await supabase.from('users').select('username').eq('username', username).single();
+      return !!data;
     };
 
     const sendMessage = async () => {
       if (!msgText.trim() || !chatUser) return;
       const tempId = Date.now();
-      const newMsg = { id: tempId, from_user: user.id, to_user: chatUser.id, content: msgText, read: false, created_at: new Date().toISOString() };
-      setMessages(prev => [...prev, newMsg]);
+      setMessages(prev => [...prev, { id: tempId, from_user: user.id, to_user: chatUser.id, content: msgText, created_at: new Date().toISOString() }]);
       setMsgText('');
-      const { data: inserted } = await supabase.from('messages').insert({
-        from_user: user.id, to_user: chatUser.id, content: msgText, read: false, created_at: new Date()
-      }).select().single();
+      const { data: inserted } = await supabase.from('messages').insert({ from_user: user.id, to_user: chatUser.id, content: msgText, read: false, created_at: new Date() }).select().single();
       if (inserted) setMessages(prev => prev.map(m => m.id === tempId ? inserted : m));
       await supabase.from('notifications').insert({ user_id: chatUser.id, type: 'message', from_user_id: user.id, from_username: user.username, text: `${user.username} отправил сообщение`, read: false, created_at: new Date() });
     };
@@ -267,13 +263,104 @@
       setAvatarUploading(false);
     };
 
+    const handleDeleteAccount = async () => {
+      await supabase.from('users').delete().eq('id', user.id);
+      showToast('Аккаунт удалён');
+      onLogout();
+    };
+
+    const handleSaveName = async () => {
+      if (!newName.trim()) return;
+      await supabase.from('users').update({ full_name: newName }).eq('id', user.id);
+      user.full_name = newName;
+      setEditingName(false);
+      loadData();
+      showToast('Имя обновлено');
+    };
+
+    const handleMediaUpload = async (e) => {
+      const files = Array.from(e.target.files);
+      if (mediaList.length + files.length > 5) { showToast('Максимум 5 файлов'); return; }
+      setUploadingMedia(true);
+      const newMedia = [];
+      for (const file of files) {
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
+        const { error } = await supabase.storage.from('wave-media').upload(fileName, file);
+        if (!error) {
+          const { data: { publicUrl } } = supabase.storage.from('wave-media').getPublicUrl(fileName);
+          newMedia.push({ url: publicUrl, type: file.type.startsWith('image/') ? 'image' : 'video', name: file.name });
+        }
+      }
+      setMediaList([...mediaList, ...newMedia]);
+      setUploadingMedia(false);
+      e.target.value = '';
+    };
+
+    const removeMedia = (index) => setMediaList(mediaList.filter((_, i) => i !== index));
+
+    const createPost = async () => {
+      if (!newPost.trim() && mediaList.length === 0) { showToast('Напишите текст или добавьте медиа'); return; }
+      
+      // Проверяем существование упомянутых пользователей
+      const mentions = [...newPost.matchAll(/@(\w+)/g)].map(m => m[1]);
+      for (const mention of mentions) {
+        const exists = await checkUserExists(mention);
+        if (!exists) {
+          showToast(`Пользователь @${mention} не существует`);
+          return;
+        }
+      }
+      
+      const hashtags = extractHashtags(newPost);
+      const tempId = Date.now();
+      const newPostObj = { id: tempId, user_id: user.id, username: user.username, content: newPost, media: mediaList, likes: 0, comments: [], mentions, hashtags, created_at: new Date().toISOString() };
+      setPosts([newPostObj, ...posts]);
+      setNewPost('');
+      setMediaList([]);
+      
+      const { data: inserted } = await supabase.from('posts').insert({
+        user_id: user.id, username: user.username, content: newPost, media: mediaList, likes: 0, comments: [], mentions, hashtags, created_at: new Date()
+      }).select().single();
+      if (inserted) setPosts(prev => prev.map(p => p.id === tempId ? inserted : p));
+      
+      for (const mention of mentions) {
+        const mentioned = users.find(u => u.username === mention);
+        if (mentioned && mentioned.id !== user.id) {
+          await supabase.from('notifications').insert({ user_id: mentioned.id, type: 'mention', from_user_id: user.id, from_username: user.username, text: `${user.username} отметил вас в посте`, read: false, created_at: new Date() });
+        }
+      }
+      showToast('Пост опубликован!');
+    };
+
+    const likePost = async (postId, likes) => {
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: likes + 1 } : p));
+      await supabase.from('posts').update({ likes: likes + 1 }).eq('id', postId);
+    };
+
+    const addComment = async (postId) => {
+      const text = commentTexts[postId] || '';
+      if (!text.trim()) return;
+      const post = posts.find(p => p.id === postId);
+      const newComment = { id: Date.now(), user_id: user.id, username: user.username, text, created_at: new Date().toISOString() };
+      const newComments = [...(post.comments || []), newComment];
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: newComments } : p));
+      setCommentTexts({ ...commentTexts, [postId]: '' });
+      await supabase.from('posts').update({ comments: newComments }).eq('id', postId);
+      if (post.user_id !== user.id) {
+        await supabase.from('notifications').insert({ user_id: post.user_id, type: 'comment', from_user_id: user.id, from_username: user.username, post_id: postId, text: `${user.username} прокомментировал ваш пост`, read: false, created_at: new Date() });
+      }
+    };
+
     const renderContent = (text) => {
       if (!text) return null;
-      const parts = text.split(/(@\w+)/g);
+      let parts = text.split(/(@\w+|#[\wа-яё]+)/gi);
       return parts.map((part, i) => {
         if (part.startsWith('@')) {
           const username = part.slice(1);
-          return <span key={i} className="mention" onClick={() => { const u = users.find(x => x.username === username); if (u) setViewProfile(u); }}>{part}</span>;
+          return <span key={i} className="mention" onClick={() => { const u = users.find(x => x.username === username); if (u) setViewProfile(u); else showToast(`Пользователь @${username} не найден`); }}>{part}</span>;
+        }
+        if (part.startsWith('#')) {
+          return <span key={i} className="hashtag" onClick={() => { setSearchQuery(part); setSearchType('posts'); setTab('search'); }}>{part}</span>;
         }
         return <span key={i}>{part}</span>;
       });
@@ -303,6 +390,24 @@
     };
 
     const filteredMentions = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 5);
+
+    // Dropdown меню для профиля
+    const DropdownMenu = () => {
+      const [open, setOpen] = React.useState(false);
+      const ref = React.useRef(null);
+      React.useEffect(() => { const fn = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }; document.addEventListener('click', fn); return () => document.removeEventListener('click', fn); }, []);
+      return (
+        <div className="relative" ref={ref}>
+          <button onClick={() => setOpen(!open)} className="text-gray-400 hover:text-white p-1"><i className="fas fa-ellipsis-h"></i></button>
+          {open && (
+            <div className="dropdown-menu">
+              <button onClick={() => { setEditingName(true); setOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#3a3a3a] rounded-t-xl"><i className="fas fa-pen mr-2"></i> Редактировать имя</button>
+              <button onClick={() => { setShowDeleteConfirm(true); setOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-[#3a3a3a] rounded-b-xl"><i className="fas fa-trash-alt mr-2"></i> Удалить аккаунт</button>
+            </div>
+          )}
+        </div>
+      );
+    };
 
     if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Загрузка...</div>;
 
@@ -356,9 +461,9 @@
           {userPosts.map(post => (
             <div key={post.id} className="card p-4 mb-4">
               <p className="text-white">{renderContent(post.content)}</p>
-              <div className="flex gap-4 mt-2 text-gray-500 text-sm">
-                <span>❤️ {post.likes || 0}</span>
-                <span>💬 {(post.comments || []).length}</span>
+              <div className="flex gap-4 mt-2 text-gray-400 text-sm">
+                <span><i className="fas fa-heart text-red-500"></i> {post.likes || 0}</span>
+                <span><i className="far fa-comment"></i> {(post.comments || []).length}</span>
               </div>
             </div>
           ))}
@@ -389,7 +494,7 @@
                 <div className="flex gap-3">
                   <img src={user.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full" />
                   <div className="flex-1 relative">
-                    <textarea ref={textareaRef} rows="2" placeholder="Что нового? Используй @username" className="w-full p-3 bg-[#333] rounded-xl text-white" value={newPost} onChange={handlePostInput} />
+                    <textarea ref={textareaRef} rows="2" placeholder="Что нового? Используй @username или #хештег" className="w-full p-3 bg-[#333] rounded-xl text-white" value={newPost} onChange={handlePostInput} />
                     {showMentions && filteredMentions.length > 0 && (
                       <div className="absolute bottom-full left-0 bg-[#2a2a2a] border border-gray-600 rounded-xl max-h-48 overflow-auto z-10 mb-1 w-48">
                         {filteredMentions.map(u => (
@@ -400,7 +505,21 @@
                         ))}
                       </div>
                     )}
-                    <button onClick={createPost} className="mt-2 bg-blue-600 text-white px-6 py-2 rounded-full text-sm btn">Опубликовать</button>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {mediaList.map((m, idx) => (
+                        <div key={idx} className="media-preview">
+                          {m.type === 'video' ? <video src={m.url} className="w-20 h-20 object-cover" /> : <img src={m.url} className="w-20 h-20 object-cover" />}
+                          <button className="remove-media" onClick={() => removeMedia(idx)}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <label className={`cursor-pointer bg-gray-700 p-2 rounded-xl ${uploadingMedia ? 'opacity-50' : ''}`}>
+                        <i className="fas fa-paperclip"></i>
+                        <input type="file" accept="image/*,video/*" multiple onChange={handleMediaUpload} className="hidden" disabled={uploadingMedia} />
+                      </label>
+                      <button onClick={createPost} className="bg-blue-600 text-white px-6 py-2 rounded-full text-sm btn">Опубликовать</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -414,12 +533,14 @@
                     <span className="text-gray-500 text-xs">{new Date(post.created_at).toLocaleString()}</span>
                   </div>
                   <p className="text-white">{renderContent(post.content)}</p>
+                  {post.media && post.media.length > 0 && (
+                    <div className="grid grid-cols-3 gap-1 mt-2">
+                      {post.media.map((m, idx) => m.type === 'video' ? <video key={idx} src={m.url} className="w-full h-24 object-cover rounded-lg" /> : <img key={idx} src={m.url} className="w-full h-24 object-cover rounded-lg" />)}
+                    </div>
+                  )}
                   <div className="flex gap-4 mt-3 text-gray-400 text-sm">
-                    <button onClick={() => likePost(post.id, post.likes || 0)} className="flex gap-1 hover:text-red-400">❤️ {post.likes || 0}</button>
-                    <button onClick={() => {
-                      const div = document.getElementById(`comments-${post.id}`);
-                      if (div) div.classList.toggle('hidden');
-                    }} className="flex gap-1 hover:text-blue-400">💬 {(post.comments || []).length}</button>
+                    <button onClick={() => likePost(post.id, post.likes || 0)} className="flex gap-1 hover:text-red-400"><i className="fas fa-heart"></i> {post.likes || 0}</button>
+                    <button onClick={() => { const div = document.getElementById(`comments-${post.id}`); if (div) div.classList.toggle('hidden'); }} className="flex gap-1 hover:text-blue-400"><i className="far fa-comment"></i> {(post.comments || []).length}</button>
                   </div>
                   <div id={`comments-${post.id}`} className="hidden mt-3 pt-3 border-t border-gray-700">
                     {(post.comments || []).map(c => (
@@ -441,13 +562,14 @@
           {tab === 'search' && (
             <div>
               <div className="card p-4 mb-6">
-                <input type="text" placeholder="Поиск..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full p-3 bg-[#333] rounded-xl text-white" />
-                <button onClick={() => {
-                  const res = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(searchQuery.toLowerCase()));
-                  setSearchResults(res);
-                }} className="mt-2 bg-gray-700 text-white px-4 py-2 rounded-xl btn">Найти</button>
+                <div className="flex gap-2 mb-3">
+                  <button onClick={() => setSearchType('users')} className={`px-3 py-1 rounded-full text-sm ${searchType === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>👥 Пользователи</button>
+                  <button onClick={() => setSearchType('posts')} className={`px-3 py-1 rounded-full text-sm ${searchType === 'posts' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>📄 Посты</button>
+                </div>
+                <input type="text" placeholder="Поиск пользователей, постов или хештегов #..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full p-3 bg-[#333] rounded-xl text-white" />
               </div>
-              {searchResults.map(u => (
+              
+              {searchType === 'users' && searchUserResults.map(u => (
                 <div key={u.id} className="card p-4 mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-3 cursor-pointer" onClick={() => setViewProfile(u)}>
                     <img src={u.avatar || 'https://via.placeholder.com/48'} className="w-10 h-10 rounded-full" />
@@ -456,6 +578,23 @@
                   <button onClick={() => { setChatUser(u); setTab('chat'); }} className="bg-green-600 text-white px-3 py-1 rounded-full text-sm btn">Чат</button>
                 </div>
               ))}
+              
+              {searchType === 'posts' && searchPostResults.map(post => (
+                <div key={post.id} className="card p-4 mb-3 cursor-pointer" onClick={() => { setTab('feed'); setTimeout(() => document.getElementById(`post-${post.id}`)?.scrollIntoView({ behavior: 'smooth' }), 100); }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <img src={post.user_avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
+                    <span className="font-bold text-white text-sm">@{post.username}</span>
+                  </div>
+                  <p className="text-white text-sm">{post.content.substring(0, 100)}...</p>
+                  <div className="flex gap-3 mt-2 text-gray-500 text-xs">
+                    <span><i className="fas fa-heart text-red-500"></i> {post.likes || 0}</span>
+                    <span><i className="far fa-comment"></i> {(post.comments || []).length}</span>
+                  </div>
+                </div>
+              ))}
+              
+              {searchQuery && searchType === 'users' && searchUserResults.length === 0 && <div className="text-center text-gray-500 py-4">Пользователи не найдены</div>}
+              {searchQuery && searchType === 'posts' && searchPostResults.length === 0 && <div className="text-center text-gray-500 py-4">Посты не найдены</div>}
             </div>
           )}
 
@@ -515,14 +654,22 @@
 
           {tab === 'profile' && (
             <div className="card p-6 text-center">
-              <div className="relative w-24 h-24 mx-auto">
-                <img src={user.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
-                <label className="absolute bottom-0 right-0 bg-gray-700 rounded-full p-1 cursor-pointer">
-                  <i className="fas fa-camera text-white text-xs"></i>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadAvatar(e.target.files[0])} disabled={avatarUploading} />
-                </label>
+              <div className="flex justify-end">
+                <DropdownMenu />
               </div>
-              <h2 className="text-xl font-bold text-white mt-2">{user.full_name || user.username}</h2>
+              <div className="profile-avatar w-24 h-24 mx-auto">
+                <img src={user.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
+                <input type="file" accept="image/*" onChange={(e) => uploadAvatar(e.target.files[0])} disabled={avatarUploading} />
+              </div>
+              {editingName ? (
+                <div className="flex gap-2 justify-center mt-2">
+                  <input value={newName} onChange={e => setNewName(e.target.value)} className="text-xl font-bold bg-[#333] rounded-lg px-2 py-1 text-white" />
+                  <button onClick={handleSaveName} className="bg-green-700 text-white px-3 rounded-lg">💾</button>
+                  <button onClick={() => { setEditingName(false); setNewName(user.full_name); }} className="bg-gray-700 text-white px-3 rounded-lg">✖</button>
+                </div>
+              ) : (
+                <h2 className="text-xl font-bold text-white mt-2">{user.full_name || user.username}</h2>
+              )}
               <p className="text-gray-400">@{user.username}</p>
               <p className="text-gray-500 text-sm mt-1">{user.bio || 'Нет описания'}</p>
               <div className="flex gap-6 justify-center mt-4">
@@ -530,6 +677,17 @@
                 <div><span className="font-bold text-white">{user.followers?.length || 0}</span><span className="text-gray-500 ml-1">подписчиков</span></div>
                 <div><span className="font-bold text-white">{user.following?.length || 0}</span><span className="text-gray-500 ml-1">подписок</span></div>
               </div>
+              {showDeleteConfirm && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setShowDeleteConfirm(false)}>
+                  <div className="bg-[#2a2a2a] rounded-3xl p-6 max-w-sm w-full">
+                    <p className="text-white mb-6">Удалить аккаунт навсегда?</p>
+                    <div className="flex gap-3">
+                      <button onClick={handleDeleteAccount} className="flex-1 bg-red-900 text-white py-2 rounded-xl hover:bg-red-800">Да</button>
+                      <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 bg-gray-700 text-white py-2 rounded-xl hover:bg-gray-600">Нет</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>
