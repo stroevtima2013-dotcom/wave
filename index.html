@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-  <title>Wave Social</title>
+  <title>Wave Social — Быстрая версия</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
@@ -14,18 +14,17 @@
     .card-bg { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 20px; }
     .hover-glow { transition: all 0.2s ease; }
     .hover-glow:hover { filter: drop-shadow(0 0 8px rgba(100,100,100,0.4)); transform: translateY(-1px); }
-    .chat-btn { background: #22c55e; transition: all 0.2s ease; padding: 6px 14px; border-radius: 24px; font-weight: 500; box-shadow: 0 0 5px rgba(34,197,94,0.3); }
-    .chat-btn:hover { background: #16a34a; transform: scale(1.02); box-shadow: 0 0 12px rgba(34,197,94,0.6); }
-    .publish-btn { background: #3b82f6; transition: all 0.2s ease; padding: 10px 24px; border-radius: 28px; font-weight: 600; box-shadow: 0 0 5px rgba(59,130,246,0.3); }
-    .publish-btn:hover { background: #2563eb; transform: scale(1.02); box-shadow: 0 0 12px rgba(59,130,246,0.6); }
+    .chat-btn { background: #22c55e; transition: all 0.2s ease; padding: 6px 14px; border-radius: 24px; font-weight: 500; }
+    .chat-btn:hover { background: #16a34a; transform: scale(1.02); }
+    .publish-btn { background: #3b82f6; transition: all 0.2s ease; padding: 10px 24px; border-radius: 28px; font-weight: 600; }
+    .publish-btn:hover { background: #2563eb; transform: scale(1.02); }
     .gray-btn { background: #3a3a3a; transition: all 0.2s ease; padding: 8px 18px; border-radius: 24px; font-weight: 500; }
-    .gray-btn:hover { background: #4a4a4a; transform: scale(1.02); box-shadow: 0 0 8px rgba(100,100,100,0.3); }
+    .gray-btn:hover { background: #4a4a4a; transform: scale(1.02); }
     .toast-notify { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #2a2a2a; border: 1px solid #3a3a3a; color: white; padding: 10px 20px; border-radius: 40px; z-index: 1000; font-size: 14px; }
     input, textarea { background: #2a2a2a; border: 1px solid #3a3a3a; color: white; outline: none; border-radius: 16px; padding: 12px; }
     input:focus, textarea:focus { border-color: #5a5a5a; }
     .photo-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .photo-modal img, .photo-modal video { max-width: 95vw; max-height: 95vh; border-radius: 24px; box-shadow: 0 0 50px rgba(255,255,255,0.15); }
-    .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 12px; z-index: 50; min-width: 140px; }
     .media-preview { position: relative; display: inline-block; margin: 5px; border-radius: 12px; overflow: hidden; border: 2px solid #3a3a3a; cursor: pointer; }
     .media-preview img { width: 80px; height: 80px; object-fit: cover; }
     .media-preview video { width: 80px; height: 80px; object-fit: cover; }
@@ -124,8 +123,8 @@
   const FullscreenMedia = ({ src, onClose }) => (
     <div className="photo-modal" onClick={onClose}>
       {src?.includes('mp4') || src?.includes('webm') ? 
-        <video src={src} controls autoPlay className="max-w-[95vw] max-h-[95vh] rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.15)]" onClick={(e) => e.stopPropagation()} /> :
-        <img src={src} className="max-w-[95vw] max-h-[95vh] rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.15)]" onClick={(e) => e.stopPropagation()} />
+        <video src={src} controls autoPlay className="max-w-[95vw] max-h-[95vh] rounded-3xl" onClick={(e) => e.stopPropagation()} /> :
+        <img src={src} className="max-w-[95vw] max-h-[95vh] rounded-3xl" onClick={(e) => e.stopPropagation()} />
       }
     </div>
   );
@@ -230,32 +229,30 @@
     const textareaRef = React.useRef(null);
     
     const loadData = async () => {
-      try {
-        const [postsRes, usersRes, messagesRes, notifsRes] = await Promise.all([
-          supabase.from('posts').select('*').order('created_at', { ascending: false }),
-          supabase.from('users').select('*'),
-          supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
-          supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-        ]);
-        setPosts(postsRes.data || []);
-        setUsers(usersRes.data || []);
-        setNotifications(notifsRes.data || []);
-        
-        const msgs = messagesRes.data || [];
-        const chatUsersSet = new Set();
-        msgs.forEach(m => { if (m.from_user !== user.id) chatUsersSet.add(m.from_user); if (m.to_user !== user.id) chatUsersSet.add(m.to_user); });
-        setChatList(usersRes.data?.filter(u => chatUsersSet.has(u.id)) || []);
-        
-        const counts = {};
-        msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
-        setUnreadCounts(counts);
-        
-        if (chatUser) {
-          const chatMsgs = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-          setMessages(chatMsgs);
-          await supabase.from('messages').update({ read: true }).eq('to_user', user.id).eq('from_user', chatUser.id);
-        }
-      } catch(e) { console.error(e); }
+      const [postsRes, usersRes, messagesRes, notifsRes] = await Promise.all([
+        supabase.from('posts').select('*').order('created_at', { ascending: false }),
+        supabase.from('users').select('*'),
+        supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
+        supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+      ]);
+      setPosts(postsRes.data || []);
+      setUsers(usersRes.data || []);
+      setNotifications(notifsRes.data || []);
+      
+      const msgs = messagesRes.data || [];
+      const chatUsersSet = new Set();
+      msgs.forEach(m => { if (m.from_user !== user.id) chatUsersSet.add(m.from_user); if (m.to_user !== user.id) chatUsersSet.add(m.to_user); });
+      setChatList(usersRes.data?.filter(u => chatUsersSet.has(u.id)) || []);
+      
+      const counts = {};
+      msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
+      setUnreadCounts(counts);
+      
+      if (chatUser) {
+        const chatMsgs = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+        setMessages(chatMsgs);
+        await supabase.from('messages').update({ read: true }).eq('to_user', user.id).eq('from_user', chatUser.id);
+      }
       setLoading(false);
     };
     
@@ -360,11 +357,36 @@
     
     const handleCreatePost = async () => {
       if (!newPostContent.trim() && mediaList.length === 0) { showToast('Напишите текст или добавьте медиа'); return; }
+      
+      // МГНОВЕННО добавляем пост в ленту (оптимистичное обновление)
+      const tempId = Date.now();
+      const newPost = {
+        id: tempId,
+        user_id: user.id,
+        username: user.username,
+        user_avatar: user.avatar,
+        content: newPostContent,
+        media: mediaList,
+        likes: 0,
+        comments: [],
+        mentions: [],
+        created_at: new Date().toISOString()
+      };
+      setPosts([newPost, ...posts]);
+      
       const mentions = [...newPostContent.matchAll(/@(\w+)/g)].map(m => m[1]);
-      await supabase.from('posts').insert({
+      
+      // Фоновый запрос к БД
+      const { data: inserted } = await supabase.from('posts').insert({
         user_id: user.id, username: user.username, user_avatar: user.avatar,
         content: newPostContent, media: mediaList, likes: 0, comments: [], mentions, created_at: new Date()
-      });
+        }).select().single();
+      
+      // Заменяем временный ID на реальный
+      if (inserted) {
+        setPosts(prev => prev.map(p => p.id === tempId ? { ...inserted, media: mediaList } : p));
+      }
+      
       for (const mention of mentions) {
         const mentionedUser = users.find(u => u.username === mention);
         if (mentionedUser && mentionedUser.id !== user.id) {
@@ -374,9 +396,9 @@
           });
         }
       }
+      
       setNewPostContent('');
       setMediaList([]);
-      loadData();
       showToast('Пост опубликован!');
     };
     
@@ -507,6 +529,7 @@
             </>
           )}
           
+          {/* Поиск */}
           {activeTab === 'search' && (
             <div>
               <div className="card-bg p-4 mb-6">
@@ -518,26 +541,19 @@
                     const resultsDiv = document.getElementById('searchResults');
                     if (resultsDiv) {
                       resultsDiv.innerHTML = results.map(u => `
-                        <div class="card-bg p-4 mb-3 flex items-center justify-between search-result">
-                          <div class="flex gap-3 cursor-pointer" data-userid="${u.id}">
+                        <div class="card-bg p-4 mb-3 flex items-center justify-between search-result" data-userid="${u.id}">
+                          <div class="flex gap-3 cursor-pointer">
                             <img src="${u.avatar || 'https://via.placeholder.com/48'}" class="w-12 h-12 rounded-full" />
                             <div><div class="font-bold text-white">${u.full_name || u.username}</div><div class="text-sm text-gray-400">@${u.username}</div></div>
                           </div>
                           <button class="chat-btn text-white text-sm" data-userid="${u.id}">Чат</button>
                         </div>
                       `).join('');
-                      document.querySelectorAll('#searchResults [data-userid]').forEach(el => {
+                      document.querySelectorAll('#searchResults .search-result').forEach(el => {
                         el.addEventListener('click', (e) => {
                           const userId = el.getAttribute('data-userid');
                           const foundUser = users.find(u => u.id === userId);
                           if (foundUser) setViewingUser(foundUser);
-                        });
-                      });
-                      document.querySelectorAll('#searchResults .chat-btn').forEach(btn => {
-                        btn.addEventListener('click', (e) => {
-                          const userId = btn.getAttribute('data-userid');
-                          const foundUser = users.find(u => u.id === userId);
-                          if (foundUser) { setChatUser(foundUser); setActiveTab('chat'); }
                         });
                       });
                     }
