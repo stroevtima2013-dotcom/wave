@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Wave Social — быстрая загрузка</title>
+  <title>Wave Social — финал</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
@@ -11,10 +11,8 @@
   <style>
     * { font-family: 'Inter', sans-serif; }
     body { background: #0f0f0f; }
-    .card { background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 24px; transition: 0.2s; }
-    .card:hover { transform: translateY(-3px); border-color: #3a3a3a; }
-    .skeleton { background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 20px; }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .card { background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 24px; transition: 0.2s; box-shadow: 0 0 5px rgba(255,255,255,0.05); }
+    .card:hover { transform: translateY(-3px); border-color: #4a4a4a; box-shadow: 0 0 20px rgba(255,255,255,0.1); }
     .btn { transition: 0.2s; cursor: pointer; }
     .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e1e1e; border: 1px solid #333; color: white; padding: 8px 18px; border-radius: 40px; z-index: 1000; font-size: 14px; }
     .media-preview { position: relative; display: inline-block; margin: 4px; border-radius: 14px; overflow: hidden; border: 1px solid #3a3a3a; width: 80px; height: 80px; }
@@ -32,6 +30,8 @@
     .share-user:hover { background: #2a2a2a; }
     .mention { color: #3b82f6; font-weight: 500; cursor: pointer; }
     .hashtag { color: #eab308; font-weight: 500; cursor: pointer; }
+    .skeleton { background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 20px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
   </style>
 </head>
 <body>
@@ -42,7 +42,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 
 <script type="text/babel">
-  // ========== НАСТРОЙКИ ==========
   const SUPABASE_URL = "https://udjyttttghwtylzjavmw.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_U_lF6X0ZakHsq6I_f8byHA_91hFjf3y";
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -76,7 +75,7 @@
     return num.toString();
   }
 
-  // ========== ВХОД/РЕГИСТРАЦИЯ ==========
+  // ========== ВХОД ПО ПАРОЛЮ ==========
   function PasswordGate({ onSuccess }) {
     const [pass, setPass] = React.useState('');
     const [err, setErr] = React.useState('');
@@ -96,6 +95,7 @@
     );
   }
 
+  // ========== РЕГИСТРАЦИЯ / ВХОД ==========
   function Auth({ onLogin }) {
     const [isLogin, setIsLogin] = React.useState(true);
     const [username, setUsername] = React.useState('');
@@ -141,7 +141,7 @@
     );
   }
 
-  // ========== ОСНОВНОЙ КОМПОНЕНТ (сразу рендерится) ==========
+  // ========== ОСНОВНОЙ КОМПОНЕНТ ==========
   function MainApp({ user, onLogout }) {
     const [tab, setTab] = React.useState('feed');
     const [posts, setPosts] = React.useState([]);
@@ -152,7 +152,7 @@
     const [unread, setUnread] = React.useState({});
     const [notifications, setNotifications] = React.useState([]);
     const [viewProfile, setViewProfile] = React.useState(null);
-    const [dataLoaded, setDataLoaded] = React.useState(false);
+    const [loading, setLoading] = React.useState(true);
     const [newPost, setNewPost] = React.useState('');
     const [commentTexts, setCommentTexts] = React.useState({});
     const [msgText, setMsgText] = React.useState('');
@@ -184,54 +184,34 @@
     const [replyToMsg, setReplyToMsg] = React.useState(null);
     const [replyingToComment, setReplyingToComment] = React.useState(null);
 
-    // Фоновая загрузка данных (не блокирует интерфейс)
-    React.useEffect(() => {
-      Promise.all([
+    // Загрузка данных
+    const loadData = async () => {
+      const [postsRes, usersRes, msgsRes, notifsRes] = await Promise.all([
         supabase.from('posts').select('*').order('created_at', { ascending: false }),
         supabase.from('users').select('*'),
         supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
         supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-      ]).then(([postsRes, usersRes, msgsRes, notifsRes]) => {
-        setPosts(postsRes.data || []);
-        setUsers(usersRes.data || []);
-        setNotifications(notifsRes.data || []);
-        const msgs = msgsRes.data || [];
-        const chatSet = new Set();
-        msgs.forEach(m => { if (m.from_user !== user.id) chatSet.add(m.from_user); if (m.to_user !== user.id) chatSet.add(m.to_user); });
-        setChatList(usersRes.data?.filter(u => chatSet.has(u.id)) || []);
-        const counts = {};
-        msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
-        setUnread(counts);
-        if (chatUser) {
-          const chatMsg = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-          setMessages(chatMsg);
-          supabase.from('messages').update({ read: true }).eq('to_user', user.id).eq('from_user', chatUser.id);
-        }
-        setDataLoaded(true);
-      });
-    }, [chatUser]);
+      ]);
+      setPosts(postsRes.data || []);
+      setUsers(usersRes.data || []);
+      setNotifications(notifsRes.data || []);
+      const msgs = msgsRes.data || [];
+      const chatSet = new Set();
+      msgs.forEach(m => { if (m.from_user !== user.id) chatSet.add(m.from_user); if (m.to_user !== user.id) chatSet.add(m.to_user); });
+      setChatList(usersRes.data?.filter(u => chatSet.has(u.id)) || []);
+      const counts = {};
+      msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
+      setUnread(counts);
+      if (chatUser) {
+        const chatMsg = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+        setMessages(chatMsg);
+        await supabase.from('messages').update({ read: true }).eq('to_user', user.id).eq('from_user', chatUser.id);
+      }
+      setLoading(false);
+    };
+    React.useEffect(() => { loadData(); }, []);
 
-    // Realtime для сообщений
-    React.useEffect(() => {
-      if (!chatUser) return;
-      const sub = supabase
-        .channel('msgs')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `to_user=eq.${user.id},from_user=eq.${chatUser.id}` }, (payload) => {
-          setMessages(prev => [...prev, payload.new]);
-          supabase.from('messages').update({ read: true }).eq('id', payload.new.id);
-          setUnread(prev => ({ ...prev, [chatUser.id]: 0 }));
-        })
-        .subscribe();
-      return () => sub.unsubscribe();
-    }, [chatUser, user.id]);
-
-    // Поиск
-    React.useEffect(() => {
-      if (!searchQuery.trim()) { setSearchUserResults([]); setSearchPostResults([]); return; }
-      if (searchType === 'users') setSearchUserResults(users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(searchQuery.toLowerCase())));
-      else setSearchPostResults(posts.filter(p => p.content.toLowerCase().includes(searchQuery.toLowerCase()) || (searchQuery.startsWith('#') && p.content.toLowerCase().includes(searchQuery.toLowerCase()))));
-    }, [searchQuery, searchType, users, posts]);
-
+    // Загрузка медиа в Storage
     const uploadMediaFiles = async (files) => {
       const uploaded = [];
       for (const f of files) {
@@ -279,7 +259,7 @@
         const newFollowers = isFollow ? followers.filter(id => id !== user.id) : [...followers, user.id];
         await supabase.from('users').update({ followers: newFollowers }).eq('id', targetId);
       }
-      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, following: newFollowing } : u.id === targetId ? { ...u, followers: newFollowers } : u));
+      await loadData();
       showToast(isFollow ? 'Отписались' : 'Подписались');
     };
 
@@ -292,7 +272,7 @@
       const { data: { publicUrl } } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
       await supabase.from('users').update({ avatar: publicUrl }).eq('id', user.id);
       user.avatar = publicUrl;
-      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, avatar: publicUrl } : u));
+      await loadData();
       setAvatarUploading(false);
       showToast('Аватар обновлён');
     };
@@ -307,7 +287,7 @@
       await supabase.from('users').update({ full_name: editName, bio: editBio }).eq('id', user.id);
       user.full_name = editName; user.bio = editBio;
       setEditingProfile(false);
-      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, full_name: editName, bio: editBio } : u));
+      await loadData();
       showToast('Профиль обновлён');
     };
 
@@ -343,16 +323,9 @@
         const mentioned = users.find(u => u.username === m);
         if (mentioned && mentioned.id !== user.id) {
           await supabase.from('notifications').insert({ user_id: mentioned.id, type: 'mention', from_user_id: user.id, from_username: user.username, text: `${user.username} отметил вас в посте`, read: false, created_at: new Date() });
-          setNotifications(prev => [{ id: Date.now(), text: `${user.username} отметил вас в посте`, read: false, created_at: new Date() }, ...prev]);
         }
       }
       showToast('Пост опубликован!');
-    };
-
-    const likePost = async (pid, current) => {
-      const newLikes = current + 1;
-      setPosts(prev => prev.map(p => p.id === pid ? { ...p, likes: newLikes } : p));
-      await supabase.from('posts').update({ likes: newLikes }).eq('id', pid);
     };
 
     const addComment = async (postId) => {
@@ -368,8 +341,13 @@
       await supabase.from('posts').update({ comments: newComments }).eq('id', postId);
       if (post.user_id !== user.id) {
         await supabase.from('notifications').insert({ user_id: post.user_id, type: 'comment', from_user_id: user.id, from_username: user.username, post_id: postId, text: `${user.username} прокомментировал ваш пост`, read: false, created_at: new Date() });
-        setNotifications(prev => [{ id: Date.now(), text: `${user.username} прокомментировал ваш пост`, read: false, created_at: new Date() }, ...prev]);
       }
+    };
+
+    const likePost = async (pid, current) => {
+      const newLikes = current + 1;
+      setPosts(prev => prev.map(p => p.id === pid ? { ...p, likes: newLikes } : p));
+      await supabase.from('posts').update({ likes: newLikes }).eq('id', pid);
     };
 
     const deleteComment = async (postId, commentId) => {
@@ -401,7 +379,6 @@
         if (targetUser) {
           await supabase.from('messages').insert({ from_user: user.id, to_user: targetId, content: `📌 Поделился(ась) постом @${sharingPost.username}: "${sharingPost.content.substring(0, 120)}"`, read: false, created_at: new Date() });
           await supabase.from('notifications').insert({ user_id: targetId, type: 'message', from_user_id: user.id, from_username: user.username, text: `${user.username} поделился с вами постом`, read: false, created_at: new Date() });
-          setNotifications(prev => [{ id: Date.now(), text: `${user.username} поделился с вами постом`, read: false, created_at: new Date() }, ...prev]);
         }
       }
       showToast(`Поделились с ${shareSelected.length} пользователями`);
@@ -479,7 +456,8 @@
       );
     };
 
-    // Профиль другого пользователя (сразу рендерится)
+    if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Загрузка...</div>;
+
     if (viewProfile) {
       const profileUser = viewProfile;
       const isFollowing = (user.following || []).includes(profileUser.id);
@@ -508,31 +486,8 @@
       );
     }
 
-    // Скелетоны, пока данные не загрузились
-    if (!dataLoaded) {
-      return (
-        <div className="min-h-screen">
-          <div className="sticky top-0 z-20 border-b border-gray-800 bg-[#0f0f0f]/90 backdrop-blur-md p-4">
-            <div className="max-w-2xl mx-auto flex justify-between items-center">
-              <div className="flex items-center gap-2"><i className="fas fa-water text-white text-2xl"></i><span className="text-white font-bold text-xl">Wave</span></div>
-              <div className="flex gap-4 text-gray-400">
-                <div className="w-6 h-6 skeleton"></div><div className="w-6 h-6 skeleton"></div><div className="w-6 h-6 skeleton"></div><div className="w-6 h-6 skeleton"></div><div className="w-6 h-6 skeleton"></div>
-              </div>
-            </div>
-          </div>
-          <div className="max-w-2xl mx-auto p-4">
-            <div className="skeleton h-32 mb-6"></div>
-            <div className="skeleton h-40 mb-4"></div>
-            <div className="skeleton h-40 mb-4"></div>
-            <div className="skeleton h-40 mb-4"></div>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="min-h-screen pb-20">
-        {/* модалки удаления/шеринга */}
         {postToDelete && <div className="modal-overlay" onClick={()=>setPostToDelete(null)}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-6">Удалить пост?</p><div className="flex gap-3"><button onClick={()=>deletePost(postToDelete)} className="flex-1 bg-red-900 text-white py-2 rounded-xl btn">Да</button><button onClick={()=>setPostToDelete(null)} className="flex-1 bg-gray-700 text-white py-2 rounded-xl btn">Нет</button></div></div></div>}
         {selectedComment && <div className="modal-overlay" onClick={()=>setSelectedComment(null)}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-4 text-sm">{selectedComment.comment.text}</p><div className="flex flex-col gap-2"><button onClick={()=>{setReplyingToComment(selectedComment.comment); setSelectedComment(null);}} className="bg-blue-600 text-white py-2 rounded-xl btn">Ответить</button><button onClick={()=>deleteComment(selectedComment.postId, selectedComment.comment.id)} className="bg-red-900 text-white py-2 rounded-xl btn">Удалить</button><button onClick={()=>setSelectedComment(null)} className="bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
         {selectedMessage && <div className="modal-overlay" onClick={()=>setSelectedMessage(null)}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-4 text-sm">{selectedMessage.msg.content}</p><div className="flex flex-col gap-2"><button onClick={()=>{setReplyToMsg(selectedMessage.msg); setSelectedMessage(null);}} className="bg-blue-600 text-white py-2 rounded-xl btn">Ответить</button><button onClick={()=>deleteMessage(selectedMessage.msg.id)} className="bg-red-900 text-white py-2 rounded-xl btn">Удалить</button><button onClick={()=>setSelectedMessage(null)} className="bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
