@@ -3,16 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Wave Social</title>
+  <title>Wave Social — Полная версия</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    * { font-family: system-ui, -apple-system, sans-serif; }
+    * { font-family: 'Inter', sans-serif; }
     body { background: #0a0a0a; }
-    .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 16px; }
-    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1a1a1a; border: 1px solid #2a2a2a; color: white; padding: 8px 16px; border-radius: 40px; z-index: 1000; font-size: 14px; }
-    .chat-btn { background: #22c55e; padding: 4px 12px; border-radius: 20px; color: white; font-size: 12px; }
-    .chat-btn:hover { background: #16a34a; }
+    .card-bg { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 20px; }
+    .chat-btn { background: #22c55e; padding: 4px 12px; border-radius: 20px; color: white; font-size: 12px; transition: all 0.2s; }
+    .chat-btn:hover { background: #16a34a; transform: scale(1.02); }
+    .toast-notify { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; border: 1px solid #2a2a2a; color: white; padding: 8px 16px; border-radius: 40px; z-index: 1000; font-size: 14px; }
+    input, textarea { background: #1a1a1a; border: 1px solid #2a2a2a; color: white; outline: none; border-radius: 16px; }
+    input:focus, textarea:focus { border-color: #4a4a4a; }
+    .notification-badge { position: absolute; top: -5px; right: -10px; background: #ef4444; color: white; font-size: 10px; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+    .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; z-index: 50; min-width: 140px; }
   </style>
 </head>
 <body>
@@ -23,35 +29,33 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 
 <script type="text/babel">
-  // ========== ВСТАВЬ СВОИ КЛЮЧИ ==========
+  const SITE_PASSWORD = "8554social";
   const SUPABASE_URL = "https://udjyttttghwtylzjavmw.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_U_lF6X0ZakHsq6I_f8byHA_91hFjf3y";
-  // ======================================
-  
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   function showToast(msg) {
     const toast = document.createElement('div');
-    toast.className = 'toast';
+    toast.className = 'toast-notify';
     toast.innerText = msg;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 2500);
   }
 
-  // ========== ВХОД ПО ПАРОЛЮ ==========
-  function PasswordGate({ onSuccess }) {
+  // ========== ЭКРАН ВХОДА ПО ПАРОЛЮ ==========
+  function SitePasswordGate({ onSuccess }) {
     const [password, setPassword] = React.useState('');
     const [error, setError] = React.useState('');
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] p-4">
-        <div className="card p-8 max-w-md w-full text-center">
-          <i className="fas fa-lock text-4xl text-white mb-4"></i>
-          <h1 className="text-2xl font-bold text-white">Wave Social</h1>
+        <div className="card-bg p-8 max-w-md w-full text-center">
+          <i className="fas fa-lock text-5xl text-white opacity-80"></i>
+          <h1 className="text-3xl font-bold mt-4 text-white">Wave Social</h1>
           <p className="text-gray-500 mt-2">Введите пароль</p>
-          <form onSubmit={(e) => { e.preventDefault(); if (password === '8554social') { localStorage.setItem('wave_access', 'ok'); onSuccess(); } else setError('Неверный пароль'); }} className="mt-6">
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white text-center" autoFocus />
-            {error && <div className="text-red-400 text-sm mt-2">{error}</div>}
-            <button type="submit" className="w-full mt-4 bg-gray-800 text-white py-2 rounded-xl">Войти</button>
+          <form onSubmit={(e) => { e.preventDefault(); if (password === SITE_PASSWORD) { localStorage.setItem('wave_site_access', 'granted'); onSuccess(); } else setError('Неверный пароль'); }} className="space-y-4 mt-6">
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-2xl text-white text-center text-xl" autoFocus />
+            {error && <div className="text-red-400 text-sm">{error}</div>}
+            <button type="submit" className="w-full bg-gray-800 text-white py-3 rounded-2xl font-semibold hover:bg-gray-700">Войти</button>
           </form>
         </div>
       </div>
@@ -71,19 +75,16 @@
       e.preventDefault();
       setError('');
       setLoading(true);
-      
       if (isLogin) {
-        const { data: userData, error } = await supabase.from('users').select('*').eq('username', username).single();
-        if (error || !userData) { setError('Пользователь не найден'); setLoading(false); return; }
+        const { data: userData } = await supabase.from('users').select('*').eq('username', username).single();
+        if (!userData) { setError('Пользователь не найден'); setLoading(false); return; }
         if (password === userData.password_hash) onLogin(userData);
         else setError('Неверный пароль');
       } else {
         if (password.length < 4) { setError('Пароль минимум 4 символа'); setLoading(false); return; }
         const { data: existing } = await supabase.from('users').select('username').eq('username', username).single();
         if (existing) { setError('Имя уже занято'); setLoading(false); return; }
-        const { data: newUser } = await supabase.from('users').insert({ 
-          username, full_name: fullName || username, password_hash: password, bio: 'Новый пользователь!' 
-        }).select().single();
+        const { data: newUser } = await supabase.from('users').insert({ username, full_name: fullName || username, password_hash: password, bio: 'Новый пользователь!' }).select().single();
         if (newUser) onLogin(newUser);
         else setError('Ошибка регистрации');
       }
@@ -92,22 +93,22 @@
   
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] p-4">
-        <div className="card p-8 max-w-md w-full">
-          <div className="text-center"><i className="fas fa-water text-4xl text-white"></i><h1 className="text-2xl font-bold mt-2 text-white">Wave Social</h1></div>
+        <div className="card-bg p-8 max-w-md w-full">
+          <div className="text-center"><i className="fas fa-water text-5xl text-white opacity-80"></i><h1 className="text-3xl font-bold mt-2 text-white">Wave Social</h1></div>
           <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-            <input type="text" placeholder="Логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" required />
-            <input type="password" placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" required />
-            {!isLogin && <input type="text" placeholder="Имя" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" />}
+            <input type="text" placeholder="Логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-2xl text-white" required />
+            <input type="password" placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-2xl text-white" required />
+            {!isLogin && <input type="text" placeholder="Имя" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-2xl text-white" />}
             {error && <div className="text-red-400 text-sm">{error}</div>}
-            <button type="submit" disabled={loading} className="w-full bg-gray-800 text-white py-3 rounded-xl font-semibold">{loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}</button>
+            <button type="submit" disabled={loading} className="w-full bg-gray-800 text-white py-3 rounded-2xl font-semibold hover:bg-gray-700">{loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}</button>
           </form>
-          <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="w-full mt-4 text-gray-500 text-sm">{isLogin ? 'Нет аккаунта?' : 'Уже есть аккаунт?'}</button>
+          <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="w-full mt-4 text-gray-500 text-sm hover:text-gray-400">{isLogin ? 'Нет аккаунта?' : 'Уже есть аккаунт?'}</button>
         </div>
       </div>
     );
   }
 
-  // ========== ГЛАВНОЕ ПРИЛОЖЕНИЕ ==========
+  // ========== ОСНОВНОЕ ПРИЛОЖЕНИЕ ==========
   function MainApp({ user, onLogout }) {
     const [activeTab, setActiveTab] = React.useState('feed');
     const [posts, setPosts] = React.useState([]);
@@ -117,37 +118,36 @@
     const [chatList, setChatList] = React.useState([]);
     const [unreadCounts, setUnreadCounts] = React.useState({});
     const [notifications, setNotifications] = React.useState([]);
-    const [viewProfile, setViewProfile] = React.useState(null);
+    const [viewingUser, setViewingUser] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
     const [commentTexts, setCommentTexts] = React.useState({});
+    const [following, setFollowing] = React.useState(user.following || []);
     
     const loadData = async () => {
-      try {
-        const [postsRes, usersRes, messagesRes, notifsRes] = await Promise.all([
-          supabase.from('posts').select('*').order('created_at', { ascending: false }),
-          supabase.from('users').select('*'),
-          supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
-          supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-        ]);
-        setPosts(postsRes.data || []);
-        setUsers(usersRes.data || []);
-        setNotifications(notifsRes.data || []);
-        
-        const msgs = messagesRes.data || [];
-        const chatUsersSet = new Set();
-        msgs.forEach(m => { if (m.from_user !== user.id) chatUsersSet.add(m.from_user); if (m.to_user !== user.id) chatUsersSet.add(m.to_user); });
-        setChatList(usersRes.data?.filter(u => chatUsersSet.has(u.id)) || []);
-        
-        const counts = {};
-        msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
-        setUnreadCounts(counts);
-        
-        if (chatUser) {
-          const chatMsgs = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-          setMessages(chatMsgs);
-          await supabase.from('messages').update({ read: true }).eq('to_user', user.id).eq('from_user', chatUser.id);
-        }
-      } catch(e) { console.error(e); }
+      const [postsRes, usersRes, messagesRes, notifsRes] = await Promise.all([
+        supabase.from('posts').select('*').order('created_at', { ascending: false }),
+        supabase.from('users').select('*'),
+        supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
+        supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+      ]);
+      setPosts(postsRes.data || []);
+      setUsers(usersRes.data || []);
+      setNotifications(notifsRes.data || []);
+      
+      const msgs = messagesRes.data || [];
+      const chatUsersSet = new Set();
+      msgs.forEach(m => { if (m.from_user !== user.id) chatUsersSet.add(m.from_user); if (m.to_user !== user.id) chatUsersSet.add(m.to_user); });
+      setChatList(usersRes.data?.filter(u => chatUsersSet.has(u.id)) || []);
+      
+      const counts = {};
+      msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
+      setUnreadCounts(counts);
+      
+      if (chatUser) {
+        const chatMsgs = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+        setMessages(chatMsgs);
+        await supabase.from('messages').update({ read: true }).eq('to_user', user.id).eq('from_user', chatUser.id);
+      }
       setLoading(false);
     };
     
@@ -196,39 +196,52 @@
       document.getElementById('msgInput').value = '';
       loadData();
       addNotification('message', chatUser.id);
-      showToast('Сообщение отправлено');
     };
     
-    const handleFollow = async (targetUserId) => {
-      let following = user.following || [];
-      if (following.includes(targetUserId)) following = following.filter(id => id !== targetUserId);
-      else following.push(targetUserId);
-      await supabase.from('users').update({ following }).eq('id', user.id);
+    const followUser = async (targetUserId) => {
+      let newFollowing = following.includes(targetUserId) 
+        ? following.filter(id => id !== targetUserId)
+        : [...following, targetUserId];
+      setFollowing(newFollowing);
+      await supabase.from('users').update({ following: newFollowing }).eq('id', user.id);
       loadData();
-      showToast(following.includes(targetUserId) ? 'Подписан ✅' : 'Отписался ❌');
+      showToast(newFollowing.includes(targetUserId) ? 'Подписан ✅' : 'Отписался ❌');
     };
     
-    if (loading) return <div className="p-4 text-white text-center">Загрузка...</div>;
+    const createPost = async () => {
+      const content = document.getElementById('newPostText')?.value;
+      if (!content?.trim()) return;
+      await supabase.from('posts').insert({
+        user_id: user.id, username: user.username, user_avatar: user.avatar,
+        content, likes: 0, comments: [], created_at: new Date()
+      });
+      document.getElementById('newPostText').value = '';
+      loadData();
+      showToast('Пост опубликован!');
+    };
+    
+    if (loading) return <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">Загрузка...</div>;
     
     // Профиль другого пользователя
-    if (viewProfile) {
-      const otherUser = viewProfile;
-      const isFollowing = (user.following || []).includes(otherUser.id);
+    if (viewingUser) {
+      const otherUser = viewingUser;
+      const isFollowingUser = following.includes(otherUser.id);
+      const userPosts = posts.filter(p => p.user_id === otherUser.id);
       return (
         <div className="min-h-screen bg-[#0a0a0a] p-4">
-          <button onClick={() => setViewProfile(null)} className="text-gray-400 mb-4">← Назад</button>
-          <div className="card p-6 text-center mb-6">
-            <img src={otherUser.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto" />
+          <button onClick={() => setViewingUser(null)} className="text-gray-400 mb-4 hover:text-white"><i className="fas fa-arrow-left mr-2"></i> Назад</button>
+          <div className="card-bg rounded-3xl overflow-hidden p-6 text-center mb-6">
+            <img src={otherUser.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
             <h2 className="text-xl font-bold text-white mt-2">{otherUser.full_name || otherUser.username}</h2>
             <p className="text-gray-400">@{otherUser.username}</p>
-            <p className="text-gray-500 text-sm">{otherUser.bio || 'Нет описания'}</p>
+            <p className="text-gray-500 text-sm mt-1">{otherUser.bio || 'Нет описания'}</p>
             <div className="flex gap-3 justify-center mt-4">
-              <button onClick={() => { setChatUser(otherUser); setActiveTab('chat'); setViewProfile(null); }} className="chat-btn">Чат</button>
-              <button onClick={() => handleFollow(otherUser.id)} className={`px-4 py-1 rounded-full text-sm ${isFollowing ? 'bg-gray-700' : 'bg-blue-600'}`}>{isFollowing ? 'Отписаться' : 'Подписаться'}</button>
+              <button onClick={() => { setChatUser(otherUser); setActiveTab('chat'); setViewingUser(null); }} className="chat-btn">Чат</button>
+              <button onClick={() => followUser(otherUser.id)} className={`px-4 py-1 rounded-full text-sm ${isFollowingUser ? 'bg-gray-700' : 'bg-blue-600'}`}>{isFollowingUser ? 'Отписаться' : 'Подписаться'}</button>
             </div>
           </div>
-          {posts.filter(p => p.user_id === otherUser.id).map(post => (
-            <div key={post.id} className="card p-4 mb-4">
+          {userPosts.map(post => (
+            <div key={post.id} className="card-bg p-4 mb-4">
               <p className="text-white">{post.content}</p>
               <div className="text-xs text-gray-500 mt-2">{new Date(post.created_at).toLocaleString()}</div>
             </div>
@@ -239,15 +252,17 @@
     
     return (
       <div className="min-h-screen bg-[#0a0a0a]">
-        {/* Шапка */}
-        <header className="sticky top-0 border-b border-gray-800 bg-[#0a0a0a]/90 p-4 flex justify-between items-center">
-          <div className="flex items-center gap-2"><i className="fas fa-water text-white text-2xl"></i><span className="text-white font-bold">Wave</span></div>
-          <div className="flex gap-4">
-            <button onClick={() => { setActiveTab('feed'); setChatUser(null); }} className={`text-gray-400 ${activeTab === 'feed' ? 'text-white' : ''}`}>🏠</button>
-            <button onClick={() => { setActiveTab('chat'); }} className={`text-gray-400 ${activeTab === 'chat' ? 'text-white' : ''}`}>💬{Object.values(unreadCounts).reduce((a,b)=>a+b,0)>0 && <span className="ml-1 text-xs bg-red-500 px-1 rounded-full">{Object.values(unreadCounts).reduce((a,b)=>a+b,0)}</span>}</button>
-            <button onClick={() => { setActiveTab('notifications'); }} className={`text-gray-400 ${activeTab === 'notifications' ? 'text-white' : ''}`}>🔔{notifications.filter(n => !n.read).length > 0 && <span className="ml-1 text-xs bg-red-500 px-1 rounded-full">{notifications.filter(n => !n.read).length}</span>}</button>
-            <button onClick={() => { setActiveTab('profile'); setChatUser(null); }} className={`text-gray-400 ${activeTab === 'profile' ? 'text-white' : ''}`}>👤</button>
-            <button onClick={onLogout} className="text-sm bg-gray-800 px-3 py-1 rounded-full">Выйти</button>
+        <header className="sticky top-0 z-20 border-b border-gray-800 bg-[#0a0a0a]/90 backdrop-blur-md py-3 px-4">
+          <div className="max-w-6xl mx-auto flex justify-between items-center">
+            <div className="flex items-center gap-2"><i className="fas fa-water text-white text-2xl"></i><span className="text-white font-bold text-xl">Wave</span></div>
+            <div className="flex gap-4 text-gray-400 items-center relative">
+              <button onClick={() => { setActiveTab('feed'); setChatUser(null); setViewingUser(null); }} className={`text-xl ${activeTab === 'feed' ? 'text-white' : 'hover:text-white'}`}>🏠</button>
+              <button onClick={() => { setActiveTab('search'); setChatUser(null); setViewingUser(null); }} className={`text-xl ${activeTab === 'search' ? 'text-white' : 'hover:text-white'}`}>🔍</button>
+              <button onClick={() => { setActiveTab('chat'); setViewingUser(null); }} className={`text-xl relative ${activeTab === 'chat' ? 'text-white' : 'hover:text-white'}`}>💬{Object.values(unreadCounts).reduce((a,b)=>a+b,0)>0 && <span className="notification-badge">{Object.values(unreadCounts).reduce((a,b)=>a+b,0)}</span>}</button>
+              <button onClick={() => { setActiveTab('notifications'); setChatUser(null); setViewingUser(null); }} className={`text-xl relative ${activeTab === 'notifications' ? 'text-white' : 'hover:text-white'}`}>🔔{notifications.filter(n => !n.read).length > 0 && <span className="notification-badge">{notifications.filter(n => !n.read).length}</span>}</button>
+              <button onClick={() => { setActiveTab('profile'); setChatUser(null); setViewingUser(null); }} className={`text-xl ${activeTab === 'profile' ? 'text-white' : 'hover:text-white'}`}>👤</button>
+              <button onClick={onLogout} className="text-sm bg-gray-800 px-3 py-1 rounded-full hover:bg-gray-700">🚪</button>
+            </div>
           </div>
         </header>
         
@@ -255,20 +270,20 @@
           {/* Лента */}
           {activeTab === 'feed' && (
             <>
-              <div className="card p-4 mb-6">
-                <textarea id="postText" rows="3" placeholder="Что нового? Используй @username" className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" />
-                <button id="postBtn" className="mt-2 bg-blue-600 text-white px-6 py-2 rounded-full text-sm">Опубликовать</button>
+              <div className="card-bg p-4 mb-6">
+                <textarea id="newPostText" rows="3" placeholder="Что нового?" className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" />
+                <button onClick={createPost} className="mt-2 bg-blue-600 text-white px-6 py-2 rounded-full text-sm">Опубликовать</button>
               </div>
               {posts.map(post => (
-                <div key={post.id} className="card p-4 mb-4">
+                <div key={post.id} className="card-bg p-4 mb-4">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => post.user_id !== user.id && setViewProfile(users.find(u => u.id === post.user_id))}>
+                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => post.user_id !== user.id && setViewingUser(users.find(u => u.id === post.user_id))}>
                       <img src={post.user_avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full" />
                       <div><div className="font-bold text-white">@{post.username}</div><div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleString()}</div></div>
                     </div>
                     {post.user_id !== user.id && <button onClick={() => { setChatUser(users.find(u => u.id === post.user_id)); setActiveTab('chat'); }} className="chat-btn text-xs">Чат</button>}
                   </div>
-                  <p className="text-white whitespace-pre-wrap">{post.content}</p>
+                  <p className="text-white">{post.content}</p>
                   <div className="flex gap-4 mt-3 text-gray-500">
                     <button onClick={() => likePost(post.id, post.likes || 0)} className="flex gap-1 hover:text-red-400">❤️ {post.likes || 0}</button>
                     <button onClick={() => {
@@ -279,12 +294,12 @@
                   <div id={`comments-${post.id}`} className="hidden mt-3 pt-3 border-t border-gray-800">
                     {(post.comments || []).map(c => (
                       <div key={c.id} className="flex gap-2 mb-2 text-sm">
-                        <span className="font-bold text-gray-300 cursor-pointer" onClick={() => c.user_id !== user.id && setViewProfile(users.find(u => u.id === c.user_id))}>@{c.username}</span>
+                        <span className="font-bold text-gray-300 cursor-pointer" onClick={() => c.user_id !== user.id && setViewingUser(users.find(u => u.id === c.user_id))}>@{c.username}</span>
                         <span className="text-gray-400">{c.text}</span>
                       </div>
                     ))}
                     <div className="flex gap-2 mt-2">
-                      <input type="text" id={`comment-${post.id}`} placeholder="Написать комментарий..." className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-sm text-white" />
+                      <input type="text" id={`comment-${post.id}`} placeholder="Комментарий..." className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-sm text-white" />
                       <button onClick={() => {
                         const input = document.getElementById(`comment-${post.id}`);
                         const text = input?.value;
@@ -298,30 +313,30 @@
                   </div>
                 </div>
               ))}
-              <script>
-                document.getElementById('postBtn')?.addEventListener('click', async () => {
-                  const content = document.getElementById('postText')?.value;
-                  if (content?.trim()) {
-                    await supabase.from('posts').insert({ user_id: user.id, username: user.username, user_avatar: user.avatar, content, likes: 0, comments: [], created_at: new Date() });
-                    document.getElementById('postText').value = '';
-                    loadData();
-                    showToast('Пост опубликован!');
-                  }
-                });
-              </script>
             </>
+          )}
+          
+          {/* Поиск */}
+          {activeTab === 'search' && (
+            <div>
+              <div className="card-bg p-4 mb-6">
+                <input type="text" id="searchInput" placeholder="Поиск пользователей..." className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" />
+                <button id="searchBtn" className="mt-2 bg-gray-800 text-white px-4 py-2 rounded-xl text-sm">🔍 Найти</button>
+              </div>
+              <div id="searchResults"></div>
+            </div>
           )}
           
           {/* Чат */}
           {activeTab === 'chat' && (
             <div className="flex flex-col h-[70vh]">
-              <div className="flex gap-3 mb-4 overflow-x-auto pb-2">
+              <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
                 {chatList.map(cu => (
-                  <button key={cu.id} onClick={() => { setChatUser(cu); loadData(); }} className={`px-4 py-2 rounded-full text-sm ${chatUser?.id === cu.id ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300'}`}>@{cu.username}</button>
+                  <button key={cu.id} onClick={() => { setChatUser(cu); loadData(); }} className={`px-3 py-1 rounded-full text-sm ${chatUser?.id === cu.id ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300'}`}>@{cu.username}</button>
                 ))}
               </div>
               {chatUser ? (
-                <div className="card flex flex-col h-full">
+                <div className="card-bg flex flex-col h-full">
                   <div className="p-3 border-b border-gray-800 font-bold text-white">Чат с @{chatUser.username}</div>
                   <div className="flex-1 overflow-y-auto p-3 space-y-2">
                     {messages.map((msg, idx) => (
@@ -339,7 +354,7 @@
                   </div>
                 </div>
               ) : (
-                <div className="card p-8 text-center text-gray-500">Выберите чат</div>
+                <div className="card-bg p-8 text-center text-gray-500">Выберите чат</div>
               )}
             </div>
           )}
@@ -348,15 +363,16 @@
           {activeTab === 'notifications' && (
             <div>
               <h2 className="text-xl font-bold text-white mb-4">Уведомления</h2>
-              {notifications.length === 0 && <div className="card p-8 text-center text-gray-500">Нет уведомлений</div>}
+              {notifications.length === 0 && <div className="card-bg p-8 text-center text-gray-500">Нет уведомлений</div>}
               {notifications.map(n => (
-                <div key={n.id} className={`card p-4 mb-3 cursor-pointer hover:bg-[#2a2a2a] ${!n.read ? 'border-l-4 border-green-500' : ''}`} onClick={async () => {
+                <div key={n.id} className={`card-bg p-4 mb-3 cursor-pointer hover:bg-[#2a2a2a] ${!n.read ? 'border-l-4 border-green-500' : ''}`} onClick={async () => {
                   await supabase.from('notifications').update({ read: true }).eq('id', n.id);
                   loadData();
                   if (n.type === 'message') {
                     const fromUser = users.find(u => u.id === n.from_user_id);
                     if (fromUser) { setChatUser(fromUser); setActiveTab('chat'); }
                   }
+                  if (n.type === 'comment') setActiveTab('feed');
                 }}>
                   <p className="text-white">{n.text}</p>
                   <p className="text-xs text-gray-500 mt-1">{new Date(n.created_at).toLocaleString()}</p>
@@ -367,8 +383,8 @@
           
           {/* Профиль */}
           {activeTab === 'profile' && (
-            <div className="card p-6 text-center">
-              <img src={user.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto" />
+            <div className="card-bg rounded-3xl overflow-hidden p-6 text-center">
+              <img src={user.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
               <h2 className="text-xl font-bold text-white mt-2">{user.full_name || user.username}</h2>
               <p className="text-gray-400">@{user.username}</p>
               <p className="text-gray-500 text-sm mt-1">{user.bio || 'Нет описания'}</p>
@@ -386,26 +402,23 @@
 
   // ========== ГЛАВНЫЙ КОМПОНЕНТ ==========
   function App() {
-    const [access, setAccess] = React.useState(false);
-    const [user, setUser] = React.useState(null);
+    const [siteAccess, setSiteAccess] = React.useState(false);
+    const [currentUser, setCurrentUser] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
-    
     React.useEffect(() => {
-      if (localStorage.getItem('wave_access') === 'ok') setAccess(true);
-      const saved = localStorage.getItem('wave_user');
-      if (saved) setUser(JSON.parse(saved));
+      if (localStorage.getItem('wave_site_access') === 'granted') setSiteAccess(true);
+      const saved = localStorage.getItem('wave_current_user');
+      if (saved) setCurrentUser(JSON.parse(saved));
       setLoading(false);
     }, []);
-    
-    const handleLogin = (u) => { localStorage.setItem('wave_user', JSON.stringify(u)); setUser(u); };
-    const handleLogout = () => { localStorage.removeItem('wave_user'); setUser(null); };
-    
-    if (loading) return <div className="p-4 text-white">Загрузка...</div>;
-    if (!access) return <PasswordGate onSuccess={() => setAccess(true)} />;
-    if (user) return <MainApp user={user} onLogout={handleLogout} />;
+    const handleLogin = (user) => { localStorage.setItem('wave_current_user', JSON.stringify(user)); setCurrentUser(user); };
+    const handleLogout = () => { localStorage.removeItem('wave_current_user'); setCurrentUser(null); };
+    if (loading) return <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">Загрузка...</div>;
+    if (!siteAccess) return <SitePasswordGate onSuccess={() => setSiteAccess(true)} />;
+    if (currentUser) return <MainApp user={currentUser} onLogout={handleLogout} />;
     return <LoginRegister onLogin={handleLogin} />;
   }
-  
+
   ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
 </body>
