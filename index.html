@@ -23,14 +23,15 @@
     .dropdown-item:hover { background: #2a2a2a; }
     .edit-input, .edit-textarea { background: #2a2a2a; border: none; border-radius: 16px; padding: 10px 14px; color: white; width: 100%; margin-top: 8px; }
     .reply-quote { background: #111; padding: 8px 12px; border-radius: 14px; border-left: 3px solid #3b82f6; font-size: 12px; color: #aaa; margin-bottom: 8px; }
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 1000; display: flex; items-align: center; justify-content: center; }
     .modal-card { background: #1e1e1e; border-radius: 28px; padding: 24px; max-width: 360px; width: 90%; text-align: center; border: 1px solid #3a3a3a; }
-    .share-list { max-height: 300px; overflow-y: auto; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
-    .share-user { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 16px; cursor: pointer; transition: 0.15s; }
-    .share-user:hover { background: #2a2a2a; }
+    .share-list, .hide-list { max-height: 300px; overflow-y: auto; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .share-user, .hide-user { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 16px; cursor: pointer; transition: 0.15s; }
+    .share-user:hover, .hide-user:hover { background: #2a2a2a; }
     .mention { color: #3b82f6; font-weight: 500; cursor: pointer; }
     .hashtag { color: #eab308; font-weight: 500; cursor: pointer; }
     .chat-bubble { overflow-wrap: break-word; white-space: pre-wrap; word-break: break-word; }
+    .avatar-default { background: #2a2a2a; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #888; }
   </style>
 </head>
 <body>
@@ -45,7 +46,8 @@
   const SUPABASE_ANON_KEY = "sb_publishable_U_lF6X0ZakHsq6I_f8byHA_91hFjf3y";
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const STORAGE_BUCKET = "wave-media";
-  const MAX_ACCOUNTS = 3; // ограничение на количество аккаунтов
+  const MAX_ACCOUNTS = 3;
+  const DEFAULT_AVATAR = "https://ui-avatars.com/api/?background=2a2a2a&color=fff&rounded=true&size=96&font-size=0.33&bold=true&length=1&name=?";
 
   function showToast(msg) {
     const t = document.createElement('div');
@@ -95,7 +97,7 @@
     );
   }
 
-  // ========== РЕГИСТРАЦИЯ / ВХОД С ЛИМИТОМ ==========
+  // ========== РЕГИСТРАЦИЯ / ВХОД ==========
   function Auth({ onLogin }) {
     const [isLogin, setIsLogin] = React.useState(true);
     const [username, setUsername] = React.useState('');
@@ -109,22 +111,17 @@
       setError('');
       setLoading(true);
       if (isLogin) {
-        const { data: user } = await supabase.from('users').select('*').eq('username', username).single();
-        if (!user) { setError('Пользователь не найден'); setLoading(false); return; }
+        const { data: user, error: fetchError } = await supabase.from('users').select('*').eq('username', username).single();
+        if (fetchError || !user) { setError('Неверный логин или пароль'); setLoading(false); return; }
         if (password === user.password_hash) onLogin(user);
-        else setError('Неверный пароль');
+        else setError('Неверный логин или пароль');
       } else {
-        // Проверяем количество зарегистрированных пользователей
         const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
-        if (count >= MAX_ACCOUNTS) {
-          setError(`Достигнут лимит аккаунтов (максимум ${MAX_ACCOUNTS})`);
-          setLoading(false);
-          return;
-        }
+        if (count >= MAX_ACCOUNTS) { setError(`Максимум ${MAX_ACCOUNTS} аккаунтов`); setLoading(false); return; }
         if (password.length < 4) { setError('Пароль минимум 4 символа'); setLoading(false); return; }
         const { data: existing } = await supabase.from('users').select('username').eq('username', username).single();
         if (existing) { setError('Имя занято'); setLoading(false); return; }
-        const { data: newUser } = await supabase.from('users').insert({ username, full_name: name || username, password_hash: password }).select().single();
+        const { data: newUser } = await supabase.from('users').insert({ username, full_name: name || username, password_hash: password, avatar: DEFAULT_AVATAR }).select().single();
         if (newUser) onLogin(newUser);
         else setError('Ошибка');
       }
@@ -185,13 +182,14 @@
     const [editPostContent, setEditPostContent] = React.useState('');
     const [sharingPost, setSharingPost] = React.useState(null);
     const [shareSelected, setShareSelected] = React.useState([]);
+    const [hidePost, setHidePost] = React.useState(null);
+    const [hideSelected, setHideSelected] = React.useState([]);
     const [postToDelete, setPostToDelete] = React.useState(null);
     const [selectedComment, setSelectedComment] = React.useState(null);
     const [selectedMessage, setSelectedMessage] = React.useState(null);
     const [replyToMsg, setReplyToMsg] = React.useState(null);
     const [replyingToComment, setReplyingToComment] = React.useState(null);
 
-    // Загрузка всех данных
     const loadData = async () => {
       const [postsRes, usersRes, msgsRes, notifsRes] = await Promise.all([
         supabase.from('posts').select('*').order('created_at', { ascending: false }),
@@ -199,7 +197,9 @@
         supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
         supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
       ]);
-      setPosts(postsRes.data || []);
+      const allPosts = postsRes.data || [];
+      const visiblePosts = allPosts.filter(p => !p.hidden_from?.includes(user.id));
+      setPosts(visiblePosts);
       setUsers(usersRes.data || []);
       setNotifications(notifsRes.data || []);
       const msgs = msgsRes.data || [];
@@ -216,7 +216,6 @@
       }
       setLoading(false);
     };
-
     React.useEffect(() => { loadData(); }, []);
 
     // Realtime для сообщений
@@ -233,25 +232,19 @@
       return () => sub.unsubscribe();
     }, [chatUser, user.id]);
 
-    // Улучшенная загрузка медиа
     const uploadMediaFiles = async (files) => {
       const uploaded = [];
       for (const f of files) {
         const ext = f.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-        const { error, data } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, f);
-        if (error) {
-          console.error("Upload error:", error);
-          showToast(`Ошибка загрузки ${f.name}: ${error.message}`);
-          continue;
-        }
-        const { data: publicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
-        uploaded.push({ url: publicUrlData.publicUrl, type: f.type.startsWith('image/') ? 'image' : 'video' });
+        const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, f);
+        if (error) { showToast(`Ошибка: ${f.name}`); continue; }
+        const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
+        uploaded.push({ url: urlData.publicUrl, type: f.type.startsWith('image/') ? 'image' : 'video' });
       }
       return uploaded;
     };
 
-    // Мгновенные действия
     const sendMessage = async () => {
       if ((!msgText.trim() && !replyToMsg) || !chatUser) return;
       let content = msgText;
@@ -323,7 +316,7 @@
       if (mediaList.length + files.length > 5) { showToast('Максимум 5 файлов'); return; }
       setUploadingMedia(true);
       const newMedia = await uploadMediaFiles(files);
-      if (newMedia.length) setMediaList([...mediaList, ...newMedia]);
+      setMediaList([...mediaList, ...newMedia]);
       setUploadingMedia(false);
       e.target.value = '';
     };
@@ -337,13 +330,16 @@
         if (!data) { showToast(`Пользователь @${m} не существует`); return; }
       }
       const hashtags = [...newPost.matchAll(/#[\wа-яё]+/gi)].map(m => m[0]);
+      const hiddenFrom = hideSelected.length ? hideSelected : null;
       const tempId = Date.now();
-      const newPostObj = { id: tempId, user_id: user.id, username: user.username, content: newPost, media: mediaList, likes: 0, comments: [], mentions, hashtags, created_at: new Date().toISOString(), edited: false };
+      const newPostObj = { id: tempId, user_id: user.id, username: user.username, content: newPost, media: mediaList, likes: 0, comments: [], mentions, hashtags, hidden_from: hiddenFrom, created_at: new Date().toISOString(), edited: false };
       setPosts([newPostObj, ...posts]);
       setNewPost('');
       setMediaList([]);
+      setHidePost(null);
+      setHideSelected([]);
       const { data: inserted } = await supabase.from('posts').insert({
-        user_id: user.id, username: user.username, content: newPost, media: mediaList, likes: 0, comments: [], mentions, hashtags, created_at: new Date(), edited: false
+        user_id: user.id, username: user.username, content: newPost, media: mediaList, likes: 0, comments: [], mentions, hashtags, hidden_from: hiddenFrom, created_at: new Date(), edited: false
       }).select().single();
       if (inserted) setPosts(prev => prev.map(p => p.id === tempId ? inserted : p));
       for (const m of mentions) {
@@ -456,7 +452,7 @@
     };
     const filteredMentions = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 5);
 
-    const DropdownMenu = ({ onEdit, onDelete, onShare }) => {
+    const DropdownMenu = ({ onEdit, onDelete, onShare, onHide }) => {
       const [open, setOpen] = React.useState(false);
       const ref = React.useRef(null);
       React.useEffect(() => { const fn = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }; document.addEventListener('click', fn); return () => document.removeEventListener('click', fn); }, []);
@@ -467,6 +463,7 @@
             <div className="dropdown-menu">
               {onEdit && <div className="dropdown-item" onClick={() => { onEdit(); setOpen(false); }}><i className="fas fa-pen"></i> Редактировать</div>}
               {onShare && <div className="dropdown-item" onClick={() => { onShare(); setOpen(false); }}><i className="fas fa-share-alt"></i> Поделиться</div>}
+              {onHide && <div className="dropdown-item" onClick={() => { onHide(); setOpen(false); }}><i className="fas fa-eye-slash"></i> Скрыть от...</div>}
               {onDelete && <div className="dropdown-item" onClick={() => { onDelete(); setOpen(false); }}><i className="fas fa-trash-alt"></i> Удалить</div>}
             </div>
           )}
@@ -502,7 +499,7 @@
         <div className="min-h-screen p-4">
           <button onClick={() => { setViewProfile(null); setShowSubscribers(false); setShowFollowing(false); }} className="text-gray-400 mb-4"><i className="fas fa-arrow-left"></i> Назад</button>
           <div className="card p-6 text-center mb-6">
-            <img src={profileUser.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
+            <img src={profileUser.avatar || DEFAULT_AVATAR} className="w-24 h-24 rounded-full mx-auto object-cover" />
             <h2 className="text-xl font-bold text-white mt-2">{profileUser.full_name || profileUser.username}</h2>
             <p className="text-gray-400">@{profileUser.username}</p>
             <p className="text-gray-500 text-sm mt-1">{profileUser.bio || 'Нет описания'}</p>
@@ -514,13 +511,25 @@
               <button onClick={() => { setShowSubscribers(!showSubscribers); setShowFollowing(false); }} className="text-gray-400 text-sm"><span className="font-bold text-white">{profileUser.followers?.length || 0}</span> подписчиков</button>
               <button onClick={() => { setShowFollowing(!showFollowing); setShowSubscribers(false); }} className="text-gray-400 text-sm"><span className="font-bold text-white">{profileUser.following?.length || 0}</span> подписок</button>
             </div>
-            {showSubscribers && <div className="mt-4 p-3 bg-[#2a2a2a] rounded-xl flex flex-col gap-2">{users.filter(u => (profileUser.followers || []).includes(u.id)).map(u => <div key={u.id} className="flex items-center gap-2 p-1 cursor-pointer hover:bg-[#3a3a3a] rounded" onClick={() => setViewProfile(u)}><img src={u.avatar||'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" /><span className="text-white">@{u.username}</span></div>)}</div>}
-            {showFollowing && <div className="mt-4 p-3 bg-[#2a2a2a] rounded-xl flex flex-col gap-2">{users.filter(u => (profileUser.following || []).includes(u.id)).map(u => <div key={u.id} className="flex items-center gap-2 p-1 cursor-pointer hover:bg-[#3a3a3a] rounded" onClick={() => setViewProfile(u)}><img src={u.avatar||'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" /><span className="text-white">@{u.username}</span></div>)}</div>}
+            {showSubscribers && <div className="mt-4 p-3 bg-[#2a2a2a] rounded-xl flex flex-col gap-2">{users.filter(u => (profileUser.followers || []).includes(u.id)).map(u => <div key={u.id} className="flex items-center gap-2 p-1 cursor-pointer hover:bg-[#3a3a3a] rounded" onClick={() => setViewProfile(u)}><img src={u.avatar || DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white">@{u.username}</span></div>)}</div>}
+            {showFollowing && <div className="mt-4 p-3 bg-[#2a2a2a] rounded-xl flex flex-col gap-2">{users.filter(u => (profileUser.following || []).includes(u.id)).map(u => <div key={u.id} className="flex items-center gap-2 p-1 cursor-pointer hover:bg-[#3a3a3a] rounded" onClick={() => setViewProfile(u)}><img src={u.avatar || DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white">@{u.username}</span></div>)}</div>}
           </div>
           {userPosts.map(post => <div key={post.id} className="card p-4 mb-4"><p className="text-white whitespace-pre-wrap">{renderContent(post.content)}</p><div className="flex gap-4 mt-2 text-gray-400 text-sm"><span><i className="fas fa-heart text-red-500"></i> {formatLikes(post.likes||0)}</span><span><i className="far fa-comment"></i> {(post.comments||[]).length}</span></div></div>)}
         </div>
       );
     }
+
+    // Поиск мгновенный
+    React.useEffect(() => {
+      if (!searchQuery.trim()) { setSearchUserResults([]); setSearchPostResults([]); return; }
+      if (searchType === 'users') {
+        setSearchUserResults(users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(searchQuery.toLowerCase())));
+        setSearchPostResults([]);
+      } else {
+        setSearchPostResults(posts.filter(p => p.content.toLowerCase().includes(searchQuery.toLowerCase()) || (searchQuery.startsWith('#') && p.content.toLowerCase().includes(searchQuery.toLowerCase()))));
+        setSearchUserResults([]);
+      }
+    }, [searchQuery, searchType, users, posts]);
 
     return (
       <div className="min-h-screen pb-20">
@@ -528,7 +537,8 @@
         {selectedComment && <div className="modal-overlay" onClick={()=>setSelectedComment(null)}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-4 text-sm">{selectedComment.comment.text}</p><div className="flex flex-col gap-2"><button onClick={()=>{setReplyingToComment(selectedComment.comment); setSelectedComment(null);}} className="bg-blue-600 text-white py-2 rounded-xl btn">Ответить</button><button onClick={()=>deleteComment(selectedComment.postId, selectedComment.comment.id)} className="bg-red-900 text-white py-2 rounded-xl btn">Удалить</button><button onClick={()=>setSelectedComment(null)} className="bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
         {selectedMessage && <div className="modal-overlay" onClick={()=>setSelectedMessage(null)}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-4 text-sm">{selectedMessage.msg.content}</p><div className="flex flex-col gap-2"><button onClick={()=>{setReplyToMsg(selectedMessage.msg); setSelectedMessage(null);}} className="bg-blue-600 text-white py-2 rounded-xl btn">Ответить</button><button onClick={()=>deleteMessage(selectedMessage.msg.id)} className="bg-red-900 text-white py-2 rounded-xl btn">Удалить</button><button onClick={()=>setSelectedMessage(null)} className="bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
         {editingPost && <div className="modal-overlay" onClick={()=>setEditingPost(null)}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-3">Редактировать</p><textarea value={editPostContent} onChange={e=>setEditPostContent(e.target.value)} rows="4" className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white"></textarea><div className="flex gap-2 mt-4"><button onClick={updatePost} className="flex-1 bg-blue-600 text-white py-2 rounded-xl btn">Сохранить</button><button onClick={()=>setEditingPost(null)} className="flex-1 bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
-        {sharingPost && <div className="modal-overlay" onClick={()=>{setSharingPost(null); setShareSelected([]);}}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-3">Поделиться</p><div className="share-list">{users.filter(u=>u.id!==user.id).map(u=><div key={u.id} className="share-user" onClick={()=>setShareSelected(prev=>prev.includes(u.id)?prev.filter(id=>id!==u.id):[...prev, u.id])}><input type="checkbox" checked={shareSelected.includes(u.id)} onChange={()=>{}} className="w-4 h-4" /><img src={u.avatar||'https://via.placeholder.com/32'} className="w-8 h-8 rounded-full" /><span className="text-white">@{u.username}</span></div>)}</div><div className="flex gap-2 mt-4"><button onClick={sharePost} className="flex-1 bg-green-600 text-white py-2 rounded-xl btn">Отправить ({shareSelected.length})</button><button onClick={()=>{setSharingPost(null); setShareSelected([]);}} className="flex-1 bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
+        {sharingPost && <div className="modal-overlay" onClick={()=>{setSharingPost(null); setShareSelected([]);}}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-3">Поделиться</p><div className="share-list">{users.filter(u=>u.id!==user.id).map(u=><div key={u.id} className="share-user" onClick={()=>setShareSelected(prev=>prev.includes(u.id)?prev.filter(id=>id!==u.id):[...prev, u.id])}><input type="checkbox" checked={shareSelected.includes(u.id)} onChange={()=>{}} className="w-4 h-4" /><img src={u.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><span className="text-white">@{u.username}</span></div>)}</div><div className="flex gap-2 mt-4"><button onClick={sharePost} className="flex-1 bg-green-600 text-white py-2 rounded-xl btn">Отправить ({shareSelected.length})</button><button onClick={()=>{setSharingPost(null); setShareSelected([]);}} className="flex-1 bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
+        {hidePost && <div className="modal-overlay" onClick={()=>{setHidePost(null); setHideSelected([]);}}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-3">Не показывать пост пользователям</p><div className="hide-list">{users.filter(u=>u.id!==user.id).map(u=><div key={u.id} className="hide-user" onClick={()=>setHideSelected(prev=>prev.includes(u.id)?prev.filter(id=>id!==u.id):[...prev, u.id])}><input type="checkbox" checked={hideSelected.includes(u.id)} onChange={()=>{}} className="w-4 h-4" /><img src={u.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><span className="text-white">@{u.username}</span></div>)}</div><div className="flex gap-2 mt-4"><button onClick={()=>setHidePost(false)} className="flex-1 bg-blue-600 text-white py-2 rounded-xl btn">Применить</button><button onClick={()=>{setHidePost(null); setHideSelected([]);}} className="flex-1 bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
 
         <header className="sticky top-0 z-20 border-b border-gray-800 bg-[#0f0f0f]/90 backdrop-blur-md p-4">
           <div className="max-w-2xl mx-auto flex justify-between items-center">
@@ -549,12 +559,16 @@
             <>
               <div className="card p-4 mb-6">
                 <div className="flex gap-3">
-                  <img src={user.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full" />
+                  <img src={user.avatar || DEFAULT_AVATAR} className="w-10 h-10 rounded-full object-cover" />
                   <div className="flex-1 relative">
                     <textarea ref={textareaRef} rows="2" placeholder="Что нового? @username или #хештег" className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white resize-none" value={newPost} onChange={handlePostInput} />
-                    {showMentions && filteredMentions.length>0 && <div className="absolute bottom-full left-0 bg-[#2a2a2a] border border-gray-700 rounded-xl max-h-48 overflow-auto z-10 mb-1 w-48">{filteredMentions.map(u=><div key={u.id} className="p-2 hover:bg-[#3a3a3a] cursor-pointer flex items-center gap-2" onClick={()=>insertMention(u.username)}><img src={u.avatar||'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" /><span className="text-white">@{u.username}</span></div>)}</div>}
+                    {showMentions && filteredMentions.length>0 && <div className="absolute bottom-full left-0 bg-[#2a2a2a] border border-gray-700 rounded-xl max-h-48 overflow-auto z-10 mb-1 w-48">{filteredMentions.map(u=><div key={u.id} className="p-2 hover:bg-[#3a3a3a] cursor-pointer flex items-center gap-2" onClick={()=>insertMention(u.username)}><img src={u.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white">@{u.username}</span></div>)}</div>}
                     <div className="flex flex-wrap gap-2 mt-2">{mediaList.map((m,i)=><div key={i} className="media-preview">{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={()=>removeMedia(i)}>×</button></div>)}</div>
-                    <div className="flex gap-2 mt-2"><label className={`cursor-pointer bg-gray-800 p-2 rounded-xl ${uploadingMedia?'opacity-50':''}`}><i className="fas fa-paperclip"></i><input type="file" accept="image/*,video/*" multiple onChange={handleMediaUpload} className="hidden" disabled={uploadingMedia} /></label><button onClick={createPost} className="bg-blue-600 text-white px-6 py-2 rounded-full text-sm btn">Опубликовать</button></div>
+                    <div className="flex gap-2 mt-2">
+                      <label className={`cursor-pointer bg-gray-800 p-2 rounded-xl ${uploadingMedia?'opacity-50':''}`}><i className="fas fa-paperclip"></i><input type="file" accept="image/*,video/*" multiple onChange={handleMediaUpload} className="hidden" disabled={uploadingMedia} /></label>
+                      <button onClick={() => setHidePost(true)} className="bg-gray-800 text-white px-3 py-2 rounded-xl"><i className="fas fa-cog"></i></button>
+                      <button onClick={createPost} className="bg-blue-600 text-white px-6 py-2 rounded-full text-sm btn">Опубликовать</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -562,11 +576,11 @@
                 <div key={post.id} className="card p-4 mb-4">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 cursor-pointer" onClick={()=>post.user_id!==user.id&&setViewProfile(users.find(u=>u.id===post.user_id))}>
-                      <img src={post.user_avatar||'https://via.placeholder.com/32'} className="w-8 h-8 rounded-full" /><span className="font-bold text-white hover:underline">@{post.username}</span>
+                      <img src={post.user_avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><span className="font-bold text-white hover:underline">@{post.username}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-gray-500 text-xs">{formatDateRelative(post.created_at)}{post.edited && <span className="ml-1 text-gray-600">(изменено)</span>}</span>
-                      <DropdownMenu onEdit={post.user_id===user.id?()=>{setEditingPost(post); setEditPostContent(post.content);}:null} onDelete={post.user_id===user.id?()=>setPostToDelete(post.id):null} onShare={()=>{setSharingPost(post); setShareSelected([]);}} />
+                      <DropdownMenu onEdit={post.user_id===user.id?()=>{setEditingPost(post); setEditPostContent(post.content);}:null} onDelete={post.user_id===user.id?()=>setPostToDelete(post.id):null} onShare={()=>{setSharingPost(post); setShareSelected([]);}} onHide={post.user_id===user.id?()=>{setHidePost(true); setHideSelected(post.hidden_from || []);}:null} />
                     </div>
                   </div>
                   <p className="text-white whitespace-pre-wrap">{renderContent(post.content)}</p>
@@ -586,8 +600,8 @@
           )}
 
           {tab === 'search' && (<div><div className="card p-4 mb-6"><div className="flex gap-2 mb-3"><button onClick={()=>setSearchType('users')} className={`px-3 py-1 rounded-full text-sm ${searchType==='users'?'bg-blue-600 text-white':'bg-gray-800 text-gray-300'}`}>👥 Пользователи</button><button onClick={()=>setSearchType('posts')} className={`px-3 py-1 rounded-full text-sm ${searchType==='posts'?'bg-blue-600 text-white':'bg-gray-800 text-gray-300'}`}>📄 Посты</button></div><input type="text" placeholder="Поиск..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" /></div>
-          {searchType==='users' && searchUserResults.map(u=><div key={u.id} className="card p-4 mb-3 flex items-center justify-between"><div className="flex items-center gap-3 cursor-pointer" onClick={()=>setViewProfile(u)}><img src={u.avatar||'https://via.placeholder.com/48'} className="w-10 h-10 rounded-full" /><div><div className="font-bold text-white">{u.full_name||u.username}</div><div className="text-gray-400 text-sm">@{u.username}</div></div></div><button onClick={()=>{setChatUser(u); setTab('chat');}} className="bg-green-600 text-white px-3 py-1 rounded-full text-sm btn">Чат</button></div>)}
-          {searchType==='posts' && searchPostResults.map(post=><div key={post.id} className="card p-4 mb-3 cursor-pointer" onClick={()=>{setTab('feed'); setTimeout(()=>document.getElementById(`post-${post.id}`)?.scrollIntoView({ behavior: 'smooth' }), 100);}}><div className="flex items-center gap-2 mb-2"><img src={post.user_avatar||'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" /><span className="font-bold text-white">@{post.username}</span></div><p className="text-white text-sm whitespace-pre-wrap">{post.content.substring(0,100)}...</p><div className="flex gap-3 mt-2 text-gray-500 text-xs"><span><i className="fas fa-heart text-red-500"></i> {formatLikes(post.likes||0)}</span><span><i className="far fa-comment"></i> {(post.comments||[]).length}</span></div></div>)}
+          {searchType==='users' && searchUserResults.map(u=><div key={u.id} className="card p-4 mb-3 flex items-center justify-between"><div className="flex items-center gap-3 cursor-pointer" onClick={()=>setViewProfile(u)}><img src={u.avatar||DEFAULT_AVATAR} className="w-10 h-10 rounded-full" /><div><div className="font-bold text-white">{u.full_name||u.username}</div><div className="text-gray-400 text-sm">@{u.username}</div></div></div><button onClick={()=>{setChatUser(u); setTab('chat');}} className="bg-green-600 text-white px-3 py-1 rounded-full text-sm btn">Чат</button></div>)}
+          {searchType==='posts' && searchPostResults.map(post=><div key={post.id} className="card p-4 mb-3 cursor-pointer" onClick={()=>{setTab('feed'); setTimeout(()=>document.getElementById(`post-${post.id}`)?.scrollIntoView({ behavior: 'smooth' }), 100);}}><div className="flex items-center gap-2 mb-2"><img src={post.user_avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="font-bold text-white">@{post.username}</span></div><p className="text-white text-sm whitespace-pre-wrap">{post.content.substring(0,100)}...</p><div className="flex gap-3 mt-2 text-gray-500 text-xs"><span><i className="fas fa-heart text-red-500"></i> {formatLikes(post.likes||0)}</span><span><i className="far fa-comment"></i> {(post.comments||[]).length}</span></div></div>)}
           </div>
           )}
 
@@ -605,7 +619,7 @@
           {tab === 'profile' && (
             <div className="card p-6 text-center">
               <div className="flex justify-end"><ProfileDropdown /></div>
-              <div className="avatar-upload w-24 h-24 mx-auto relative cursor-pointer"><img src={user.avatar||'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full object-cover" /><input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer rounded-full" onChange={(e)=>uploadAvatar(e.target.files[0])} disabled={avatarUploading} /></div>
+              <div className="avatar-upload w-24 h-24 mx-auto relative cursor-pointer"><img src={user.avatar || DEFAULT_AVATAR} className="w-24 h-24 rounded-full object-cover" /><input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer rounded-full" onChange={(e)=>uploadAvatar(e.target.files[0])} disabled={avatarUploading} /></div>
               {editingProfile ? (<div className="mt-4"><input type="text" value={editName} onChange={e=>setEditName(e.target.value)} className="edit-input" placeholder="Имя" /><textarea value={editBio} onChange={e=>setEditBio(e.target.value)} className="edit-textarea" rows="2" placeholder="О себе" /><div className="flex gap-2 mt-3"><button onClick={saveProfile} className="bg-green-600 text-white px-4 py-2 rounded-xl btn">Сохранить</button><button onClick={()=>setEditingProfile(false)} className="bg-gray-700 text-white px-4 py-2 rounded-xl btn">Отмена</button></div></div>) : (<><h2 className="text-xl font-bold text-white mt-2">{user.full_name||user.username}</h2><p className="text-gray-400">@{user.username}</p><p className="text-gray-500 text-sm mt-1">{user.bio||'Нет описания'}</p><div className="flex gap-6 justify-center mt-4"><div><span className="font-bold text-white">{posts.filter(p=>p.user_id===user.id).length}</span><span className="text-gray-500 ml-1">постов</span></div><div><span className="font-bold text-white">{user.followers?.length||0}</span><span className="text-gray-500 ml-1">подписчиков</span></div><div><span className="font-bold text-white">{user.following?.length||0}</span><span className="text-gray-500 ml-1">подписок</span></div></div></>)}
               {showDeleteConfirm && (<div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={()=>setShowDeleteConfirm(false)}><div className="bg-[#1e1e1e] rounded-3xl p-6 max-w-sm w-full"><p className="text-white mb-6">Удалить аккаунт?</p><div className="flex gap-3"><button onClick={handleDeleteAccount} className="flex-1 bg-red-900 text-white py-2 rounded-xl btn">Да</button><button onClick={()=>setShowDeleteConfirm(false)} className="flex-1 bg-gray-700 text-white py-2 rounded-xl btn">Нет</button></div></div></div>)}
             </div>
