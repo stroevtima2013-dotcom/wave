@@ -30,6 +30,7 @@
     .share-user:hover { background: #2a2a2a; }
     .mention { color: #3b82f6; font-weight: 500; cursor: pointer; }
     .hashtag { color: #eab308; font-weight: 500; cursor: pointer; }
+    .chat-bubble { overflow-wrap: break-word; white-space: pre-wrap; word-break: break-word; }
   </style>
 </head>
 <body>
@@ -44,6 +45,7 @@
   const SUPABASE_ANON_KEY = "sb_publishable_U_lF6X0ZakHsq6I_f8byHA_91hFjf3y";
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const STORAGE_BUCKET = "wave-media";
+  const MAX_ACCOUNTS = 3; // ограничение на количество аккаунтов
 
   function showToast(msg) {
     const t = document.createElement('div');
@@ -93,7 +95,7 @@
     );
   }
 
-  // ========== РЕГИСТРАЦИЯ / ВХОД ==========
+  // ========== РЕГИСТРАЦИЯ / ВХОД С ЛИМИТОМ ==========
   function Auth({ onLogin }) {
     const [isLogin, setIsLogin] = React.useState(true);
     const [username, setUsername] = React.useState('');
@@ -112,6 +114,13 @@
         if (password === user.password_hash) onLogin(user);
         else setError('Неверный пароль');
       } else {
+        // Проверяем количество зарегистрированных пользователей
+        const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
+        if (count >= MAX_ACCOUNTS) {
+          setError(`Достигнут лимит аккаунтов (максимум ${MAX_ACCOUNTS})`);
+          setLoading(false);
+          return;
+        }
         if (password.length < 4) { setError('Пароль минимум 4 символа'); setLoading(false); return; }
         const { data: existing } = await supabase.from('users').select('username').eq('username', username).single();
         if (existing) { setError('Имя занято'); setLoading(false); return; }
@@ -182,7 +191,7 @@
     const [replyToMsg, setReplyToMsg] = React.useState(null);
     const [replyingToComment, setReplyingToComment] = React.useState(null);
 
-    // Загрузка всех данных один раз
+    // Загрузка всех данных
     const loadData = async () => {
       const [postsRes, usersRes, msgsRes, notifsRes] = await Promise.all([
         supabase.from('posts').select('*').order('created_at', { ascending: false }),
@@ -207,9 +216,10 @@
       }
       setLoading(false);
     };
+
     React.useEffect(() => { loadData(); }, []);
 
-    // Realtime для сообщений (мгновенная доставка)
+    // Realtime для сообщений
     React.useEffect(() => {
       if (!chatUser) return;
       const sub = supabase
@@ -223,25 +233,25 @@
       return () => sub.unsubscribe();
     }, [chatUser, user.id]);
 
-    // Загрузка медиа в Storage (ИСПРАВЛЕНА)
+    // Улучшенная загрузка медиа
     const uploadMediaFiles = async (files) => {
       const uploaded = [];
       for (const f of files) {
         const ext = f.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-        const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, f);
+        const { error, data } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, f);
         if (error) {
           console.error("Upload error:", error);
           showToast(`Ошибка загрузки ${f.name}: ${error.message}`);
           continue;
         }
-        const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
-        uploaded.push({ url: urlData.publicUrl, type: f.type.startsWith('image/') ? 'image' : 'video' });
+        const { data: publicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
+        uploaded.push({ url: publicUrlData.publicUrl, type: f.type.startsWith('image/') ? 'image' : 'video' });
       }
       return uploaded;
     };
 
-    // ======= МГНОВЕННЫЕ ДЕЙСТВИЯ =======
+    // Мгновенные действия
     const sendMessage = async () => {
       if ((!msgText.trim() && !replyToMsg) || !chatUser) return;
       let content = msgText;
@@ -257,6 +267,67 @@
       if (inserted) setMessages(prev => prev.map(m => m.id === tempId ? inserted : m));
       await supabase.from('notifications').insert({ user_id: chatUser.id, type: 'message', from_user_id: user.id, from_username: user.username, text: `${user.username} отправил сообщение`, read: false, created_at: new Date() });
     };
+
+    const deleteMessage = async (msgId) => {
+      setMessages(prev => prev.filter(m => m.id !== msgId));
+      await supabase.from('messages').delete().eq('id', msgId);
+      setSelectedMessage(null);
+    };
+
+    const follow = async (targetId) => {
+      let following = user.following || [];
+      const isFollow = following.includes(targetId);
+      const newFollowing = isFollow ? following.filter(id => id !== targetId) : [...following, targetId];
+      await supabase.from('users').update({ following: newFollowing }).eq('id', user.id);
+      user.following = newFollowing;
+      const targetUser = users.find(u => u.id === targetId);
+      if (targetUser) {
+        let followers = targetUser.followers || [];
+        const newFollowers = isFollow ? followers.filter(id => id !== user.id) : [...followers, user.id];
+        await supabase.from('users').update({ followers: newFollowers }).eq('id', targetId);
+      }
+      await loadData();
+      showToast(isFollow ? 'Отписались' : 'Подписались');
+    };
+
+    const uploadAvatar = async (file) => {
+      if (!file) return;
+      setAvatarUploading(true);
+      const fileName = `avatar_${user.id}_${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, file);
+      if (error) { showToast('Ошибка'); setAvatarUploading(false); return; }
+      const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
+      await supabase.from('users').update({ avatar: urlData.publicUrl }).eq('id', user.id);
+      user.avatar = urlData.publicUrl;
+      await loadData();
+      setAvatarUploading(false);
+      showToast('Аватар обновлён');
+    };
+
+    const handleDeleteAccount = async () => {
+      await supabase.from('users').delete().eq('id', user.id);
+      showToast('Аккаунт удалён');
+      onLogout();
+    };
+
+    const saveProfile = async () => {
+      await supabase.from('users').update({ full_name: editName, bio: editBio }).eq('id', user.id);
+      user.full_name = editName; user.bio = editBio;
+      setEditingProfile(false);
+      await loadData();
+      showToast('Профиль обновлён');
+    };
+
+    const handleMediaUpload = async (e) => {
+      const files = Array.from(e.target.files);
+      if (mediaList.length + files.length > 5) { showToast('Максимум 5 файлов'); return; }
+      setUploadingMedia(true);
+      const newMedia = await uploadMediaFiles(files);
+      if (newMedia.length) setMediaList([...mediaList, ...newMedia]);
+      setUploadingMedia(false);
+      e.target.value = '';
+    };
+    const removeMedia = (i) => setMediaList(mediaList.filter((_, idx) => idx !== i));
 
     const createPost = async () => {
       if (!newPost.trim() && mediaList.length === 0) { showToast('Напишите текст или добавьте медиа'); return; }
@@ -306,53 +377,48 @@
       }
     };
 
-    const handleMediaUpload = async (e) => {
-      const files = Array.from(e.target.files);
-      if (mediaList.length + files.length > 5) { showToast('Максимум 5 файлов'); return; }
-      setUploadingMedia(true);
-      const newMedia = await uploadMediaFiles(files);
-      setMediaList([...mediaList, ...newMedia]);
-      setUploadingMedia(false);
-      e.target.value = '';
+    const deleteComment = async (postId, commentId) => {
+      const post = posts.find(p => p.id === postId);
+      const newComments = (post.comments || []).filter(c => c.id !== commentId);
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: newComments } : p));
+      await supabase.from('posts').update({ comments: newComments }).eq('id', postId);
+      setSelectedComment(null);
     };
-    const removeMedia = (i) => setMediaList(mediaList.filter((_, idx) => idx !== i));
 
-    const follow = async (targetId) => {
-      let following = user.following || [];
-      const isFollow = following.includes(targetId);
-      const newFollowing = isFollow ? following.filter(id => id !== targetId) : [...following, targetId];
-      await supabase.from('users').update({ following: newFollowing }).eq('id', user.id);
-      user.following = newFollowing;
-      const targetUser = users.find(u => u.id === targetId);
-      if (targetUser) {
-        let followers = targetUser.followers || [];
-        const newFollowers = isFollow ? followers.filter(id => id !== user.id) : [...followers, user.id];
-        await supabase.from('users').update({ followers: newFollowers }).eq('id', targetId);
+    const deletePost = async (pid) => {
+      setPosts(prev => prev.filter(p => p.id !== pid));
+      await supabase.from('posts').delete().eq('id', pid).eq('user_id', user.id);
+      setPostToDelete(null);
+    };
+
+    const updatePost = async () => {
+      if (!editPostContent.trim()) return;
+      setPosts(prev => prev.map(p => p.id === editingPost.id ? { ...p, content: editPostContent, edited: true } : p));
+      await supabase.from('posts').update({ content: editPostContent, edited: true }).eq('id', editingPost.id);
+      setEditingPost(null);
+      showToast('Пост обновлён');
+    };
+
+    const sharePost = async () => {
+      if (shareSelected.length === 0) return;
+      for (const targetId of shareSelected) {
+        const targetUser = users.find(u => u.id === targetId);
+        if (targetUser) {
+          await supabase.from('messages').insert({ from_user: user.id, to_user: targetId, content: `📌 Поделился(ась) постом @${sharingPost.username}: "${sharingPost.content.substring(0, 120)}"`, read: false, created_at: new Date() });
+          await supabase.from('notifications').insert({ user_id: targetId, type: 'message', from_user_id: user.id, from_username: user.username, text: `${user.username} поделился с вами постом`, read: false, created_at: new Date() });
+        }
       }
-      await loadData();
-      showToast(isFollow ? 'Отписались' : 'Подписались');
+      showToast(`Поделились с ${shareSelected.length} пользователями`);
+      setSharingPost(null);
+      setShareSelected([]);
     };
 
-    const uploadAvatar = async (file) => {
-      if (!file) return;
-      setAvatarUploading(true);
-      const fileName = `avatar_${user.id}_${Date.now()}.jpg`;
-      const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, file);
-      if (error) { showToast('Ошибка'); setAvatarUploading(false); return; }
-      const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
-      await supabase.from('users').update({ avatar: urlData.publicUrl }).eq('id', user.id);
-      user.avatar = urlData.publicUrl;
-      await loadData();
-      setAvatarUploading(false);
-      showToast('Аватар обновлён');
-    };
-
-    const saveProfile = async () => {
-      await supabase.from('users').update({ full_name: editName, bio: editBio }).eq('id', user.id);
-      user.full_name = editName; user.bio = editBio;
-      setEditingProfile(false);
-      await loadData();
-      showToast('Профиль обновлён');
+    const markAllNotificationsRead = async () => {
+      const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
+      if (unreadIds.length === 0) return;
+      await supabase.from('notifications').update({ read: true }).in('id', unreadIds);
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      showToast('Все уведомления прочитаны');
     };
 
     const renderContent = (text) => {
@@ -527,11 +593,11 @@
 
           {tab === 'chat' && (<div className="flex flex-col h-[70vh]"><div className="flex gap-2 mb-4 overflow-x-auto">{chatList.map(cu=><button key={cu.id} onClick={()=>setChatUser(cu)} className={`px-3 py-1 rounded-full text-sm ${chatUser?.id===cu.id?'bg-blue-600 text-white':'bg-gray-800 text-gray-300'}`}>@{cu.username}</button>)}</div>
           {chatUser ? (<div className="card flex flex-col h-full"><div className="p-3 border-b border-gray-800 font-bold text-white">Чат с @{chatUser.username}</div><div className="flex-1 overflow-y-auto p-3 space-y-2">{replyToMsg && <div className="reply-quote"><i className="fas fa-reply mr-1"></i> Ответ @{replyToMsg.from_user===user.id?chatUser.username:users.find(u=>u.id===replyToMsg.from_user)?.username}: "{replyToMsg.content.substring(0,60)}"</div>}
-          {messages.map((msg,idx)=><div key={idx} className={`flex ${msg.from_user===user.id?'justify-end':'justify-start'}`}><div className={`max-w-[70%] p-2 rounded-xl ${msg.from_user===user.id?'bg-blue-600 text-white':'bg-[#2a2a2a] text-white'} cursor-pointer`} onClick={()=>setSelectedMessage({msg})}><p className="text-sm whitespace-pre-wrap">{msg.content}</p><div className="text-xs mt-1">{new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div></div></div>)}
+          {messages.map((msg,idx)=><div key={idx} className={`flex ${msg.from_user===user.id?'justify-end':'justify-start'}`}><div className={`max-w-[70%] p-2 rounded-xl ${msg.from_user===user.id?'bg-blue-600 text-white':'bg-[#2a2a2a] text-white'} chat-bubble`} onClick={()=>setSelectedMessage({msg})}><p className="text-sm">{msg.content}</p><div className="text-xs mt-1">{new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div></div></div>)}
           <div ref={messagesEndRef} /></div><div className="p-3 border-t border-gray-800 flex gap-2"><input id="message-input" type="text" placeholder="Сообщение..." value={msgText} onChange={e=>setMsgText(e.target.value)} onKeyPress={e=>e.key==='Enter'&&sendMessage()} className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white" /><button onClick={sendMessage} className="bg-blue-600 text-white px-4 rounded-xl btn">→</button></div></div>) : (<div className="card p-8 text-center text-gray-500">Выберите чат</div>)}</div>
           )}
 
-          {tab === 'notify' && (<div><h2 className="text-xl font-bold text-white mb-4">Уведомления</h2>
+          {tab === 'notify' && (<div><div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold text-white">Уведомления</h2><button onClick={markAllNotificationsRead} className="text-sm bg-gray-700 text-white px-3 py-1 rounded-xl btn">Прочитать все</button></div>
           {notifications.length===0 && <div className="card p-8 text-center text-gray-500">Нет уведомлений</div>}
           {notifications.map(n=><div key={n.id} className={`card p-4 mb-3 cursor-pointer ${!n.read?'border-l-4 border-green-500':''}`} onClick={async()=>{await supabase.from('notifications').update({read:true}).eq('id',n.id); setNotifications(prev=>prev.map(not=>not.id===n.id?{...not,read:true}:not)); if(n.type==='message'){const from=users.find(u=>u.id===n.from_user_id); if(from){setChatUser(from); setTab('chat');}} else setTab('feed');}}><p className="text-white">{n.text}</p><p className="text-xs text-gray-500 mt-1">{formatDateRelative(n.created_at)}</p></div>)}</div>
           )}
