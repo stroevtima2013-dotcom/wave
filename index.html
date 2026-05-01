@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Wave Social</title>
+  <title>Wave Social — удаление + ответы в чате</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
@@ -11,15 +11,15 @@
   <style>
     * { font-family: 'Inter', sans-serif; }
     body { background: #1a1a1a; }
-    .card { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 20px; transition: all 0.2s; }
-    .card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .card { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 5px rgba(100,100,100,0.1); }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 0 15px rgba(100,100,100,0.2); }
     .btn { transition: all 0.2s; cursor: pointer; }
     .btn:hover { transform: scale(1.02); filter: brightness(1.05); }
     .mention { color: #3b82f6; font-weight: 500; cursor: pointer; }
     .mention:hover { text-decoration: underline; }
     .hashtag { color: #eab308; font-weight: 500; cursor: pointer; }
     .hashtag:hover { text-decoration: underline; }
-    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2a2a2a; border: 1px solid #3a3a3a; color: white; padding: 8px 16px; border-radius: 40px; z-index: 1000; font-size: 14px; }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2a2a2a; border: 1px solid #3a3a3a; color: white; padding: 8px 16px; border-radius: 40px; z-index: 1000; font-size: 14px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
     .media-preview { position: relative; display: inline-block; margin: 5px; border-radius: 12px; overflow: hidden; border: 2px solid #4a4a4a; }
     .media-preview img { width: 80px; height: 80px; object-fit: cover; }
     .media-preview video { width: 80px; height: 80px; object-fit: cover; }
@@ -27,6 +27,9 @@
     .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: #2a2a2a; border: 1px solid #4a4a4a; border-radius: 12px; z-index: 50; min-width: 150px; }
     .profile-avatar { position: relative; display: inline-block; cursor: pointer; }
     .profile-avatar input { position: absolute; inset: 0; opacity: 0; cursor: pointer; border-radius: 50%; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+    .modal-card { background: #2a2a2a; border-radius: 24px; padding: 24px; max-width: 320px; width: 90%; text-align: center; border: 1px solid #4a4a4a; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
+    .reply-quote { background: #1a1a1a; padding: 8px 12px; border-radius: 12px; margin-bottom: 8px; font-size: 12px; color: #94a3b8; border-left: 3px solid #3b82f6; }
   </style>
 </head>
 <body>
@@ -115,6 +118,39 @@
     );
   }
 
+  // ========== МОДАЛЬНОЕ ПОДТВЕРЖДЕНИЕ ==========
+  function ConfirmModal({ message, onConfirm, onCancel }) {
+    return (
+      <div className="modal-overlay" onClick={onCancel}>
+        <div className="modal-card" onClick={e => e.stopPropagation()}>
+          <p className="text-white mb-6">{message}</p>
+          <div className="flex gap-3">
+            <button onClick={onConfirm} className="flex-1 bg-red-900 text-white py-2 rounded-xl hover:bg-red-800 btn">Удалить</button>
+            <button onClick={onCancel} className="flex-1 bg-gray-700 text-white py-2 rounded-xl hover:bg-gray-600 btn">Отмена</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ========== МОДАЛКА ДЛЯ КОММЕНТАРИЯ / СООБЩЕНИЯ ==========
+  function ActionModal({ item, type, onClose, onDelete, onReply }) {
+    if (!item) return null;
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-card" onClick={e => e.stopPropagation()}>
+          {type === 'comment' && <p className="text-white text-sm mb-3">Комментарий: {item.text}</p>}
+          {type === 'message' && <p className="text-white text-sm mb-3">Сообщение: {item.content}</p>}
+          <div className="flex flex-col gap-2">
+            {onReply && <button onClick={onReply} className="bg-blue-600 text-white py-2 rounded-xl btn"><i className="fas fa-reply mr-2"></i> Ответить</button>}
+            <button onClick={onDelete} className="bg-red-900 text-white py-2 rounded-xl btn"><i className="fas fa-trash-alt mr-2"></i> Удалить</button>
+            <button onClick={onClose} className="bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ========== ОСНОВНОЕ ПРИЛОЖЕНИЕ ==========
   function AppMain({ user, onLogout }) {
     const [tab, setTab] = React.useState('feed');
@@ -147,6 +183,14 @@
     const [mentionPos, setMentionPos] = React.useState(0);
     const textareaRef = React.useRef(null);
     const messagesEndRef = React.useRef(null);
+    
+    // Удаление поста
+    const [postToDelete, setPostToDelete] = React.useState(null);
+    // Модалка для комментария/сообщения
+    const [selectedComment, setSelectedComment] = React.useState(null);
+    const [selectedMessage, setSelectedMessage] = React.useState(null);
+    const [replyToMsg, setReplyToMsg] = React.useState(null);
+    const [replyToCommentPostId, setReplyToCommentPostId] = React.useState(null);
 
     React.useEffect(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -223,14 +267,41 @@
       return !!data;
     };
 
+    const uploadMediaFiles = async (files) => {
+      const newMedia = [];
+      for (const file of files) {
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
+        const { error } = await supabase.storage.from('wave-media').upload(fileName, file);
+        if (!error) {
+          const { data: { publicUrl } } = supabase.storage.from('wave-media').getPublicUrl(fileName);
+          newMedia.push({ url: publicUrl, type: file.type.startsWith('image/') ? 'image' : 'video', name: file.name });
+        }
+      }
+      return newMedia;
+    };
+
     const sendMessage = async () => {
-      if (!msgText.trim() || !chatUser) return;
+      if (!msgText.trim() && !replyToMsg && !chatUser) return;
+      let content = msgText;
+      if (replyToMsg) {
+        content = `[Ответ @${replyToMsg.from_user === user.id ? replyToMsg.to_user_username : replyToMsg.from_user_username}: "${replyToMsg.content.substring(0, 50)}"]\n${msgText}`;
+      }
       const tempId = Date.now();
-      setMessages(prev => [...prev, { id: tempId, from_user: user.id, to_user: chatUser.id, content: msgText, created_at: new Date().toISOString() }]);
+      setMessages(prev => [...prev, { id: tempId, from_user: user.id, to_user: chatUser.id, content, created_at: new Date().toISOString() }]);
       setMsgText('');
-      const { data: inserted } = await supabase.from('messages').insert({ from_user: user.id, to_user: chatUser.id, content: msgText, read: false, created_at: new Date() }).select().single();
+      setReplyToMsg(null);
+      const { data: inserted } = await supabase.from('messages').insert({ from_user: user.id, to_user: chatUser.id, content, read: false, created_at: new Date() }).select().single();
       if (inserted) setMessages(prev => prev.map(m => m.id === tempId ? inserted : m));
       await supabase.from('notifications').insert({ user_id: chatUser.id, type: 'message', from_user_id: user.id, from_username: user.username, text: `${user.username} отправил сообщение`, read: false, created_at: new Date() });
+    };
+
+    const deleteMessageForMe = async (msgId) => {
+      // Локальное удаление из UI
+      setMessages(prev => prev.filter(m => m.id !== msgId));
+      // В реальной БД нужно добавить поле deleted_for_me, но для простоты пока удаляем полностью
+      await supabase.from('messages').delete().eq('id', msgId).eq('from_user', user.id);
+      showToast('Сообщение удалено');
+      setSelectedMessage(null);
     };
 
     const follow = async (targetId) => {
@@ -282,15 +353,7 @@
       const files = Array.from(e.target.files);
       if (mediaList.length + files.length > 5) { showToast('Максимум 5 файлов'); return; }
       setUploadingMedia(true);
-      const newMedia = [];
-      for (const file of files) {
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
-        const { error } = await supabase.storage.from('wave-media').upload(fileName, file);
-        if (!error) {
-          const { data: { publicUrl } } = supabase.storage.from('wave-media').getPublicUrl(fileName);
-          newMedia.push({ url: publicUrl, type: file.type.startsWith('image/') ? 'image' : 'video', name: file.name });
-        }
-      }
+      const newMedia = await uploadMediaFiles(files);
       setMediaList([...mediaList, ...newMedia]);
       setUploadingMedia(false);
       e.target.value = '';
@@ -301,7 +364,6 @@
     const createPost = async () => {
       if (!newPost.trim() && mediaList.length === 0) { showToast('Напишите текст или добавьте медиа'); return; }
       
-      // Проверяем существование упомянутых пользователей
       const mentions = [...newPost.matchAll(/@(\w+)/g)].map(m => m[1]);
       for (const mention of mentions) {
         const exists = await checkUserExists(mention);
@@ -337,18 +399,39 @@
       await supabase.from('posts').update({ likes: likes + 1 }).eq('id', postId);
     };
 
-    const addComment = async (postId) => {
+    const addComment = async (postId, replyToComment = null) => {
       const text = commentTexts[postId] || '';
       if (!text.trim()) return;
+      let content = text;
+      if (replyToComment) {
+        content = `[Ответ @${replyToComment.username}: "${replyToComment.text.substring(0, 50)}"]\n${text}`;
+      }
       const post = posts.find(p => p.id === postId);
-      const newComment = { id: Date.now(), user_id: user.id, username: user.username, text, created_at: new Date().toISOString() };
+      const newComment = { id: Date.now(), user_id: user.id, username: user.username, text: content, created_at: new Date().toISOString() };
       const newComments = [...(post.comments || []), newComment];
       setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: newComments } : p));
       setCommentTexts({ ...commentTexts, [postId]: '' });
+      setSelectedComment(null);
       await supabase.from('posts').update({ comments: newComments }).eq('id', postId);
       if (post.user_id !== user.id) {
         await supabase.from('notifications').insert({ user_id: post.user_id, type: 'comment', from_user_id: user.id, from_username: user.username, post_id: postId, text: `${user.username} прокомментировал ваш пост`, read: false, created_at: new Date() });
       }
+    };
+
+    const deleteComment = async (postId, commentId) => {
+      const post = posts.find(p => p.id === postId);
+      const newComments = (post.comments || []).filter(c => c.id !== commentId);
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: newComments } : p));
+      await supabase.from('posts').update({ comments: newComments }).eq('id', postId);
+      setSelectedComment(null);
+      showToast('Комментарий удалён');
+    };
+
+    const deletePost = async (postId) => {
+      setPosts(prev => prev.filter(p => p.id !== postId));
+      await supabase.from('posts').delete().eq('id', postId).eq('user_id', user.id);
+      setPostToDelete(null);
+      showToast('Пост удалён');
     };
 
     const renderContent = (text) => {
@@ -391,7 +474,6 @@
 
     const filteredMentions = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 5);
 
-    // Dropdown меню для профиля
     const DropdownMenu = () => {
       const [open, setOpen] = React.useState(false);
       const ref = React.useRef(null);
@@ -411,7 +493,7 @@
 
     if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Загрузка...</div>;
 
-    // Профиль другого пользователя
+    // Профиль другого пользователя (упрощённо)
     if (viewProfile) {
       const profileUser = viewProfile;
       const isFollowing = (user.following || []).includes(profileUser.id);
@@ -435,7 +517,6 @@
             {showSubscribers && (
               <div className="mt-4 p-3 bg-[#333] rounded-xl">
                 <p className="text-gray-400 text-sm mb-2">Подписчики:</p>
-                {users.filter(u => (profileUser.followers || []).includes(u.id)).length === 0 && <p className="text-gray-500 text-sm">Нет подписчиков</p>}
                 {users.filter(u => (profileUser.followers || []).includes(u.id)).map(u => (
                   <div key={u.id} className="flex items-center gap-2 p-1 cursor-pointer hover:bg-[#3a3a3a] rounded" onClick={() => setViewProfile(u)}>
                     <img src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
@@ -447,7 +528,6 @@
             {showFollowing && (
               <div className="mt-4 p-3 bg-[#333] rounded-xl">
                 <p className="text-gray-400 text-sm mb-2">Подписки:</p>
-                {users.filter(u => (profileUser.following || []).includes(u.id)).length === 0 && <p className="text-gray-500 text-sm">Нет подписок</p>}
                 {users.filter(u => (profileUser.following || []).includes(u.id)).map(u => (
                   <div key={u.id} className="flex items-center gap-2 p-1 cursor-pointer hover:bg-[#3a3a3a] rounded" onClick={() => setViewProfile(u)}>
                     <img src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
@@ -460,7 +540,7 @@
           <h3 className="text-white font-bold mb-2">Посты</h3>
           {userPosts.map(post => (
             <div key={post.id} className="card p-4 mb-4">
-              <p className="text-white">{renderContent(post.content)}</p>
+              <p className="text-white whitespace-pre-wrap">{renderContent(post.content)}</p>
               <div className="flex gap-4 mt-2 text-gray-400 text-sm">
                 <span><i className="fas fa-heart text-red-500"></i> {post.likes || 0}</span>
                 <span><i className="far fa-comment"></i> {(post.comments || []).length}</span>
@@ -473,6 +553,37 @@
 
     return (
       <div className="min-h-screen pb-20">
+        {/* Модалка удаления поста */}
+        {postToDelete && <ConfirmModal message="Удалить пост навсегда?" onConfirm={() => deletePost(postToDelete)} onCancel={() => setPostToDelete(null)} />}
+        {/* Модалка для комментария */}
+        {selectedComment && (
+          <ActionModal 
+            item={selectedComment.comment} 
+            type="comment" 
+            onClose={() => setSelectedComment(null)} 
+            onDelete={() => deleteComment(selectedComment.postId, selectedComment.comment.id)}
+            onReply={() => {
+              setCommentTexts({ ...commentTexts, [selectedComment.postId]: `[Ответ @${selectedComment.comment.username}: "${selectedComment.comment.text.substring(0, 50)}"]\n` });
+              setSelectedComment(null);
+              setTimeout(() => document.getElementById(`comment-input-${selectedComment.postId}`)?.focus(), 100);
+            }}
+          />
+        )}
+        {/* Модалка для сообщения */}
+        {selectedMessage && (
+          <ActionModal 
+            item={selectedMessage.msg} 
+            type="message" 
+            onClose={() => setSelectedMessage(null)} 
+            onDelete={() => deleteMessageForMe(selectedMessage.msg.id)}
+            onReply={() => {
+              setReplyToMsg(selectedMessage.msg);
+              setSelectedMessage(null);
+              document.getElementById('message-input')?.focus();
+            }}
+          />
+        )}
+
         <header className="sticky top-0 z-20 border-b border-gray-700 bg-[#1a1a1a]/90 backdrop-blur-md p-4">
           <div className="max-w-2xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-2"><i className="fas fa-water text-white text-2xl"></i><span className="text-white font-bold text-xl">Wave</span></div>
@@ -494,7 +605,7 @@
                 <div className="flex gap-3">
                   <img src={user.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full" />
                   <div className="flex-1 relative">
-                    <textarea ref={textareaRef} rows="2" placeholder="Что нового? Используй @username или #хештег" className="w-full p-3 bg-[#333] rounded-xl text-white" value={newPost} onChange={handlePostInput} />
+                    <textarea ref={textareaRef} rows="2" placeholder="Что нового? Используй @username или #хештег" className="w-full p-3 bg-[#333] rounded-xl text-white whitespace-pre-wrap" value={newPost} onChange={handlePostInput} />
                     {showMentions && filteredMentions.length > 0 && (
                       <div className="absolute bottom-full left-0 bg-[#2a2a2a] border border-gray-600 rounded-xl max-h-48 overflow-auto z-10 mb-1 w-48">
                         {filteredMentions.map(u => (
@@ -530,9 +641,14 @@
                       <img src={post.user_avatar || 'https://via.placeholder.com/32'} className="w-8 h-8 rounded-full" />
                       <span className="font-bold text-white hover:underline">@{post.username}</span>
                     </div>
-                    <span className="text-gray-500 text-xs">{new Date(post.created_at).toLocaleString()}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 text-xs">{new Date(post.created_at).toLocaleString()}</span>
+                      {post.user_id === user.id && (
+                        <button onClick={() => setPostToDelete(post.id)} className="text-gray-500 hover:text-white"><i className="fas fa-ellipsis-h"></i></button>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-white">{renderContent(post.content)}</p>
+                  <p className="text-white whitespace-pre-wrap">{renderContent(post.content)}</p>
                   {post.media && post.media.length > 0 && (
                     <div className="grid grid-cols-3 gap-1 mt-2">
                       {post.media.map((m, idx) => m.type === 'video' ? <video key={idx} src={m.url} className="w-full h-24 object-cover rounded-lg" /> : <img key={idx} src={m.url} className="w-full h-24 object-cover rounded-lg" />)}
@@ -544,13 +660,13 @@
                   </div>
                   <div id={`comments-${post.id}`} className="hidden mt-3 pt-3 border-t border-gray-700">
                     {(post.comments || []).map(c => (
-                      <div key={c.id} className="flex gap-2 mb-2 text-sm">
-                        <span className="font-bold text-gray-300 cursor-pointer" onClick={() => c.user_id !== user.id && setViewProfile(users.find(u => u.id === c.user_id))}>@{c.username}</span>
-                        <span className="text-gray-400">{c.text}</span>
+                      <div key={c.id} className="flex gap-2 mb-2 text-sm p-2 hover:bg-[#333] rounded-xl cursor-pointer" onClick={() => setSelectedComment({ postId: post.id, comment: c })}>
+                        <span className="font-bold text-gray-300 cursor-pointer" onClick={(e) => { e.stopPropagation(); c.user_id !== user.id && setViewProfile(users.find(u => u.id === c.user_id)); }}>@{c.username}</span>
+                        <span className="text-gray-400 whitespace-pre-wrap">{c.text}</span>
                       </div>
                     ))}
                     <div className="flex gap-2 mt-2">
-                      <input type="text" placeholder="Комментарий..." className="flex-1 p-2 bg-[#333] rounded-xl text-sm text-white" value={commentTexts[post.id] || ''} onChange={e => setCommentTexts({ ...commentTexts, [post.id]: e.target.value })} />
+                      <input id={`comment-input-${post.id}`} type="text" placeholder="Комментарий..." className="flex-1 p-2 bg-[#333] rounded-xl text-sm text-white" value={commentTexts[post.id] || ''} onChange={e => setCommentTexts({ ...commentTexts, [post.id]: e.target.value })} />
                       <button onClick={() => addComment(post.id)} className="bg-gray-700 text-white px-3 rounded-xl text-sm btn">→</button>
                     </div>
                   </div>
@@ -568,7 +684,6 @@
                 </div>
                 <input type="text" placeholder="Поиск пользователей, постов или хештегов #..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full p-3 bg-[#333] rounded-xl text-white" />
               </div>
-              
               {searchType === 'users' && searchUserResults.map(u => (
                 <div key={u.id} className="card p-4 mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-3 cursor-pointer" onClick={() => setViewProfile(u)}>
@@ -578,21 +693,19 @@
                   <button onClick={() => { setChatUser(u); setTab('chat'); }} className="bg-green-600 text-white px-3 py-1 rounded-full text-sm btn">Чат</button>
                 </div>
               ))}
-              
               {searchType === 'posts' && searchPostResults.map(post => (
                 <div key={post.id} className="card p-4 mb-3 cursor-pointer" onClick={() => { setTab('feed'); setTimeout(() => document.getElementById(`post-${post.id}`)?.scrollIntoView({ behavior: 'smooth' }), 100); }}>
                   <div className="flex items-center gap-2 mb-2">
                     <img src={post.user_avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
                     <span className="font-bold text-white text-sm">@{post.username}</span>
                   </div>
-                  <p className="text-white text-sm">{post.content.substring(0, 100)}...</p>
+                  <p className="text-white text-sm whitespace-pre-wrap">{post.content.substring(0, 100)}...</p>
                   <div className="flex gap-3 mt-2 text-gray-500 text-xs">
                     <span><i className="fas fa-heart text-red-500"></i> {post.likes || 0}</span>
                     <span><i className="far fa-comment"></i> {(post.comments || []).length}</span>
                   </div>
                 </div>
               ))}
-              
               {searchQuery && searchType === 'users' && searchUserResults.length === 0 && <div className="text-center text-gray-500 py-4">Пользователи не найдены</div>}
               {searchQuery && searchType === 'posts' && searchPostResults.length === 0 && <div className="text-center text-gray-500 py-4">Посты не найдены</div>}
             </div>
@@ -609,18 +722,26 @@
                 <div className="card flex flex-col h-full">
                   <div className="p-3 border-b border-gray-700 font-bold text-white">Чат с @{chatUser.username}</div>
                   <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                    {messages.map((msg, idx) => (
-                      <div key={idx} className={`flex ${msg.from_user === user.id ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[70%] p-2 rounded-xl ${msg.from_user === user.id ? 'bg-blue-600 text-white' : 'bg-[#333] text-white'}`}>
-                          <p className="text-sm">{msg.content}</p>
-                          <div className="text-xs opacity-70 mt-1">{new Date(msg.created_at).toLocaleTimeString()}</div>
-                        </div>
+                    {replyToMsg && (
+                      <div className="reply-quote">
+                        <i className="fas fa-reply mr-1"></i> Ответ @{replyToMsg.from_user === user.id ? replyToMsg.to_user_username : replyToMsg.from_user_username}: "{replyToMsg.content.substring(0, 50)}"
                       </div>
-                    ))}
+                    )}
+                    {messages.map((msg, idx) => {
+                      const otherUser = msg.from_user === user.id ? chatUser : users.find(u => u.id === msg.from_user);
+                      return (
+                        <div key={idx} className={`flex ${msg.from_user === user.id ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[70%] p-2 rounded-xl ${msg.from_user === user.id ? 'bg-blue-600 text-white' : 'bg-[#333] text-white'} cursor-pointer`} onClick={() => setSelectedMessage({ msg })}>
+                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                            <div className="text-xs opacity-70 mt-1">{new Date(msg.created_at).toLocaleTimeString()}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
                     <div ref={messagesEndRef} />
                   </div>
                   <div className="p-3 border-t border-gray-700 flex gap-2">
-                    <input type="text" placeholder="Сообщение..." value={msgText} onChange={e => setMsgText(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()} className="flex-1 p-2 bg-[#333] rounded-xl text-white text-sm" />
+                    <input id="message-input" type="text" placeholder="Сообщение..." value={msgText} onChange={e => setMsgText(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()} className="flex-1 p-2 bg-[#333] rounded-xl text-white text-sm" />
                     <button onClick={sendMessage} className="bg-blue-600 text-white px-4 rounded-xl btn">→</button>
                   </div>
                 </div>
