@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-  <title>Wave Social — Быстрая версия</title>
+  <title>Wave Social</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
@@ -227,10 +227,15 @@
     const [mentionQuery, setMentionQuery] = React.useState('');
     const [mentionPosition, setMentionPosition] = React.useState(0);
     const textareaRef = React.useRef(null);
+    const [page, setPage] = React.useState(0);
+    const [hasMore, setHasMore] = React.useState(true);
+    const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+    const POSTS_PER_PAGE = 10;
     
-    const loadData = async () => {
+    // Загрузка данных (полная, но только первая страница)
+    const loadInitialData = async () => {
       const [postsRes, usersRes, messagesRes, notifsRes] = await Promise.all([
-        supabase.from('posts').select('*').order('created_at', { ascending: false }),
+        supabase.from('posts').select('*').order('created_at', { ascending: false }).range(0, POSTS_PER_PAGE - 1),
         supabase.from('users').select('*'),
         supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
         supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
@@ -238,6 +243,7 @@
       setPosts(postsRes.data || []);
       setUsers(usersRes.data || []);
       setNotifications(notifsRes.data || []);
+      setHasMore((postsRes.data || []).length === POSTS_PER_PAGE);
       
       const msgs = messagesRes.data || [];
       const chatUsersSet = new Set();
@@ -256,7 +262,81 @@
       setLoading(false);
     };
     
-    React.useEffect(() => { loadData(); }, [chatUser]);
+    // Подгрузка следующих постов
+    const loadMorePosts = async () => {
+      if (isLoadingMore || !hasMore) return;
+      setIsLoadingMore(true);
+      const nextPage = page + 1;
+      const start = nextPage * POSTS_PER_PAGE;
+      const end = start + POSTS_PER_PAGE - 1;
+      
+      const { data: newPosts } = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(start, end);
+      
+      if (newPosts && newPosts.length > 0) {
+        setPosts(prev => [...prev, ...newPosts]);
+        setPage(nextPage);
+        setHasMore(newPosts.length === POSTS_PER_PAGE);
+      } else {
+        setHasMore(false);
+      }
+      setIsLoadingMore(false);
+    };
+    
+    // Обновление лайков и комментариев (фоном, каждые 10 секунд)
+    const refreshFeedData = async () => {
+      if (activeTab !== 'feed') return;
+      const { data: updatedPosts } = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      if (updatedPosts) {
+        setPosts(prevPosts => {
+          const updatedMap = new Map(updatedPosts.map(p => [p.id, p]));
+          return prevPosts.map(p => updatedMap.get(p.id) || p);
+        });
+      }
+      
+      const { data: updatedNotifs } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (updatedNotifs) setNotifications(updatedNotifs);
+      
+      // Обновляем unread counts для чатов
+      const { data: messagesRes } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`from_user.eq.${user.id},to_user.eq.${user.id}`);
+      const msgs = messagesRes.data || [];
+      const counts = {};
+      msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
+      setUnreadCounts(counts);
+    };
+    
+    // Скролл для подгрузки
+    React.useEffect(() => {
+      const handleScroll = () => {
+        if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500 && !isLoadingMore && hasMore && activeTab === 'feed') {
+          loadMorePosts();
+        }
+      };
+      window.addEventListener('scroll', handleScroll);
+      return () => window.removeEventListener('scroll', handleScroll);
+    }, [isLoadingMore, hasMore, activeTab, page]);
+    
+    // Обновление данных каждые 10 секунд (только лайки/комментарии, без потери фокуса)
+    React.useEffect(() => {
+      loadInitialData();
+      const interval = setInterval(refreshFeedData, 10000);
+      return () => clearInterval(interval);
+    }, []);
     
     const addNotification = async (type, fromUserId, postId = null) => {
       const fromUser = users.find(u => u.id === fromUserId);
@@ -269,12 +349,13 @@
         user_id: user.id, type, from_user_id: fromUserId, from_username: fromUser.username,
         post_id: postId, text, read: false, created_at: new Date()
       });
-      loadData();
+      refreshFeedData();
     };
     
     const handleLike = async (postId, currentLikes) => {
+      // Мгновенное обновление UI
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: currentLikes + 1 } : p));
       await supabase.from('posts').update({ likes: currentLikes + 1 }).eq('id', postId);
-      loadData();
     };
     
     const handleAddComment = async (postId) => {
@@ -288,9 +369,9 @@
         text: text,
         created_at: new Date().toISOString()
       }];
-      await supabase.from('posts').update({ comments: newComments }).eq('id', postId);
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: newComments } : p));
       setCommentTexts({ ...commentTexts, [postId]: '' });
-      loadData();
+      await supabase.from('posts').update({ comments: newComments }).eq('id', postId);
       addNotification('comment', post.user_id, postId);
       showToast('Комментарий добавлен');
     };
@@ -300,7 +381,7 @@
       if (!msgText?.trim() || !chatUser) return;
       await supabase.from('messages').insert({ from_user: user.id, to_user: chatUser.id, content: msgText, read: false, created_at: new Date() });
       document.getElementById('msgInput').value = '';
-      loadData();
+      refreshFeedData();
       addNotification('message', chatUser.id);
     };
     
@@ -309,7 +390,7 @@
       if (following.includes(targetUserId)) following = following.filter(id => id !== targetUserId);
       else following.push(targetUserId);
       await supabase.from('users').update({ following }).eq('id', user.id);
-      loadData();
+      refreshFeedData();
       showToast(following.includes(targetUserId) ? 'Подписан ✅' : 'Отписался ❌');
     };
     
@@ -358,7 +439,6 @@
     const handleCreatePost = async () => {
       if (!newPostContent.trim() && mediaList.length === 0) { showToast('Напишите текст или добавьте медиа'); return; }
       
-      // МГНОВЕННО добавляем пост в ленту (оптимистичное обновление)
       const tempId = Date.now();
       const newPost = {
         id: tempId,
@@ -376,13 +456,11 @@
       
       const mentions = [...newPostContent.matchAll(/@(\w+)/g)].map(m => m[1]);
       
-      // Фоновый запрос к БД
       const { data: inserted } = await supabase.from('posts').insert({
         user_id: user.id, username: user.username, user_avatar: user.avatar,
         content: newPostContent, media: mediaList, likes: 0, comments: [], mentions, created_at: new Date()
-        }).select().single();
+      }).select().single();
       
-      // Заменяем временный ID на реальный
       if (inserted) {
         setPosts(prev => prev.map(p => p.id === tempId ? { ...inserted, media: mediaList } : p));
       }
@@ -526,10 +604,11 @@
                   </div>
                 </div>
               ))}
+              {isLoadingMore && <div className="text-center text-gray-500 py-4">Загрузка...</div>}
+              {!hasMore && posts.length > 0 && <div className="text-center text-gray-500 py-4">Все посты загружены</div>}
             </>
           )}
           
-          {/* Поиск */}
           {activeTab === 'search' && (
             <div>
               <div className="card-bg p-4 mb-6">
@@ -568,7 +647,7 @@
             <div className="flex flex-col h-[70vh]">
               <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
                 {chatList.map(cu => (
-                  <button key={cu.id} onClick={() => { setChatUser(cu); loadData(); }} className={`px-3 py-1.5 rounded-full text-sm transition ${chatUser?.id === cu.id ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>@{cu.username}</button>
+                  <button key={cu.id} onClick={() => { setChatUser(cu); refreshFeedData(); }} className={`px-3 py-1.5 rounded-full text-sm transition ${chatUser?.id === cu.id ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>@{cu.username}</button>
                 ))}
               </div>
               {chatUser ? (
@@ -602,7 +681,7 @@
               {notifications.map(n => (
                 <div key={n.id} className={`card-bg p-4 mb-3 cursor-pointer hover:bg-[#2a2a2a] transition ${!n.read ? 'border-l-4 border-green-500' : ''}`} onClick={async () => {
                   await supabase.from('notifications').update({ read: true }).eq('id', n.id);
-                  loadData();
+                  refreshFeedData();
                   if (n.type === 'message') {
                     const fromUser = users.find(u => u.id === n.from_user_id);
                     if (fromUser) { setChatUser(fromUser); setActiveTab('chat'); }
@@ -624,7 +703,7 @@
                   const file = e.target.files[0];
                   if (file) {
                     const url = await uploadAvatar(file, user.id);
-                    if (url) { user.avatar = url; loadData(); showToast('Аватар обновлён'); }
+                    if (url) { user.avatar = url; refreshFeedData(); showToast('Аватар обновлён'); }
                   }
                 }} />
               </div>
