@@ -30,8 +30,6 @@
     .share-user:hover { background: #2a2a2a; }
     .mention { color: #3b82f6; font-weight: 500; cursor: pointer; }
     .hashtag { color: #eab308; font-weight: 500; cursor: pointer; }
-    .skeleton { background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 20px; }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
   </style>
 </head>
 <body>
@@ -184,7 +182,7 @@
     const [replyToMsg, setReplyToMsg] = React.useState(null);
     const [replyingToComment, setReplyingToComment] = React.useState(null);
 
-    // Загрузка данных
+    // Загрузка всех данных один раз
     const loadData = async () => {
       const [postsRes, usersRes, msgsRes, notifsRes] = await Promise.all([
         supabase.from('posts').select('*').order('created_at', { ascending: false }),
@@ -211,20 +209,39 @@
     };
     React.useEffect(() => { loadData(); }, []);
 
-    // Загрузка медиа в Storage
+    // Realtime для сообщений (мгновенная доставка)
+    React.useEffect(() => {
+      if (!chatUser) return;
+      const sub = supabase
+        .channel('msgs')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `to_user=eq.${user.id},from_user=eq.${chatUser.id}` }, (payload) => {
+          setMessages(prev => [...prev, payload.new]);
+          supabase.from('messages').update({ read: true }).eq('id', payload.new.id);
+          setUnread(prev => ({ ...prev, [chatUser.id]: 0 }));
+        })
+        .subscribe();
+      return () => sub.unsubscribe();
+    }, [chatUser, user.id]);
+
+    // Загрузка медиа в Storage (ИСПРАВЛЕНА)
     const uploadMediaFiles = async (files) => {
       const uploaded = [];
       for (const f of files) {
         const ext = f.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
         const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, f);
-        if (error) { showToast(`Ошибка: ${f.name}`); continue; }
-        const { data: { publicUrl } } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
-        uploaded.push({ url: publicUrl, type: f.type.startsWith('image/') ? 'image' : 'video' });
+        if (error) {
+          console.error("Upload error:", error);
+          showToast(`Ошибка загрузки ${f.name}: ${error.message}`);
+          continue;
+        }
+        const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
+        uploaded.push({ url: urlData.publicUrl, type: f.type.startsWith('image/') ? 'image' : 'video' });
       }
       return uploaded;
     };
 
+    // ======= МГНОВЕННЫЕ ДЕЙСТВИЯ =======
     const sendMessage = async () => {
       if ((!msgText.trim() && !replyToMsg) || !chatUser) return;
       let content = msgText;
@@ -240,67 +257,6 @@
       if (inserted) setMessages(prev => prev.map(m => m.id === tempId ? inserted : m));
       await supabase.from('notifications').insert({ user_id: chatUser.id, type: 'message', from_user_id: user.id, from_username: user.username, text: `${user.username} отправил сообщение`, read: false, created_at: new Date() });
     };
-
-    const deleteMessage = async (msgId) => {
-      setMessages(prev => prev.filter(m => m.id !== msgId));
-      await supabase.from('messages').delete().eq('id', msgId);
-      setSelectedMessage(null);
-    };
-
-    const follow = async (targetId) => {
-      let following = user.following || [];
-      const isFollow = following.includes(targetId);
-      const newFollowing = isFollow ? following.filter(id => id !== targetId) : [...following, targetId];
-      await supabase.from('users').update({ following: newFollowing }).eq('id', user.id);
-      user.following = newFollowing;
-      const targetUser = users.find(u => u.id === targetId);
-      if (targetUser) {
-        let followers = targetUser.followers || [];
-        const newFollowers = isFollow ? followers.filter(id => id !== user.id) : [...followers, user.id];
-        await supabase.from('users').update({ followers: newFollowers }).eq('id', targetId);
-      }
-      await loadData();
-      showToast(isFollow ? 'Отписались' : 'Подписались');
-    };
-
-    const uploadAvatar = async (file) => {
-      if (!file) return;
-      setAvatarUploading(true);
-      const fileName = `avatar_${user.id}_${Date.now()}.jpg`;
-      const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, file);
-      if (error) { showToast('Ошибка'); setAvatarUploading(false); return; }
-      const { data: { publicUrl } } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
-      await supabase.from('users').update({ avatar: publicUrl }).eq('id', user.id);
-      user.avatar = publicUrl;
-      await loadData();
-      setAvatarUploading(false);
-      showToast('Аватар обновлён');
-    };
-
-    const handleDeleteAccount = async () => {
-      await supabase.from('users').delete().eq('id', user.id);
-      showToast('Аккаунт удалён');
-      onLogout();
-    };
-
-    const saveProfile = async () => {
-      await supabase.from('users').update({ full_name: editName, bio: editBio }).eq('id', user.id);
-      user.full_name = editName; user.bio = editBio;
-      setEditingProfile(false);
-      await loadData();
-      showToast('Профиль обновлён');
-    };
-
-    const handleMediaUpload = async (e) => {
-      const files = Array.from(e.target.files);
-      if (mediaList.length + files.length > 5) { showToast('Максимум 5 файлов'); return; }
-      setUploadingMedia(true);
-      const newMedia = await uploadMediaFiles(files);
-      setMediaList([...mediaList, ...newMedia]);
-      setUploadingMedia(false);
-      e.target.value = '';
-    };
-    const removeMedia = (i) => setMediaList(mediaList.filter((_, idx) => idx !== i));
 
     const createPost = async () => {
       if (!newPost.trim() && mediaList.length === 0) { showToast('Напишите текст или добавьте медиа'); return; }
@@ -328,6 +284,12 @@
       showToast('Пост опубликован!');
     };
 
+    const likePost = async (pid, current) => {
+      const newLikes = current + 1;
+      setPosts(prev => prev.map(p => p.id === pid ? { ...p, likes: newLikes } : p));
+      await supabase.from('posts').update({ likes: newLikes }).eq('id', pid);
+    };
+
     const addComment = async (postId) => {
       let text = commentTexts[postId] || '';
       if (!text.trim()) return;
@@ -344,46 +306,53 @@
       }
     };
 
-    const likePost = async (pid, current) => {
-      const newLikes = current + 1;
-      setPosts(prev => prev.map(p => p.id === pid ? { ...p, likes: newLikes } : p));
-      await supabase.from('posts').update({ likes: newLikes }).eq('id', pid);
+    const handleMediaUpload = async (e) => {
+      const files = Array.from(e.target.files);
+      if (mediaList.length + files.length > 5) { showToast('Максимум 5 файлов'); return; }
+      setUploadingMedia(true);
+      const newMedia = await uploadMediaFiles(files);
+      setMediaList([...mediaList, ...newMedia]);
+      setUploadingMedia(false);
+      e.target.value = '';
     };
+    const removeMedia = (i) => setMediaList(mediaList.filter((_, idx) => idx !== i));
 
-    const deleteComment = async (postId, commentId) => {
-      const post = posts.find(p => p.id === postId);
-      const newComments = (post.comments || []).filter(c => c.id !== commentId);
-      setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: newComments } : p));
-      await supabase.from('posts').update({ comments: newComments }).eq('id', postId);
-      setSelectedComment(null);
-    };
-
-    const deletePost = async (pid) => {
-      setPosts(prev => prev.filter(p => p.id !== pid));
-      await supabase.from('posts').delete().eq('id', pid).eq('user_id', user.id);
-      setPostToDelete(null);
-    };
-
-    const updatePost = async () => {
-      if (!editPostContent.trim()) return;
-      setPosts(prev => prev.map(p => p.id === editingPost.id ? { ...p, content: editPostContent, edited: true } : p));
-      await supabase.from('posts').update({ content: editPostContent, edited: true }).eq('id', editingPost.id);
-      setEditingPost(null);
-      showToast('Пост обновлён');
-    };
-
-    const sharePost = async () => {
-      if (shareSelected.length === 0) return;
-      for (const targetId of shareSelected) {
-        const targetUser = users.find(u => u.id === targetId);
-        if (targetUser) {
-          await supabase.from('messages').insert({ from_user: user.id, to_user: targetId, content: `📌 Поделился(ась) постом @${sharingPost.username}: "${sharingPost.content.substring(0, 120)}"`, read: false, created_at: new Date() });
-          await supabase.from('notifications').insert({ user_id: targetId, type: 'message', from_user_id: user.id, from_username: user.username, text: `${user.username} поделился с вами постом`, read: false, created_at: new Date() });
-        }
+    const follow = async (targetId) => {
+      let following = user.following || [];
+      const isFollow = following.includes(targetId);
+      const newFollowing = isFollow ? following.filter(id => id !== targetId) : [...following, targetId];
+      await supabase.from('users').update({ following: newFollowing }).eq('id', user.id);
+      user.following = newFollowing;
+      const targetUser = users.find(u => u.id === targetId);
+      if (targetUser) {
+        let followers = targetUser.followers || [];
+        const newFollowers = isFollow ? followers.filter(id => id !== user.id) : [...followers, user.id];
+        await supabase.from('users').update({ followers: newFollowers }).eq('id', targetId);
       }
-      showToast(`Поделились с ${shareSelected.length} пользователями`);
-      setSharingPost(null);
-      setShareSelected([]);
+      await loadData();
+      showToast(isFollow ? 'Отписались' : 'Подписались');
+    };
+
+    const uploadAvatar = async (file) => {
+      if (!file) return;
+      setAvatarUploading(true);
+      const fileName = `avatar_${user.id}_${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, file);
+      if (error) { showToast('Ошибка'); setAvatarUploading(false); return; }
+      const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
+      await supabase.from('users').update({ avatar: urlData.publicUrl }).eq('id', user.id);
+      user.avatar = urlData.publicUrl;
+      await loadData();
+      setAvatarUploading(false);
+      showToast('Аватар обновлён');
+    };
+
+    const saveProfile = async () => {
+      await supabase.from('users').update({ full_name: editName, bio: editBio }).eq('id', user.id);
+      user.full_name = editName; user.bio = editBio;
+      setEditingProfile(false);
+      await loadData();
+      showToast('Профиль обновлён');
     };
 
     const renderContent = (text) => {
@@ -458,6 +427,7 @@
 
     if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Загрузка...</div>;
 
+    // Профиль другого
     if (viewProfile) {
       const profileUser = viewProfile;
       const isFollowing = (user.following || []).includes(profileUser.id);
