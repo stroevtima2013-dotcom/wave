@@ -6,21 +6,17 @@
   <title>Wave Social</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     * { font-family: 'Inter', sans-serif; }
     body { background: #1a1a1a; }
     .card { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 20px; }
-    .btn { transition: all 0.2s; }
+    .btn { transition: all 0.2s; cursor: pointer; }
     .btn:hover { transform: scale(1.02); filter: brightness(1.05); }
     .mention { color: #3b82f6; font-weight: 500; cursor: pointer; }
     .mention:hover { text-decoration: underline; }
     .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2a2a2a; border: 1px solid #3a3a3a; color: white; padding: 8px 16px; border-radius: 40px; z-index: 1000; font-size: 14px; }
-    .skeleton { background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%); background-size: 200% 100%; animation: loading 1.5s infinite; border-radius: 20px; }
-    @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    .post-enter { animation: fadeIn 0.3s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
@@ -31,9 +27,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 
 <script type="text/babel">
-  // ========== НАСТРОЙКИ ==========
   const SUPABASE_URL = "https://udjyttttghwtylzjavmw.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_U_lF6X0ZakHsq6I_f8byHA_91hFjf3y";
+  const SUPABASE_ANON_KEY = "https://udjyttttghwtylzjavmw.supabase.co";
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   function showToast(msg) {
@@ -44,27 +39,7 @@
     setTimeout(() => t.remove(), 2500);
   }
 
-  // ========== ЛЕНИВАЯ ЗАГРУЗКА ИЗОБРАЖЕНИЙ ==========
-  function LazyImage({ src, className, alt }) {
-    const [loaded, setLoaded] = React.useState(false);
-    const imgRef = React.useRef(null);
-    React.useEffect(() => {
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            setLoaded(true);
-            observer.disconnect();
-          }
-        });
-      });
-      if (imgRef.current) observer.observe(imgRef.current);
-      return () => observer.disconnect();
-    }, []);
-    if (!loaded) return <div ref={imgRef} className={`skeleton ${className}`} style={{ borderRadius: '50%' }}></div>;
-    return <img src={src} className={className} alt={alt} loading="lazy" />;
-  }
-
-  // ========== ЭКРАН ВХОДА ==========
+  // ========== ВХОД ПО ПАРОЛЮ ==========
   function PasswordGate({ onSuccess }) {
     const [pass, setPass] = React.useState('');
     const [err, setErr] = React.useState('');
@@ -116,7 +91,7 @@
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="card p-8 max-w-md w-full">
-          <h1 className="text-3xl font-bold text-white text-center">Wave</h1>
+          <div className="text-center"><i className="fas fa-water text-5xl text-white opacity-80"></i><h1 className="text-3xl font-bold mt-2 text-white">Wave Social</h1></div>
           <form onSubmit={handleSubmit} className="space-y-4 mt-6">
             <input type="text" placeholder="Логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full p-3 bg-[#333] rounded-xl text-white" required />
             <input type="password" placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#333] rounded-xl text-white" required />
@@ -130,7 +105,7 @@
     );
   }
 
-  // ========== ОСНОВНОЙ КОМПОНЕНТ ==========
+  // ========== ОСНОВНОЕ ПРИЛОЖЕНИЕ ==========
   function AppMain({ user, onLogout }) {
     const [tab, setTab] = React.useState('feed');
     const [posts, setPosts] = React.useState([]);
@@ -154,80 +129,62 @@
     const [mentionQuery, setMentionQuery] = React.useState('');
     const [mentionPos, setMentionPos] = React.useState(0);
     const textareaRef = React.useRef(null);
-    const [initialLoadDone, setInitialLoadDone] = React.useState(false);
-    const [page, setPage] = React.useState(0);
-    const [hasMore, setHasMore] = React.useState(true);
-    const POSTS_PER_PAGE = 10;
+    const messagesEndRef = React.useRef(null);
 
-    // Быстрая загрузка — только первая страница постов
-    const loadInitialData = async () => {
+    // Автоскролл чата
+    React.useEffect(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    const loadData = async () => {
       const [postsRes, usersRes, msgsRes, notifsRes] = await Promise.all([
-        supabase.from('posts').select('*').order('created_at', { ascending: false }).range(0, POSTS_PER_PAGE - 1),
+        supabase.from('posts').select('*').order('created_at', { ascending: false }),
         supabase.from('users').select('*'),
-        supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`).limit(50),
-        supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30)
+        supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
+        supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
       ]);
       setPosts(postsRes.data || []);
       setUsers(usersRes.data || []);
       setNotifications(notifsRes.data || []);
-      setHasMore((postsRes.data || []).length === POSTS_PER_PAGE);
       
       const msgs = msgsRes.data || [];
       const chatSet = new Set();
       msgs.forEach(m => { if (m.from_user !== user.id) chatSet.add(m.from_user); if (m.to_user !== user.id) chatSet.add(m.to_user); });
       setChatList(usersRes.data?.filter(u => chatSet.has(u.id)) || []);
+      
       const counts = {};
       msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
       setUnread(counts);
+      
       if (chatUser) {
         const chatMsgs = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
         setMessages(chatMsgs);
         await supabase.from('messages').update({ read: true }).eq('to_user', user.id).eq('from_user', chatUser.id);
       }
       setLoading(false);
-      setInitialLoadDone(true);
     };
 
-    // Подгрузка следующих постов при скролле
-    const loadMore = async () => {
-      if (!hasMore || !initialLoadDone) return;
-      const nextPage = page + 1;
-      const start = nextPage * POSTS_PER_PAGE;
-      const end = start + POSTS_PER_PAGE - 1;
-      const { data: newPosts } = await supabase.from('posts').select('*').order('created_at', { ascending: false }).range(start, end);
-      if (newPosts && newPosts.length > 0) {
-        setPosts(prev => [...prev, ...newPosts]);
-        setPage(nextPage);
-        setHasMore(newPosts.length === POSTS_PER_PAGE);
-      } else {
-        setHasMore(false);
-      }
-    };
+    React.useEffect(() => { loadData(); }, [chatUser]);
 
+    // Realtime подписка на новые сообщения
     React.useEffect(() => {
-      loadInitialData();
-      const handleScroll = () => {
-        if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500 && hasMore && !loading) {
-          loadMore();
-        }
-      };
-      window.addEventListener('scroll', handleScroll);
-      return () => window.removeEventListener('scroll', handleScroll);
-    }, [chatUser, hasMore, initialLoadDone]);
-
-    // Фоновая синхронизация только новых данных (раз в 15 секунд)
-    React.useEffect(() => {
-      const interval = setInterval(async () => {
-        if (tab !== 'feed') return;
-        const { data: newPosts } = await supabase.from('posts').select('*').order('created_at', { ascending: false }).limit(20);
-        if (newPosts) setPosts(prev => {
-          const existingIds = new Set(prev.map(p => p.id));
-          const fresh = newPosts.filter(p => !existingIds.has(p.id));
-          return [...fresh, ...prev];
-        });
-      }, 15000);
-      return () => clearInterval(interval);
-    }, [tab]);
+      if (!chatUser) return;
+      const subscription = supabase
+        .channel('messages-channel')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `to_user=eq.${user.id},from_user=eq.${chatUser.id}`
+        }, (payload) => {
+          const newMsg = payload.new;
+          setMessages(prev => [...prev, newMsg]);
+          supabase.from('messages').update({ read: true }).eq('id', newMsg.id);
+          setUnread(prev => ({ ...prev, [chatUser.id]: 0 }));
+        })
+        .subscribe();
+      return () => subscription.unsubscribe();
+    }, [chatUser, user.id]);
 
     const createPost = async () => {
       if (!newPost.trim()) return;
@@ -269,13 +226,15 @@
 
     const sendMessage = async () => {
       if (!msgText.trim() || !chatUser) return;
-      const newMsg = { id: Date.now(), from_user: user.id, to_user: chatUser.id, content: msgText, read: false, created_at: new Date().toISOString() };
-      setMessages([...messages, newMsg]);
+      const tempId = Date.now();
+      const newMsg = { id: tempId, from_user: user.id, to_user: chatUser.id, content: msgText, read: false, created_at: new Date().toISOString() };
+      setMessages(prev => [...prev, newMsg]);
       setMsgText('');
-      await supabase.from('messages').insert({ from_user: user.id, to_user: chatUser.id, content: msgText, read: false, created_at: new Date() });
-      if (chatUser.id !== user.id) {
-        await supabase.from('notifications').insert({ user_id: chatUser.id, type: 'message', from_user_id: user.id, from_username: user.username, text: `${user.username} отправил сообщение`, read: false, created_at: new Date() });
-      }
+      const { data: inserted } = await supabase.from('messages').insert({
+        from_user: user.id, to_user: chatUser.id, content: msgText, read: false, created_at: new Date()
+      }).select().single();
+      if (inserted) setMessages(prev => prev.map(m => m.id === tempId ? inserted : m));
+      await supabase.from('notifications').insert({ user_id: chatUser.id, type: 'message', from_user_id: user.id, from_username: user.username, text: `${user.username} отправил сообщение`, read: false, created_at: new Date() });
     };
 
     const follow = async (targetId) => {
@@ -290,7 +249,7 @@
         const newFollowers = isFollow ? followers.filter(id => id !== user.id) : [...followers, user.id];
         await supabase.from('users').update({ followers: newFollowers }).eq('id', targetId);
       }
-      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, following: newFollowing } : u.id === targetId ? { ...u, followers: isFollow ? (u.followers || []).filter(id => id !== user.id) : [...(u.followers || []), user.id] } : u));
+      loadData();
       showToast(isFollow ? 'Отписались' : 'Подписались');
     };
 
@@ -303,7 +262,7 @@
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
       await supabase.from('users').update({ avatar: publicUrl }).eq('id', user.id);
       user.avatar = publicUrl;
-      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, avatar: publicUrl } : u));
+      loadData();
       showToast('Аватар обновлён');
       setAvatarUploading(false);
     };
@@ -345,17 +304,7 @@
 
     const filteredMentions = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 5);
 
-    if (loading) {
-      return (
-        <div className="min-h-screen p-4">
-          <div className="max-w-2xl mx-auto">
-            <div className="skeleton h-40 mb-4"></div>
-            <div className="skeleton h-32 mb-3"></div>
-            <div className="skeleton h-32 mb-3"></div>
-          </div>
-        </div>
-      );
-    }
+    if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Загрузка...</div>;
 
     // Профиль другого пользователя
     if (viewProfile) {
@@ -366,7 +315,7 @@
         <div className="min-h-screen p-4">
           <button onClick={() => { setViewProfile(null); setShowSubscribers(false); setShowFollowing(false); }} className="text-gray-400 mb-4"><i className="fas fa-arrow-left mr-2"></i> Назад</button>
           <div className="card p-6 text-center mb-6">
-            <LazyImage src={profileUser.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
+            <img src={profileUser.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
             <h2 className="text-xl font-bold text-white mt-2">{profileUser.full_name || profileUser.username}</h2>
             <p className="text-gray-400">@{profileUser.username}</p>
             <p className="text-gray-500 text-sm mt-1">{profileUser.bio || 'Нет описания'}</p>
@@ -384,7 +333,7 @@
                 {users.filter(u => (profileUser.followers || []).includes(u.id)).length === 0 && <p className="text-gray-500 text-sm">Нет подписчиков</p>}
                 {users.filter(u => (profileUser.followers || []).includes(u.id)).map(u => (
                   <div key={u.id} className="flex items-center gap-2 p-1 cursor-pointer hover:bg-[#3a3a3a] rounded" onClick={() => setViewProfile(u)}>
-                    <LazyImage src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
+                    <img src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
                     <span className="text-white text-sm">@{u.username}</span>
                   </div>
                 ))}
@@ -396,7 +345,7 @@
                 {users.filter(u => (profileUser.following || []).includes(u.id)).length === 0 && <p className="text-gray-500 text-sm">Нет подписок</p>}
                 {users.filter(u => (profileUser.following || []).includes(u.id)).map(u => (
                   <div key={u.id} className="flex items-center gap-2 p-1 cursor-pointer hover:bg-[#3a3a3a] rounded" onClick={() => setViewProfile(u)}>
-                    <LazyImage src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
+                    <img src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
                     <span className="text-white text-sm">@{u.username}</span>
                   </div>
                 ))}
@@ -405,7 +354,7 @@
           </div>
           <h3 className="text-white font-bold mb-2">Посты</h3>
           {userPosts.map(post => (
-            <div key={post.id} className="card p-4 mb-4 post-enter">
+            <div key={post.id} className="card p-4 mb-4">
               <p className="text-white">{renderContent(post.content)}</p>
               <div className="flex gap-4 mt-2 text-gray-500 text-sm">
                 <span>❤️ {post.likes || 0}</span>
@@ -438,14 +387,14 @@
             <>
               <div className="card p-4 mb-6">
                 <div className="flex gap-3">
-                  <LazyImage src={user.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full" />
+                  <img src={user.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full" />
                   <div className="flex-1 relative">
                     <textarea ref={textareaRef} rows="2" placeholder="Что нового? Используй @username" className="w-full p-3 bg-[#333] rounded-xl text-white" value={newPost} onChange={handlePostInput} />
                     {showMentions && filteredMentions.length > 0 && (
                       <div className="absolute bottom-full left-0 bg-[#2a2a2a] border border-gray-600 rounded-xl max-h-48 overflow-auto z-10 mb-1 w-48">
                         {filteredMentions.map(u => (
                           <div key={u.id} className="p-2 hover:bg-[#3a3a3a] cursor-pointer flex items-center gap-2" onClick={() => insertMention(u.username)}>
-                            <LazyImage src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
+                            <img src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
                             <span className="text-white">@{u.username}</span>
                           </div>
                         ))}
@@ -456,10 +405,10 @@
                 </div>
               </div>
               {posts.map(post => (
-                <div key={post.id} className="card p-4 mb-4 post-enter">
+                <div key={post.id} className="card p-4 mb-4">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 cursor-pointer" onClick={() => post.user_id !== user.id && setViewProfile(users.find(u => u.id === post.user_id))}>
-                      <LazyImage src={post.user_avatar || 'https://via.placeholder.com/32'} className="w-8 h-8 rounded-full" />
+                      <img src={post.user_avatar || 'https://via.placeholder.com/32'} className="w-8 h-8 rounded-full" />
                       <span className="font-bold text-white hover:underline">@{post.username}</span>
                     </div>
                     <span className="text-gray-500 text-xs">{new Date(post.created_at).toLocaleString()}</span>
@@ -486,7 +435,6 @@
                   </div>
                 </div>
               ))}
-              {hasMore && <div className="text-center text-gray-500 py-4">Загрузка...</div>}
             </>
           )}
 
@@ -502,7 +450,7 @@
               {searchResults.map(u => (
                 <div key={u.id} className="card p-4 mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-3 cursor-pointer" onClick={() => setViewProfile(u)}>
-                    <LazyImage src={u.avatar || 'https://via.placeholder.com/48'} className="w-10 h-10 rounded-full" />
+                    <img src={u.avatar || 'https://via.placeholder.com/48'} className="w-10 h-10 rounded-full" />
                     <div><div className="font-bold text-white">{u.full_name || u.username}</div><div className="text-gray-400 text-sm">@{u.username}</div></div>
                   </div>
                   <button onClick={() => { setChatUser(u); setTab('chat'); }} className="bg-green-600 text-white px-3 py-1 rounded-full text-sm btn">Чат</button>
@@ -530,7 +478,7 @@
                         </div>
                       </div>
                     ))}
-                    <div ref={el => el?.scrollIntoView({ behavior: 'smooth' })} />
+                    <div ref={messagesEndRef} />
                   </div>
                   <div className="p-3 border-t border-gray-700 flex gap-2">
                     <input type="text" placeholder="Сообщение..." value={msgText} onChange={e => setMsgText(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()} className="flex-1 p-2 bg-[#333] rounded-xl text-white text-sm" />
@@ -568,7 +516,7 @@
           {tab === 'profile' && (
             <div className="card p-6 text-center">
               <div className="relative w-24 h-24 mx-auto">
-                <LazyImage src={user.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
+                <img src={user.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
                 <label className="absolute bottom-0 right-0 bg-gray-700 rounded-full p-1 cursor-pointer">
                   <i className="fas fa-camera text-white text-xs"></i>
                   <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadAvatar(e.target.files[0])} disabled={avatarUploading} />
@@ -589,7 +537,6 @@
     );
   }
 
-  // ========== ОСНОВНОЕ ПРИЛОЖЕНИЕ ==========
   function App() {
     const [access, setAccess] = React.useState(false);
     const [user, setUser] = React.useState(null);
