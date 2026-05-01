@@ -10,24 +10,29 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     * { font-family: 'Inter', sans-serif; }
-    body { background: #1a1a1a; }
-    .card { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 5px rgba(100,100,100,0.1); }
-    .card:hover { transform: translateY(-2px); box-shadow: 0 0 15px rgba(100,100,100,0.2); }
-    .btn { transition: all 0.2s; cursor: pointer; }
-    .btn:hover { transform: scale(1.02); filter: brightness(1.05); }
+    body { background: #0f0f0f; }
+    .card { background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 24px; transition: 0.2s; }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); border-color: #3a3a3a; }
+    .btn { transition: 0.2s; cursor: pointer; }
+    .btn:hover { transform: scale(1.02); filter: brightness(1.08); }
     .mention { color: #3b82f6; font-weight: 500; cursor: pointer; }
     .mention:hover { text-decoration: underline; }
     .hashtag { color: #eab308; font-weight: 500; cursor: pointer; }
     .hashtag:hover { text-decoration: underline; }
-    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2a2a2a; border: 1px solid #3a3a3a; color: white; padding: 8px 16px; border-radius: 40px; z-index: 1000; font-size: 14px; }
-    .media-preview-img { width: 80px; height: 80px; object-fit: cover; border-radius: 12px; border: 1px solid #555; margin: 4px; }
-    .media-preview-video { width: 80px; height: 80px; object-fit: cover; border-radius: 12px; border: 1px solid #555; margin: 4px; }
-    .remove-media { position: absolute; top: -8px; right: -8px; background: #ef4444; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; color: white; }
-    .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: #2a2a2a; border: 1px solid #4a4a4a; border-radius: 12px; z-index: 50; min-width: 120px; }
-    .profile-avatar { position: relative; display: inline-block; cursor: pointer; }
-    .profile-avatar input { position: absolute; inset: 0; opacity: 0; cursor: pointer; border-radius: 50%; }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e1e1e; border: 1px solid #333; color: white; padding: 8px 18px; border-radius: 40px; z-index: 1000; font-size: 14px; }
+    .media-preview-img, .media-preview-video { width: 80px; height: 80px; object-fit: cover; border-radius: 14px; border: 1px solid #3a3a3a; margin: 4px; }
+    .remove-media { position: absolute; top: -8px; right: -8px; background: #ef4444; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; color: white; }
+    .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: #1e1e1e; border: 1px solid #3a3a3a; border-radius: 16px; min-width: 160px; z-index: 50; overflow: hidden; }
+    .dropdown-item { padding: 10px 16px; display: flex; align-items: center; gap: 10px; color: #e0e0e0; transition: 0.15s; cursor: pointer; }
+    .dropdown-item:hover { background: #2a2a2a; }
+    .edit-input, .edit-textarea { background: #2a2a2a; border: none; border-radius: 16px; padding: 10px 14px; color: white; width: 100%; margin-top: 8px; }
+    .edit-input:focus, .edit-textarea:focus { outline: none; background: #333; }
+    .reply-quote { background: #111; padding: 8px 12px; border-radius: 14px; border-left: 3px solid #3b82f6; font-size: 12px; color: #aaa; margin-bottom: 8px; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-    .modal-card { background: #2a2a2a; border-radius: 24px; padding: 24px; max-width: 320px; width: 90%; text-align: center; border: 1px solid #4a4a4a; }
+    .modal-card { background: #1e1e1e; border-radius: 28px; padding: 24px; max-width: 360px; width: 90%; text-align: center; border: 1px solid #3a3a3a; }
+    .share-list { max-height: 300px; overflow-y: auto; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .share-user { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 16px; cursor: pointer; transition: 0.15s; }
+    .share-user:hover { background: #2a2a2a; }
   </style>
 </head>
 <body>
@@ -38,7 +43,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 
 <script type="text/babel">
-  // 🔧 ВСТАВЬТЕ ВАШИ ДАННЫЕ
   const SUPABASE_URL = "https://udjyttttghwtylzjavmw.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_U_lF6X0ZakHsq6I_f8byHA_91hFjf3y";
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -49,6 +53,20 @@
     t.innerText = msg;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 2500);
+  }
+
+  function formatDateRelative(iso) {
+    const date = new Date(iso);
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+    if (diff < 60) return 'только что';
+    if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
+    if (diff < 86400) return `сегодня в ${date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+    if (diff < 172800) return 'вчера';
+    if (diff < 604800) return `${Math.floor(diff / 86400)} дня назад`;
+    if (diff < 2592000) return `${Math.floor(diff / 604800)} недели назад`;
+    if (diff < 31536000) return `${Math.floor(diff / 2592000)} мес назад`;
+    return `${Math.floor(diff / 31536000)} г назад`;
   }
 
   // ========== ВХОД ПО ПАРОЛЮ ==========
@@ -62,7 +80,7 @@
           <h1 className="text-2xl font-bold text-white">Wave Social</h1>
           <p className="text-gray-400 mt-2">Введите пароль</p>
           <form onSubmit={(e) => { e.preventDefault(); if (pass === '8554social') { localStorage.setItem('wave_access', 'ok'); onSuccess(); } else setErr('Неверный пароль'); }} className="mt-6">
-            <input type="password" value={pass} onChange={e => setPass(e.target.value)} className="w-full p-3 bg-[#333] rounded-xl text-white text-center" autoFocus />
+            <input type="password" value={pass} onChange={e => setPass(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white text-center" autoFocus />
             {err && <div className="text-red-400 text-sm mt-2">{err}</div>}
             <button type="submit" className="w-full mt-4 bg-gray-700 text-white py-2 rounded-xl btn">Войти</button>
           </form>
@@ -105,9 +123,9 @@
         <div className="card p-8 max-w-md w-full">
           <div className="text-center"><i className="fas fa-water text-5xl text-white opacity-80"></i><h1 className="text-3xl font-bold mt-2 text-white">Wave Social</h1></div>
           <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-            <input type="text" placeholder="Логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full p-3 bg-[#333] rounded-xl text-white" required />
-            <input type="password" placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#333] rounded-xl text-white" required />
-            {!isLogin && <input type="text" placeholder="Имя" value={name} onChange={e => setName(e.target.value)} className="w-full p-3 bg-[#333] rounded-xl text-white" />}
+            <input type="text" placeholder="Логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" required />
+            <input type="password" placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" required />
+            {!isLogin && <input type="text" placeholder="Имя" value={name} onChange={e => setName(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" />}
             {error && <div className="text-red-400 text-sm">{error}</div>}
             <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold btn">{loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}</button>
           </form>
@@ -151,17 +169,20 @@
     const textareaRef = React.useRef(null);
     const messagesEndRef = React.useRef(null);
     
-    // Для модалок
+    // Редактирование поста
+    const [editingPost, setEditingPost] = React.useState(null);
+    const [editPostContent, setEditPostContent] = React.useState('');
+    // Шеринг
+    const [sharingPost, setSharingPost] = React.useState(null);
+    const [shareSelected, setShareSelected] = React.useState([]);
+    // Модалки
     const [postToDelete, setPostToDelete] = React.useState(null);
     const [selectedComment, setSelectedComment] = React.useState(null);
     const [selectedMessage, setSelectedMessage] = React.useState(null);
     const [replyToMsg, setReplyToMsg] = React.useState(null);
-    const [replyToCommentPostId, setReplyToCommentPostId] = React.useState(null);
     const [replyingToComment, setReplyingToComment] = React.useState(null);
 
-    React.useEffect(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+    React.useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
     const loadData = async () => {
       const [postsRes, usersRes, msgsRes, notifsRes] = await Promise.all([
@@ -173,16 +194,13 @@
       setPosts(postsRes.data || []);
       setUsers(usersRes.data || []);
       setNotifications(notifsRes.data || []);
-      
       const msgs = msgsRes.data || [];
       const chatSet = new Set();
       msgs.forEach(m => { if (m.from_user !== user.id) chatSet.add(m.from_user); if (m.to_user !== user.id) chatSet.add(m.to_user); });
       setChatList(usersRes.data?.filter(u => chatSet.has(u.id)) || []);
-      
       const counts = {};
       msgs.forEach(m => { if (m.to_user === user.id && !m.read) counts[m.from_user] = (counts[m.from_user] || 0) + 1; });
       setUnread(counts);
-      
       if (chatUser) {
         const chatMsg = msgs.filter(m => (m.from_user === user.id && m.to_user === chatUser.id) || (m.from_user === chatUser.id && m.to_user === user.id)).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
         setMessages(chatMsg);
@@ -193,7 +211,7 @@
 
     React.useEffect(() => { loadData(); }, [chatUser]);
 
-    // Realtime для сообщений
+    // Realtime сообщения
     React.useEffect(() => {
       if (!chatUser) return;
       const sub = supabase
@@ -207,19 +225,14 @@
       return () => sub.unsubscribe();
     }, [chatUser, user.id]);
 
-    // Поиск в реальном времени
+    // Поиск сразу
     React.useEffect(() => {
       if (!searchQuery.trim()) { setSearchUserResults([]); setSearchPostResults([]); return; }
       if (searchType === 'users') {
-        const filtered = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(searchQuery.toLowerCase()));
-        setSearchUserResults(filtered);
+        setSearchUserResults(users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(searchQuery.toLowerCase())));
         setSearchPostResults([]);
       } else {
-        const filtered = posts.filter(p => 
-          p.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (searchQuery.startsWith('#') && p.content.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
-        setSearchPostResults(filtered);
+        setSearchPostResults(posts.filter(p => p.content.toLowerCase().includes(searchQuery.toLowerCase()) || (searchQuery.startsWith('#') && p.content.toLowerCase().includes(searchQuery.toLowerCase()))));
         setSearchUserResults([]);
       }
     }, [searchQuery, searchType, users, posts]);
@@ -231,7 +244,7 @@
         const { error } = await supabase.storage.from('wave-media').upload(fileName, file);
         if (!error) {
           const { data: { publicUrl } } = supabase.storage.from('wave-media').getPublicUrl(fileName);
-          newMedia.push({ url: publicUrl, type: file.type.startsWith('image/') ? 'image' : 'video', name: file.name });
+          newMedia.push({ url: publicUrl, type: file.type.startsWith('image/') ? 'image' : 'video' });
         }
       }
       return newMedia;
@@ -257,7 +270,6 @@
       setMessages(prev => prev.filter(m => m.id !== msgId));
       await supabase.from('messages').delete().eq('id', msgId);
       setSelectedMessage(null);
-      showToast('Сообщение удалено');
     };
 
     const follow = async (targetId) => {
@@ -286,7 +298,6 @@
       await supabase.from('users').update({ avatar: publicUrl }).eq('id', user.id);
       user.avatar = publicUrl;
       loadData();
-      showToast('Аватар обновлён');
       setAvatarUploading(false);
     };
 
@@ -298,8 +309,7 @@
 
     const saveProfile = async () => {
       await supabase.from('users').update({ full_name: editName, bio: editBio }).eq('id', user.id);
-      user.full_name = editName;
-      user.bio = editBio;
+      user.full_name = editName; user.bio = editBio;
       setEditingProfile(false);
       loadData();
       showToast('Профиль обновлён');
@@ -315,30 +325,27 @@
       e.target.value = '';
     };
 
-    const removeMedia = (index) => setMediaList(mediaList.filter((_, i) => i !== index));
+    const removeMedia = (i) => setMediaList(mediaList.filter((_, idx) => idx !== i));
 
     const createPost = async () => {
       if (!newPost.trim() && mediaList.length === 0) { showToast('Напишите текст или добавьте медиа'); return; }
-      
       const mentions = [...newPost.matchAll(/@(\w+)/g)].map(m => m[1]);
-      for (const mention of mentions) {
-        const { data } = await supabase.from('users').select('username').eq('username', mention).single();
-        if (!data) { showToast(`Пользователь @${mention} не существует`); return; }
+      for (const m of mentions) {
+        const { data } = await supabase.from('users').select('username').eq('username', m).single();
+        if (!data) { showToast(`Пользователь @${m} не существует`); return; }
       }
       const hashtags = [...newPost.matchAll(/#[\wа-яё]+/gi)].map(m => m[0]);
       const tempId = Date.now();
-      const newPostObj = { id: tempId, user_id: user.id, username: user.username, content: newPost, media: mediaList, likes: 0, comments: [], mentions, hashtags, created_at: new Date().toISOString() };
+      const newPostObj = { id: tempId, user_id: user.id, username: user.username, content: newPost, media: mediaList, likes: 0, comments: [], mentions, hashtags, created_at: new Date().toISOString(), edited: false };
       setPosts([newPostObj, ...posts]);
       setNewPost('');
       setMediaList([]);
-      
       const { data: inserted } = await supabase.from('posts').insert({
-        user_id: user.id, username: user.username, content: newPost, media: mediaList, likes: 0, comments: [], mentions, hashtags, created_at: new Date()
+        user_id: user.id, username: user.username, content: newPost, media: mediaList, likes: 0, comments: [], mentions, hashtags, created_at: new Date(), edited: false
       }).select().single();
       if (inserted) setPosts(prev => prev.map(p => p.id === tempId ? inserted : p));
-      
-      for (const mention of mentions) {
-        const mentioned = users.find(u => u.username === mention);
+      for (const m of mentions) {
+        const mentioned = users.find(u => u.username === m);
         if (mentioned && mentioned.id !== user.id) {
           await supabase.from('notifications').insert({ user_id: mentioned.id, type: 'mention', from_user_id: user.id, from_username: user.username, text: `${user.username} отметил вас в посте`, read: false, created_at: new Date() });
         }
@@ -346,24 +353,21 @@
       showToast('Пост опубликован!');
     };
 
-    const likePost = async (postId, likes) => {
-      setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: likes + 1 } : p));
-      await supabase.from('posts').update({ likes: likes + 1 }).eq('id', postId);
+    const likePost = async (pid, likes) => {
+      setPosts(prev => prev.map(p => p.id === pid ? { ...p, likes: likes + 1 } : p));
+      await supabase.from('posts').update({ likes: likes + 1 }).eq('id', pid);
     };
 
     const addComment = async (postId) => {
       let text = commentTexts[postId] || '';
       if (!text.trim()) return;
-      if (replyingToComment) {
-        text = `[Ответ @${replyingToComment.username}: "${replyingToComment.text.substring(0, 60)}"]\n${text}`;
-      }
+      if (replyingToComment) text = `[Ответ @${replyingToComment.username}: "${replyingToComment.text.substring(0, 60)}"]\n${text}`;
       const post = posts.find(p => p.id === postId);
       const newComment = { id: Date.now(), user_id: user.id, username: user.username, text, created_at: new Date().toISOString() };
       const newComments = [...(post.comments || []), newComment];
       setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: newComments } : p));
       setCommentTexts({ ...commentTexts, [postId]: '' });
-      setSelectedComment(null);
-      setReplyingToComment(null);
+      setSelectedComment(null); setReplyingToComment(null);
       await supabase.from('posts').update({ comments: newComments }).eq('id', postId);
       if (post.user_id !== user.id) {
         await supabase.from('notifications').insert({ user_id: post.user_id, type: 'comment', from_user_id: user.id, from_username: user.username, post_id: postId, text: `${user.username} прокомментировал ваш пост`, read: false, created_at: new Date() });
@@ -376,27 +380,47 @@
       setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: newComments } : p));
       await supabase.from('posts').update({ comments: newComments }).eq('id', postId);
       setSelectedComment(null);
-      showToast('Комментарий удалён');
     };
 
-    const deletePost = async (postId) => {
-      setPosts(prev => prev.filter(p => p.id !== postId));
-      await supabase.from('posts').delete().eq('id', postId).eq('user_id', user.id);
+    const deletePost = async (pid) => {
+      setPosts(prev => prev.filter(p => p.id !== pid));
+      await supabase.from('posts').delete().eq('id', pid).eq('user_id', user.id);
       setPostToDelete(null);
-      showToast('Пост удалён');
+    };
+
+    const updatePost = async () => {
+      if (!editPostContent.trim()) return;
+      setPosts(prev => prev.map(p => p.id === editingPost.id ? { ...p, content: editPostContent, edited: true } : p));
+      await supabase.from('posts').update({ content: editPostContent, edited: true }).eq('id', editingPost.id);
+      setEditingPost(null);
+      setEditPostContent('');
+      showToast('Пост обновлён');
+    };
+
+    const sharePost = async () => {
+      if (shareSelected.length === 0) return;
+      for (const targetId of shareSelected) {
+        const targetUser = users.find(u => u.id === targetId);
+        if (targetUser) {
+          const shareMsg = `📌 Поделился(ась) постом @${sharingPost.username}: "${sharingPost.content.substring(0, 120)}"`;
+          await supabase.from('messages').insert({ from_user: user.id, to_user: targetId, content: shareMsg, read: false, created_at: new Date() });
+          await supabase.from('notifications').insert({ user_id: targetId, type: 'message', from_user_id: user.id, from_username: user.username, text: `${user.username} поделился с вами постом`, read: false, created_at: new Date() });
+        }
+      }
+      showToast(`Поделились с ${shareSelected.length} пользователями`);
+      setSharingPost(null);
+      setShareSelected([]);
     };
 
     const renderContent = (text) => {
       if (!text) return null;
-      let parts = text.split(/(@\w+|#[\wа-яё]+)/gi);
+      const parts = text.split(/(@\w+|#[\wа-яё]+)/gi);
       return parts.map((part, i) => {
         if (part.startsWith('@')) {
           const username = part.slice(1);
           return <span key={i} className="mention" onClick={() => { const u = users.find(x => x.username === username); if (u) setViewProfile(u); else showToast(`Пользователь @${username} не найден`); }}>{part}</span>;
         }
-        if (part.startsWith('#')) {
-          return <span key={i} className="hashtag" onClick={() => { setSearchQuery(part); setSearchType('posts'); setTab('search'); }}>{part}</span>;
-        }
+        if (part.startsWith('#')) return <span key={i} className="hashtag" onClick={() => { setSearchQuery(part); setSearchType('posts'); setTab('search'); }}>{part}</span>;
         return <span key={i}>{part}</span>;
       });
     };
@@ -411,9 +435,7 @@
         setShowMentions(true);
         setMentionQuery(before.slice(lastAt + 1));
         setMentionPos(lastAt);
-      } else {
-        setShowMentions(false);
-      }
+      } else setShowMentions(false);
     };
 
     const insertMention = (username) => {
@@ -423,10 +445,9 @@
       setShowMentions(false);
       textareaRef.current?.focus();
     };
-
     const filteredMentions = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 5);
 
-    const DropdownMenu = ({ onDelete }) => {
+    const DropdownMenu = ({ onEdit, onDelete, onShare }) => {
       const [open, setOpen] = React.useState(false);
       const ref = React.useRef(null);
       React.useEffect(() => { const fn = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }; document.addEventListener('click', fn); return () => document.removeEventListener('click', fn); }, []);
@@ -435,7 +456,9 @@
           <button onClick={() => setOpen(!open)} className="text-gray-400 hover:text-white p-1"><i className="fas fa-ellipsis-h"></i></button>
           {open && (
             <div className="dropdown-menu">
-              <button onClick={() => { onDelete(); setOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-[#3a3a3a] rounded-xl">Удалить пост</button>
+              {onEdit && <div className="dropdown-item" onClick={() => { onEdit(); setOpen(false); }}><i className="fas fa-pen"></i> Редактировать</div>}
+              {onShare && <div className="dropdown-item" onClick={() => { onShare(); setOpen(false); }}><i className="fas fa-share-alt"></i> Поделиться</div>}
+              {onDelete && <div className="dropdown-item" onClick={() => { onDelete(); setOpen(false); }}><i className="fas fa-trash-alt"></i> Удалить</div>}
             </div>
           )}
         </div>
@@ -451,8 +474,8 @@
           <button onClick={() => setOpen(!open)} className="text-gray-400 hover:text-white p-1"><i className="fas fa-ellipsis-h"></i></button>
           {open && (
             <div className="dropdown-menu">
-              <button onClick={() => { setEditingProfile(true); setOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#3a3a3a] rounded-t-xl"><i className="fas fa-pen mr-2"></i> Редактировать профиль</button>
-              <button onClick={() => { setShowDeleteConfirm(true); setOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-[#3a3a3a] rounded-b-xl"><i className="fas fa-trash-alt mr-2"></i> Удалить аккаунт</button>
+              <div className="dropdown-item" onClick={() => { setEditingProfile(true); setOpen(false); }}><i className="fas fa-user-edit"></i> Редактировать профиль</div>
+              <div className="dropdown-item" onClick={() => { setShowDeleteConfirm(true); setOpen(false); }}><i className="fas fa-trash-alt"></i> Удалить аккаунт</div>
             </div>
           )}
         </div>
@@ -461,7 +484,6 @@
 
     if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Загрузка...</div>;
 
-    // Профиль другого пользователя (кратко)
     if (viewProfile) {
       const profileUser = viewProfile;
       const isFollowing = (user.following || []).includes(profileUser.id);
@@ -483,21 +505,19 @@
               <button onClick={() => { setShowFollowing(!showFollowing); setShowSubscribers(false); }} className="text-gray-400 hover:text-white text-sm"><span className="font-bold text-white">{profileUser.following?.length || 0}</span> подписок</button>
             </div>
             {showSubscribers && (
-              <div className="mt-4 p-3 bg-[#333] rounded-xl">
+              <div className="mt-4 p-3 bg-[#2a2a2a] rounded-xl flex flex-col gap-2">
                 {users.filter(u => (profileUser.followers || []).includes(u.id)).map(u => (
                   <div key={u.id} className="flex items-center gap-2 p-1 cursor-pointer hover:bg-[#3a3a3a] rounded" onClick={() => setViewProfile(u)}>
-                    <img src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
-                    <span className="text-white text-sm">@{u.username}</span>
+                    <img src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" /><span className="text-white text-sm">@{u.username}</span>
                   </div>
                 ))}
               </div>
             )}
             {showFollowing && (
-              <div className="mt-4 p-3 bg-[#333] rounded-xl">
+              <div className="mt-4 p-3 bg-[#2a2a2a] rounded-xl flex flex-col gap-2">
                 {users.filter(u => (profileUser.following || []).includes(u.id)).map(u => (
                   <div key={u.id} className="flex items-center gap-2 p-1 cursor-pointer hover:bg-[#3a3a3a] rounded" onClick={() => setViewProfile(u)}>
-                    <img src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
-                    <span className="text-white text-sm">@{u.username}</span>
+                    <img src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" /><span className="text-white text-sm">@{u.username}</span>
                   </div>
                 ))}
               </div>
@@ -506,10 +526,7 @@
           {userPosts.map(post => (
             <div key={post.id} className="card p-4 mb-4">
               <p className="text-white whitespace-pre-wrap">{renderContent(post.content)}</p>
-              <div className="flex gap-4 mt-2 text-gray-400 text-sm">
-                <span><i className="fas fa-heart text-red-500"></i> {post.likes || 0}</span>
-                <span><i className="far fa-comment"></i> {(post.comments || []).length}</span>
-              </div>
+              <div className="flex gap-4 mt-2 text-gray-400 text-sm"><span><i className="fas fa-heart text-red-500"></i> {post.likes || 0}</span><span><i className="far fa-comment"></i> {(post.comments || []).length}</span></div>
             </div>
           ))}
         </div>
@@ -518,53 +535,23 @@
 
     return (
       <div className="min-h-screen pb-20">
-        {/* Модалки */}
-        {postToDelete && (
-          <div className="modal-overlay" onClick={() => setPostToDelete(null)}>
-            <div className="modal-card" onClick={e => e.stopPropagation()}>
-              <p className="text-white mb-6">Удалить пост навсегда?</p>
-              <div className="flex gap-3">
-                <button onClick={() => deletePost(postToDelete)} className="flex-1 bg-red-900 text-white py-2 rounded-xl btn">Удалить</button>
-                <button onClick={() => setPostToDelete(null)} className="flex-1 bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button>
-              </div>
-            </div>
-          </div>
-        )}
-        {selectedComment && (
-          <div className="modal-overlay" onClick={() => setSelectedComment(null)}>
-            <div className="modal-card" onClick={e => e.stopPropagation()}>
-              <p className="text-white mb-4 text-sm whitespace-pre-wrap">Комментарий: {selectedComment.comment.text}</p>
-              <div className="flex flex-col gap-2">
-                <button onClick={() => { setReplyingToComment(selectedComment.comment); setSelectedComment(null); }} className="bg-blue-600 text-white py-2 rounded-xl btn"><i className="fas fa-reply mr-2"></i> Ответить</button>
-                <button onClick={() => deleteComment(selectedComment.postId, selectedComment.comment.id)} className="bg-red-900 text-white py-2 rounded-xl btn"><i className="fas fa-trash-alt mr-2"></i> Удалить</button>
-                <button onClick={() => setSelectedComment(null)} className="bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button>
-              </div>
-            </div>
-          </div>
-        )}
-        {selectedMessage && (
-          <div className="modal-overlay" onClick={() => setSelectedMessage(null)}>
-            <div className="modal-card" onClick={e => e.stopPropagation()}>
-              <p className="text-white mb-4 text-sm whitespace-pre-wrap">Сообщение: {selectedMessage.msg.content}</p>
-              <div className="flex flex-col gap-2">
-                <button onClick={() => { setReplyToMsg(selectedMessage.msg); setSelectedMessage(null); }} className="bg-blue-600 text-white py-2 rounded-xl btn"><i className="fas fa-reply mr-2"></i> Ответить</button>
-                <button onClick={() => deleteMessage(selectedMessage.msg.id)} className="bg-red-900 text-white py-2 rounded-xl btn"><i className="fas fa-trash-alt mr-2"></i> Удалить</button>
-                <button onClick={() => setSelectedMessage(null)} className="bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* модалки */}
+        {postToDelete && <div className="modal-overlay" onClick={() => setPostToDelete(null)}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-6">Удалить пост навсегда?</p><div className="flex gap-3"><button onClick={()=>deletePost(postToDelete)} className="flex-1 bg-red-900 text-white py-2 rounded-xl btn">Удалить</button><button onClick={()=>setPostToDelete(null)} className="flex-1 bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
+        {selectedComment && <div className="modal-overlay" onClick={()=>setSelectedComment(null)}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-4 text-sm">Комментарий: {selectedComment.comment.text}</p><div className="flex flex-col gap-2"><button onClick={()=>{setReplyingToComment(selectedComment.comment); setSelectedComment(null);}} className="bg-blue-600 text-white py-2 rounded-xl btn"><i className="fas fa-reply mr-2"></i> Ответить</button><button onClick={()=>deleteComment(selectedComment.postId, selectedComment.comment.id)} className="bg-red-900 text-white py-2 rounded-xl btn"><i className="fas fa-trash-alt mr-2"></i> Удалить</button><button onClick={()=>setSelectedComment(null)} className="bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
+        {selectedMessage && <div className="modal-overlay" onClick={()=>setSelectedMessage(null)}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-4 text-sm">{selectedMessage.msg.content}</p><div className="flex flex-col gap-2"><button onClick={()=>{setReplyToMsg(selectedMessage.msg); setSelectedMessage(null);}} className="bg-blue-600 text-white py-2 rounded-xl btn"><i className="fas fa-reply mr-2"></i> Ответить</button><button onClick={()=>deleteMessage(selectedMessage.msg.id)} className="bg-red-900 text-white py-2 rounded-xl btn"><i className="fas fa-trash-alt mr-2"></i> Удалить</button><button onClick={()=>setSelectedMessage(null)} className="bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
+        {editingPost && <div className="modal-overlay" onClick={()=>setEditingPost(null)}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-3">Редактировать пост</p><textarea value={editPostContent} onChange={e=>setEditPostContent(e.target.value)} rows="4" className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white"></textarea><div className="flex gap-2 mt-4"><button onClick={updatePost} className="flex-1 bg-blue-600 text-white py-2 rounded-xl btn">Сохранить</button><button onClick={()=>setEditingPost(null)} className="flex-1 bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
+        {sharingPost && <div className="modal-overlay" onClick={()=>{setSharingPost(null); setShareSelected([]);}}><div className="modal-card" onClick={e=>e.stopPropagation()}><p className="text-white mb-3">Поделиться с пользователями</p><div className="share-list">{users.filter(u=>u.id!==user.id).map(u=><div key={u.id} className="share-user" onClick={()=>setShareSelected(prev=>prev.includes(u.id)?prev.filter(id=>id!==u.id):[...prev, u.id])}><input type="checkbox" checked={shareSelected.includes(u.id)} onChange={()=>{}} className="w-4 h-4" /><img src={u.avatar||'https://via.placeholder.com/32'} className="w-8 h-8 rounded-full" /><span className="text-white">@{u.username}</span></div>)}</div><div className="flex gap-2 mt-4"><button onClick={sharePost} className="flex-1 bg-green-600 text-white py-2 rounded-xl btn">Отправить ({shareSelected.length})</button><button onClick={()=>{setSharingPost(null); setShareSelected([]);}} className="flex-1 bg-gray-700 text-white py-2 rounded-xl btn">Отмена</button></div></div></div>}
 
-        <header className="sticky top-0 z-20 border-b border-gray-700 bg-[#1a1a1a]/90 backdrop-blur-md p-4">
+        <header className="sticky top-0 z-20 border-b border-gray-800 bg-[#0f0f0f]/90 backdrop-blur-md p-4">
           <div className="max-w-2xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-2"><i className="fas fa-water text-white text-2xl"></i><span className="text-white font-bold text-xl">Wave</span></div>
             <div className="flex gap-4 text-gray-400">
-              <button onClick={() => { setTab('feed'); setViewProfile(null); }} className={`text-xl ${tab === 'feed' ? 'text-white' : ''}`}><i className="fas fa-home"></i></button>
-              <button onClick={() => { setTab('search'); setViewProfile(null); }} className={`text-xl ${tab === 'search' ? 'text-white' : ''}`}><i className="fas fa-search"></i></button>
-              <button onClick={() => { setTab('chat'); setViewProfile(null); }} className={`text-xl relative ${tab === 'chat' ? 'text-white' : ''}`}><i className="fas fa-comments"></i>{Object.values(unread).reduce((a,b)=>a+b,0)>0 && <span className="absolute -top-1 -right-2 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">{Object.values(unread).reduce((a,b)=>a+b,0)}</span>}</button>
-              <button onClick={() => { setTab('notify'); setViewProfile(null); }} className={`text-xl relative ${tab === 'notify' ? 'text-white' : ''}`}><i className="fas fa-bell"></i>{notifications.filter(n => !n.read).length > 0 && <span className="absolute -top-1 -right-2 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">{notifications.filter(n => !n.read).length}</span>}</button>
-              <button onClick={() => { setTab('profile'); setViewProfile(null); }} className={`text-xl ${tab === 'profile' ? 'text-white' : ''}`}><i className="fas fa-user"></i></button>
-              <button onClick={onLogout} className="text-sm bg-gray-700 px-3 py-1 rounded-full">Выйти</button>
+              <button onClick={()=>{setTab('feed'); setViewProfile(null);}} className={`text-xl ${tab==='feed'?'text-white':''}`}><i className="fas fa-home"></i></button>
+              <button onClick={()=>{setTab('search'); setViewProfile(null);}} className={`text-xl ${tab==='search'?'text-white':''}`}><i className="fas fa-search"></i></button>
+              <button onClick={()=>{setTab('chat'); setViewProfile(null);}} className={`text-xl relative ${tab==='chat'?'text-white':''}`}><i className="fas fa-comments"></i>{Object.values(unread).reduce((a,b)=>a+b,0)>0 && <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{Object.values(unread).reduce((a,b)=>a+b,0)}</span>}</button>
+              <button onClick={()=>{setTab('notify'); setViewProfile(null);}} className={`text-xl relative ${tab==='notify'?'text-white':''}`}><i className="fas fa-bell"></i>{notifications.filter(n=>!n.read).length>0 && <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{notifications.filter(n=>!n.read).length}</span>}</button>
+              <button onClick={()=>{setTab('profile'); setViewProfile(null);}} className={`text-xl ${tab==='profile'?'text-white':''}`}><i className="fas fa-user"></i></button>
+              <button onClick={onLogout} className="text-sm bg-gray-800 px-3 py-1 rounded-full hover:bg-gray-700">Выйти</button>
             </div>
           </div>
         </header>
@@ -576,72 +563,34 @@
                 <div className="flex gap-3">
                   <img src={user.avatar || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full" />
                   <div className="flex-1 relative">
-                    <textarea ref={textareaRef} rows="2" placeholder="Что нового? Используй @username или #хештег" className="w-full p-3 bg-[#333] rounded-xl text-white whitespace-pre-wrap" value={newPost} onChange={handlePostInput} />
-                    {showMentions && filteredMentions.length > 0 && (
-                      <div className="absolute bottom-full left-0 bg-[#2a2a2a] border border-gray-600 rounded-xl max-h-48 overflow-auto z-10 mb-1 w-48">
-                        {filteredMentions.map(u => (
-                          <div key={u.id} className="p-2 hover:bg-[#3a3a3a] cursor-pointer flex items-center gap-2" onClick={() => insertMention(u.username)}>
-                            <img src={u.avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
-                            <span className="text-white">@{u.username}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {mediaList.map((m, idx) => (
-                        <div key={idx} className="relative inline-block">
-                          {m.type === 'video' ? 
-                            <video src={m.url} className="media-preview-video" /> : 
-                            <img src={m.url} className="media-preview-img" />
-                          }
-                          <button className="remove-media" onClick={() => removeMedia(idx)}>×</button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      <label className={`cursor-pointer bg-gray-700 p-2 rounded-xl ${uploadingMedia ? 'opacity-50' : ''}`}>
-                        <i className="fas fa-paperclip"></i>
-                        <input type="file" accept="image/*,video/*" multiple onChange={handleMediaUpload} className="hidden" disabled={uploadingMedia} />
-                      </label>
-                      <button onClick={createPost} className="bg-blue-600 text-white px-6 py-2 rounded-full text-sm btn">Опубликовать</button>
-                    </div>
+                    <textarea ref={textareaRef} rows="2" placeholder="Что нового? @username или #хештег" className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white resize-none" value={newPost} onChange={handlePostInput} />
+                    {showMentions && filteredMentions.length>0 && <div className="absolute bottom-full left-0 bg-[#2a2a2a] border border-gray-700 rounded-xl max-h-48 overflow-auto z-10 mb-1 w-48">{filteredMentions.map(u=><div key={u.id} className="p-2 hover:bg-[#3a3a3a] cursor-pointer flex items-center gap-2" onClick={()=>insertMention(u.username)}><img src={u.avatar||'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" /><span className="text-white">@{u.username}</span></div>)}</div>}
+                    <div className="flex flex-wrap gap-2 mt-2">{mediaList.map((m,i)=><div key={i} className="relative inline-block">{m.type==='video'?<video src={m.url} className="media-preview-video" />:<img src={m.url} className="media-preview-img" />}<button className="remove-media" onClick={()=>removeMedia(i)}>×</button></div>)}</div>
+                    <div className="flex gap-2 mt-2"><label className={`cursor-pointer bg-gray-800 p-2 rounded-xl ${uploadingMedia?'opacity-50':''}`}><i className="fas fa-paperclip"></i><input type="file" accept="image/*,video/*" multiple onChange={handleMediaUpload} className="hidden" disabled={uploadingMedia} /></label><button onClick={createPost} className="bg-blue-600 text-white px-6 py-2 rounded-full text-sm btn">Опубликовать</button></div>
                   </div>
                 </div>
               </div>
-              {posts.map(post => (
+              {posts.map(post=>(
                 <div key={post.id} className="card p-4 mb-4">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => post.user_id !== user.id && setViewProfile(users.find(u => u.id === post.user_id))}>
-                      <img src={post.user_avatar || 'https://via.placeholder.com/32'} className="w-8 h-8 rounded-full" />
-                      <span className="font-bold text-white hover:underline">@{post.username}</span>
+                    <div className="flex items-center gap-2 cursor-pointer" onClick={()=>post.user_id!==user.id&&setViewProfile(users.find(u=>u.id===post.user_id))}>
+                      <img src={post.user_avatar||'https://via.placeholder.com/32'} className="w-8 h-8 rounded-full" /><span className="font-bold text-white hover:underline">@{post.username}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-gray-500 text-xs">{new Date(post.created_at).toLocaleString()}</span>
-                      {post.user_id === user.id && <DropdownMenu onDelete={() => setPostToDelete(post.id)} />}
+                      <span className="text-gray-500 text-xs">{formatDateRelative(post.created_at)}{post.edited && <span className="ml-1 text-gray-600">(изменено)</span>}</span>
+                      <DropdownMenu onEdit={post.user_id===user.id?()=>{setEditingPost(post); setEditPostContent(post.content);}:null} onDelete={post.user_id===user.id?()=>setPostToDelete(post.id):null} onShare={()=>{setSharingPost(post); setShareSelected([]);}} />
                     </div>
                   </div>
                   <p className="text-white whitespace-pre-wrap">{renderContent(post.content)}</p>
-                  {post.media && post.media.length > 0 && (
-                    <div className="grid grid-cols-3 gap-1 mt-2">
-                      {post.media.map((m, idx) => m.type === 'video' ? <video key={idx} src={m.url} className="w-full h-24 object-cover rounded-lg" /> : <img key={idx} src={m.url} className="w-full h-24 object-cover rounded-lg" />)}
-                    </div>
-                  )}
+                  {post.media?.length>0 && <div className="grid grid-cols-3 gap-1 mt-2">{post.media.map((m,i)=>m.type==='video'?<video key={i} src={m.url} className="w-full h-24 object-cover rounded-lg" />:<img key={i} src={m.url} className="w-full h-24 object-cover rounded-lg" />)}</div>}
                   <div className="flex gap-4 mt-3 text-gray-400 text-sm">
-                    <button onClick={() => likePost(post.id, post.likes || 0)} className="flex gap-1 hover:text-red-400"><i className="fas fa-heart"></i> {post.likes || 0}</button>
-                    <button onClick={() => { const div = document.getElementById(`comments-${post.id}`); if (div) div.classList.toggle('hidden'); }} className="flex gap-1 hover:text-blue-400"><i className="far fa-comment"></i> {(post.comments || []).length}</button>
+                    <button onClick={()=>likePost(post.id, post.likes||0)} className="flex gap-1 hover:text-red-400"><i className="fas fa-heart"></i> {post.likes||0}</button>
+                    <button onClick={()=>{const div=document.getElementById(`comments-${post.id}`); if(div) div.classList.toggle('hidden');}} className="flex gap-1 hover:text-blue-400"><i className="far fa-comment"></i> {(post.comments||[]).length}</button>
                   </div>
-                  <div id={`comments-${post.id}`} className="hidden mt-3 pt-3 border-t border-gray-700">
-                    {replyingToComment && <div className="reply-quote mb-2">Ответ @{replyingToComment.username}: "{replyingToComment.text.substring(0, 60)}"</div>}
-                    {(post.comments || []).map(c => (
-                      <div key={c.id} className="flex gap-2 mb-2 text-sm p-2 hover:bg-[#333] rounded-xl cursor-pointer" onClick={() => setSelectedComment({ postId: post.id, comment: c })}>
-                        <span className="font-bold text-gray-300" onClick={(e) => { e.stopPropagation(); c.user_id !== user.id && setViewProfile(users.find(u => u.id === c.user_id)); }}>@{c.username}</span>
-                        <span className="text-gray-400 whitespace-pre-wrap">{c.text}</span>
-                      </div>
-                    ))}
-                    <div className="flex gap-2 mt-2">
-                      <input id={`comment-input-${post.id}`} type="text" placeholder="Комментарий..." className="flex-1 p-2 bg-[#333] rounded-xl text-sm text-white" value={commentTexts[post.id] || ''} onChange={e => setCommentTexts({ ...commentTexts, [post.id]: e.target.value })} />
-                      <button onClick={() => addComment(post.id)} className="bg-gray-700 text-white px-3 rounded-xl text-sm btn">→</button>
-                    </div>
+                  <div id={`comments-${post.id}`} className="hidden mt-3 pt-3 border-t border-gray-800">
+                    {replyingToComment && <div className="reply-quote">Ответ @{replyingToComment.username}: "{replyingToComment.text.substring(0,60)}"</div>}
+                    {(post.comments||[]).map(c=><div key={c.id} className="flex gap-2 mb-2 text-sm p-2 hover:bg-[#2a2a2a] rounded-xl cursor-pointer" onClick={()=>setSelectedComment({postId:post.id, comment:c})}><span className="font-bold text-gray-300" onClick={(e)=>{e.stopPropagation(); if(c.user_id!==user.id) setViewProfile(users.find(u=>u.id===c.user_id));}}>@{c.username}</span><span className="text-gray-400 whitespace-pre-wrap">{c.text}</span></div>)}
+                    <div className="flex gap-2 mt-2"><input id={`comment-input-${post.id}`} type="text" placeholder="Комментарий..." className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-sm text-white" value={commentTexts[post.id]||''} onChange={e=>setCommentTexts({...commentTexts,[post.id]:e.target.value})} /><button onClick={()=>addComment(post.id)} className="bg-gray-700 text-white px-3 rounded-xl text-sm btn">→</button></div>
                   </div>
                 </div>
               ))}
@@ -649,135 +598,32 @@
           )}
 
           {tab === 'search' && (
-            <div>
-              <div className="card p-4 mb-6">
-                <div className="flex gap-2 mb-3">
-                  <button onClick={() => setSearchType('users')} className={`px-3 py-1 rounded-full text-sm ${searchType === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>👥 Пользователи</button>
-                  <button onClick={() => setSearchType('posts')} className={`px-3 py-1 rounded-full text-sm ${searchType === 'posts' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>📄 Посты</button>
-                </div>
-                <input type="text" placeholder="Поиск пользователей, постов или хештегов #..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full p-3 bg-[#333] rounded-xl text-white" />
-              </div>
-              {searchType === 'users' && searchUserResults.map(u => (
-                <div key={u.id} className="card p-4 mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3 cursor-pointer" onClick={() => setViewProfile(u)}>
-                    <img src={u.avatar || 'https://via.placeholder.com/48'} className="w-10 h-10 rounded-full" />
-                    <div><div className="font-bold text-white">{u.full_name || u.username}</div><div className="text-gray-400 text-sm">@{u.username}</div></div>
-                  </div>
-                  <button onClick={() => { setChatUser(u); setTab('chat'); }} className="bg-green-600 text-white px-3 py-1 rounded-full text-sm btn">Чат</button>
-                </div>
-              ))}
-              {searchType === 'posts' && searchPostResults.map(post => (
-                <div key={post.id} className="card p-4 mb-3 cursor-pointer" onClick={() => { setTab('feed'); setTimeout(() => document.getElementById(`post-${post.id}`)?.scrollIntoView({ behavior: 'smooth' }), 100); }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <img src={post.user_avatar || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" />
-                    <span className="font-bold text-white text-sm">@{post.username}</span>
-                  </div>
-                  <p className="text-white text-sm whitespace-pre-wrap">{post.content.substring(0, 100)}...</p>
-                  <div className="flex gap-3 mt-2 text-gray-500 text-xs">
-                    <span><i className="fas fa-heart text-red-500"></i> {post.likes || 0}</span>
-                    <span><i className="far fa-comment"></i> {(post.comments || []).length}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <div><div className="card p-4 mb-6"><div className="flex gap-2 mb-3"><button onClick={()=>setSearchType('users')} className={`px-3 py-1 rounded-full text-sm ${searchType==='users'?'bg-blue-600 text-white':'bg-gray-800 text-gray-300'}`}>👥 Пользователи</button><button onClick={()=>setSearchType('posts')} className={`px-3 py-1 rounded-full text-sm ${searchType==='posts'?'bg-blue-600 text-white':'bg-gray-800 text-gray-300'}`}>📄 Посты</button></div><input type="text" placeholder="Поиск..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" /></div>
+            {searchType==='users' && searchUserResults.map(u=><div key={u.id} className="card p-4 mb-3 flex items-center justify-between"><div className="flex items-center gap-3 cursor-pointer" onClick={()=>setViewProfile(u)}><img src={u.avatar||'https://via.placeholder.com/48'} className="w-10 h-10 rounded-full" /><div><div className="font-bold text-white">{u.full_name||u.username}</div><div className="text-gray-400 text-sm">@{u.username}</div></div></div><button onClick={()=>{setChatUser(u); setTab('chat');}} className="bg-green-600 text-white px-3 py-1 rounded-full text-sm btn">Чат</button></div>)}
+            {searchType==='posts' && searchPostResults.map(post=><div key={post.id} className="card p-4 mb-3 cursor-pointer" onClick={()=>{setTab('feed'); setTimeout(()=>document.getElementById(`post-${post.id}`)?.scrollIntoView({ behavior: 'smooth' }), 100);}}><div className="flex items-center gap-2 mb-2"><img src={post.user_avatar||'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" /><span className="font-bold text-white text-sm">@{post.username}</span></div><p className="text-white text-sm whitespace-pre-wrap">{post.content.substring(0,100)}...</p><div className="flex gap-3 mt-2 text-gray-500 text-xs"><span><i className="fas fa-heart text-red-500"></i> {post.likes||0}</span><span><i className="far fa-comment"></i> {(post.comments||[]).length}</span></div></div>)}
+            {searchQuery && searchType==='users' && searchUserResults.length===0 && <div className="text-center text-gray-500 py-4">Пользователи не найдены</div>}
+            {searchQuery && searchType==='posts' && searchPostResults.length===0 && <div className="text-center text-gray-500 py-4">Посты не найдены</div>}</div>
           )}
 
           {tab === 'chat' && (
-            <div className="flex flex-col h-[70vh]">
-              <div className="flex gap-2 mb-4 overflow-x-auto">
-                {chatList.map(cu => (
-                  <button key={cu.id} onClick={() => setChatUser(cu)} className={`px-3 py-1 rounded-full text-sm ${chatUser?.id === cu.id ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>@{cu.username}</button>
-                ))}
-              </div>
-              {chatUser ? (
-                <div className="card flex flex-col h-full">
-                  <div className="p-3 border-b border-gray-700 font-bold text-white">Чат с @{chatUser.username}</div>
-                  <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                    {replyToMsg && (
-                      <div className="reply-quote">
-                        <i className="fas fa-reply mr-1"></i> Ответ @{replyToMsg.from_user === user.id ? chatUser.username : users.find(u => u.id === replyToMsg.from_user)?.username}: "{replyToMsg.content.substring(0, 60)}"
-                      </div>
-                    )}
-                    {messages.map((msg, idx) => (
-                      <div key={idx} className={`flex ${msg.from_user === user.id ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[70%] p-2 rounded-xl ${msg.from_user === user.id ? 'bg-blue-600 text-white' : 'bg-[#333] text-white'} cursor-pointer`} onClick={() => setSelectedMessage({ msg })}>
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                          <div className="text-xs opacity-70 mt-1">{new Date(msg.created_at).toLocaleTimeString()}</div>
-                        </div>
-                      </div>
-                    ))}
-                    <div ref={messagesEndRef} />
-                  </div>
-                  <div className="p-3 border-t border-gray-700 flex gap-2">
-                    <input id="message-input" type="text" placeholder="Сообщение..." value={msgText} onChange={e => setMsgText(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()} className="flex-1 p-2 bg-[#333] rounded-xl text-white text-sm" />
-                    <button onClick={sendMessage} className="bg-blue-600 text-white px-4 rounded-xl btn">→</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="card p-8 text-center text-gray-500">Выберите чат</div>
-              )}
-            </div>
+            <div className="flex flex-col h-[70vh]"><div className="flex gap-2 mb-4 overflow-x-auto">{chatList.map(cu=><button key={cu.id} onClick={()=>setChatUser(cu)} className={`px-3 py-1 rounded-full text-sm ${chatUser?.id===cu.id?'bg-blue-600 text-white':'bg-gray-800 text-gray-300'}`}>@{cu.username}</button>)}</div>
+            {chatUser ? (<div className="card flex flex-col h-full"><div className="p-3 border-b border-gray-800 font-bold text-white">Чат с @{chatUser.username}</div><div className="flex-1 overflow-y-auto p-3 space-y-2">{replyToMsg && <div className="reply-quote"><i className="fas fa-reply mr-1"></i> Ответ @{replyToMsg.from_user===user.id?chatUser.username:users.find(u=>u.id===replyToMsg.from_user)?.username}: "{replyToMsg.content.substring(0,60)}"</div>}
+            {messages.map((msg,idx)=><div key={idx} className={`flex ${msg.from_user===user.id?'justify-end':'justify-start'}`}><div className={`max-w-[70%] p-2 rounded-xl ${msg.from_user===user.id?'bg-blue-600 text-white':'bg-[#2a2a2a] text-white'} cursor-pointer`} onClick={()=>setSelectedMessage({msg})}><p className="text-sm whitespace-pre-wrap">{msg.content}</p><div className="text-xs opacity-70 mt-1">{new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div></div></div>)}
+            <div ref={messagesEndRef} /></div><div className="p-3 border-t border-gray-800 flex gap-2"><input id="message-input" type="text" placeholder="Сообщение..." value={msgText} onChange={e=>setMsgText(e.target.value)} onKeyPress={e=>e.key==='Enter'&&sendMessage()} className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" /><button onClick={sendMessage} className="bg-blue-600 text-white px-4 rounded-xl btn">→</button></div></div>) : (<div className="card p-8 text-center text-gray-500">Выберите чат</div>)}</div>
           )}
 
           {tab === 'notify' && (
-            <div>
-              <h2 className="text-xl font-bold text-white mb-4">Уведомления</h2>
-              {notifications.length === 0 && <div className="card p-8 text-center text-gray-500">Нет уведомлений</div>}
-              {notifications.map(n => (
-                <div key={n.id} className={`card p-4 mb-3 cursor-pointer ${!n.read ? 'border-l-4 border-green-500' : ''}`} onClick={async () => {
-                  await supabase.from('notifications').update({ read: true }).eq('id', n.id);
-                  setNotifications(prev => prev.map(not => not.id === n.id ? { ...not, read: true } : not));
-                  if (n.type === 'message') {
-                    const from = users.find(u => u.id === n.from_user_id);
-                    if (from) { setChatUser(from); setTab('chat'); }
-                  } else setTab('feed');
-                }}>
-                  <p className="text-white">{n.text}</p>
-                  <p className="text-xs text-gray-500 mt-1">{new Date(n.created_at).toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
+            <div><h2 className="text-xl font-bold text-white mb-4">Уведомления</h2>
+            {notifications.length===0 && <div className="card p-8 text-center text-gray-500">Нет уведомлений</div>}
+            {notifications.map(n=><div key={n.id} className={`card p-4 mb-3 cursor-pointer ${!n.read?'border-l-4 border-green-500':''}`} onClick={async()=>{await supabase.from('notifications').update({read:true}).eq('id',n.id); setNotifications(prev=>prev.map(not=>not.id===n.id?{...not,read:true}:not)); if(n.type==='message'){const from=users.find(u=>u.id===n.from_user_id); if(from){setChatUser(from); setTab('chat');}} else setTab('feed');}}><p className="text-white">{n.text}</p><p className="text-xs text-gray-500 mt-1">{formatDateRelative(n.created_at)}</p></div>)}</div>
           )}
 
           {tab === 'profile' && (
             <div className="card p-6 text-center">
               <div className="flex justify-end"><ProfileDropdown /></div>
-              <div className="profile-avatar w-24 h-24 mx-auto">
-                <img src={user.avatar || 'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" />
-                <input type="file" accept="image/*" onChange={(e) => uploadAvatar(e.target.files[0])} disabled={avatarUploading} />
-              </div>
-              {editingProfile ? (
-                <div className="mt-4">
-                  <input type="text" value={editName} onChange={e => setEditName(e.target.value)} className="edit-input" placeholder="Имя" />
-                  <textarea value={editBio} onChange={e => setEditBio(e.target.value)} className="edit-input" rows="2" placeholder="О себе" />
-                  <div className="flex gap-2 mt-3">
-                    <button onClick={saveProfile} className="bg-green-600 text-white px-4 py-2 rounded-xl btn">Сохранить</button>
-                    <button onClick={() => setEditingProfile(false)} className="bg-gray-700 text-white px-4 py-2 rounded-xl btn">Отмена</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <h2 className="text-xl font-bold text-white mt-2">{user.full_name || user.username}</h2>
-                  <p className="text-gray-400">@{user.username}</p>
-                  <p className="text-gray-500 text-sm mt-1">{user.bio || 'Нет описания'}</p>
-                  <div className="flex gap-6 justify-center mt-4">
-                    <div><span className="font-bold text-white">{posts.filter(p => p.user_id === user.id).length}</span><span className="text-gray-500 ml-1">постов</span></div>
-                    <div><span className="font-bold text-white">{user.followers?.length || 0}</span><span className="text-gray-500 ml-1">подписчиков</span></div>
-                    <div><span className="font-bold text-white">{user.following?.length || 0}</span><span className="text-gray-500 ml-1">подписок</span></div>
-                  </div>
-                </>
-              )}
-              {showDeleteConfirm && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setShowDeleteConfirm(false)}>
-                  <div className="bg-[#2a2a2a] rounded-3xl p-6 max-w-sm w-full">
-                    <p className="text-white mb-6">Удалить аккаунт навсегда?</p>
-                    <div className="flex gap-3">
-                      <button onClick={handleDeleteAccount} className="flex-1 bg-red-900 text-white py-2 rounded-xl btn">Да</button>
-                      <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 bg-gray-700 text-white py-2 rounded-xl btn">Нет</button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <div className="profile-avatar w-24 h-24 mx-auto relative cursor-pointer"><img src={user.avatar||'https://via.placeholder.com/96'} className="w-24 h-24 rounded-full mx-auto object-cover" /><input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer rounded-full" onChange={(e)=>uploadAvatar(e.target.files[0])} disabled={avatarUploading} /></div>
+              {editingProfile ? (<div className="mt-4"><input type="text" value={editName} onChange={e=>setEditName(e.target.value)} className="edit-input" placeholder="Имя" /><textarea value={editBio} onChange={e=>setEditBio(e.target.value)} className="edit-textarea" rows="2" placeholder="О себе" /><div className="flex gap-2 mt-3"><button onClick={saveProfile} className="bg-green-600 text-white px-4 py-2 rounded-xl btn">Сохранить</button><button onClick={()=>setEditingProfile(false)} className="bg-gray-700 text-white px-4 py-2 rounded-xl btn">Отмена</button></div></div>) : (<><h2 className="text-xl font-bold text-white mt-2">{user.full_name||user.username}</h2><p className="text-gray-400">@{user.username}</p><p className="text-gray-500 text-sm mt-1">{user.bio||'Нет описания'}</p><div className="flex gap-6 justify-center mt-4"><div><span className="font-bold text-white">{posts.filter(p=>p.user_id===user.id).length}</span><span className="text-gray-500 ml-1">постов</span></div><div><span className="font-bold text-white">{user.followers?.length||0}</span><span className="text-gray-500 ml-1">подписчиков</span></div><div><span className="font-bold text-white">{user.following?.length||0}</span><span className="text-gray-500 ml-1">подписок</span></div></div></>)}
+              {showDeleteConfirm && (<div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={()=>setShowDeleteConfirm(false)}><div className="bg-[#1e1e1e] rounded-3xl p-6 max-w-sm w-full"><p className="text-white mb-6">Удалить аккаунт навсегда?</p><div className="flex gap-3"><button onClick={handleDeleteAccount} className="flex-1 bg-red-900 text-white py-2 rounded-xl btn">Да</button><button onClick={()=>setShowDeleteConfirm(false)} className="flex-1 bg-gray-700 text-white py-2 rounded-xl btn">Нет</button></div></div></div>)}
             </div>
           )}
         </main>
@@ -789,20 +635,12 @@
     const [access, setAccess] = React.useState(false);
     const [user, setUser] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
-
-    React.useEffect(() => {
-      if (localStorage.getItem('wave_access') === 'ok') setAccess(true);
-      const saved = localStorage.getItem('wave_user');
-      if (saved) setUser(JSON.parse(saved));
-      setLoading(false);
-    }, []);
-
-    const handleLogin = (u) => { localStorage.setItem('wave_user', JSON.stringify(u)); setUser(u); };
-    const handleLogout = () => { localStorage.removeItem('wave_user'); setUser(null); };
-
-    if (loading) return <div className="p-4 text-white">Загрузка...</div>;
-    if (!access) return <PasswordGate onSuccess={() => setAccess(true)} />;
-    if (user) return <AppMain user={user} onLogout={handleLogout} />;
+    React.useEffect(()=>{if(localStorage.getItem('wave_access')==='ok') setAccess(true); const saved=localStorage.getItem('wave_user'); if(saved) setUser(JSON.parse(saved)); setLoading(false);},[]);
+    const handleLogin=(u)=>{localStorage.setItem('wave_user',JSON.stringify(u)); setUser(u);};
+    const handleLogout=()=>{localStorage.removeItem('wave_user'); setUser(null);};
+    if(loading) return <div className="p-4 text-white">Загрузка...</div>;
+    if(!access) return <PasswordGate onSuccess={()=>setAccess(true)} />;
+    if(user) return <AppMain user={user} onLogout={handleLogout} />;
     return <Auth onLogin={handleLogin} />;
   }
 
