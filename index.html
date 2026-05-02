@@ -13,7 +13,7 @@
     body { background: #0f0f0f; margin: 0; padding: 0; }
     .card { background: #1a1a1a; border: 1px solid #2c2c2c; border-radius: 20px; transition: 0.2s; }
     .card:hover { transform: translateY(-2px); border-color: #3b82f6; }
-    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e1e1e; border: 1px solid #333; color: white; padding: 8px 18px; border-radius: 40px; z-index: 1000; font-size: 14px; z-index: 9999; }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e1e1e; border: 1px solid #333; color: white; padding: 8px 18px; border-radius: 40px; z-index: 9999; font-size: 14px; }
     .media-preview { position: relative; display: inline-block; margin: 4px; border-radius: 14px; overflow: hidden; border: 1px solid #3a3a3a; width: 80px; height: 80px; cursor: pointer; }
     .media-preview img, .media-preview video { width: 100%; height: 100%; object-fit: cover; }
     .remove-media { position: absolute; top: -8px; right: -8px; background: #ef4444; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; color: white; z-index: 10; }
@@ -51,8 +51,10 @@
     .poll-bar { background: #3b82f6; height: 100%; transition: width 0.3s ease; }
     .input-field { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 14px; padding: 12px; }
     .input-field:focus { border-color: #3b82f6; outline: none; }
+    .mention-suggestions { position: absolute; bottom: 100%; left: 0; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 16px; max-height: 200px; overflow-y: auto; z-index: 50; width: 200px; margin-bottom: 5px; }
+    .mention-suggestion-item { padding: 8px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.1s; }
+    .mention-suggestion-item:hover { background: #2a2a2a; }
     
-    /* Адаптация под телефон */
     @media (max-width: 640px) {
       .message-bubble { max-width: 90%; }
       .chat-user-item { padding: 10px; }
@@ -71,7 +73,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 
 <script type="text/babel">
-  // ========== ВАШИ ДАННЫЕ SUPABASE (ЗАМЕНИТЕ!) ==========
+  // ========== ВАШИ ДАННЫЕ SUPABASE ==========
   const SUPABASE_URL = "https://udjyttttghwtylzjavmw.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_U_lF6X0ZakHsq6I_f8byHA_91hFjf3y";
   const STORAGE_BUCKET = "wave-media";
@@ -332,15 +334,20 @@
     const [switchUser, setSwitchUser] = React.useState('');
     const [switchPass, setSwitchPass] = React.useState('');
     const [switchErr, setSwitchErr] = React.useState('');
+    const [showMentions, setShowMentions] = React.useState(false);
+    const [mentionQuery, setMentionQuery] = React.useState('');
+    const [mentionPos, setMentionPos] = React.useState(0);
     const msgEndRef = React.useRef(null);
     const textareaRef = React.useRef(null);
+    const messageIdsSet = React.useRef(new Set());
 
+    // Загрузка данных
     const loadAll = async () => {
       try {
         const [pRes, uRes, mRes, nRes] = await Promise.all([
           supabase.from('posts').select('*').order('created_at', { ascending: false }),
           supabase.from('users').select('*'),
-          supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
+          supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`).order('created_at', { ascending: true }),
           supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
         ]);
         const all = pRes.data || [];
@@ -356,7 +363,8 @@
         msgs.forEach(m=>{ if(m.to_user===user.id && !m.read) cnt[m.from_user]=(cnt[m.from_user]||0)+1; });
         setUnread(cnt);
         if(chatUser){
-          setMessages(msgs.filter(m=>(m.from_user===user.id&&m.to_user===chatUser.id)||(m.from_user===chatUser.id&&m.to_user===user.id)));
+          const chatMsgs = msgs.filter(m=>(m.from_user===user.id&&m.to_user===chatUser.id)||(m.from_user===chatUser.id&&m.to_user===user.id));
+          setMessages(chatMsgs);
           await supabase.from('messages').update({read:true}).eq('to_user',user.id).eq('from_user',chatUser.id);
         }
       } catch(e) { console.error(e); showToast('Ошибка загрузки'); }
@@ -366,26 +374,65 @@
     React.useEffect(() => { loadAll(); }, []);
     React.useEffect(() => { if(chatUser) loadAll(); }, [chatUser]);
 
+    // Real-time подписки с защитой от дублей
     React.useEffect(() => {
       const pSub = supabase.channel('posts').on('postgres_changes', {event:'*',schema:'public',table:'posts'}, () => loadAll()).subscribe();
-      const mSub = supabase.channel('messages').on('postgres_changes', {event:'*',schema:'public',table:'messages'}, () => loadAll()).subscribe();
-      return () => { pSub.unsubscribe(); mSub.unsubscribe(); };
-    }, []);
-
-    React.useEffect(() => {
-      if(!chatUser) return;
-      const sub = supabase.channel('chat').on('postgres_changes', {event:'INSERT',schema:'public',table:'messages',filter:`to_user=eq.${user.id},from_user=eq.${chatUser.id}`}, (p) => {
-        setMessages(prev=>[...prev, p.new]);
+      const mSub = supabase.channel('messages').on('postgres_changes', {event:'INSERT',schema:'public',table:'messages'}, (payload) => {
+        const newMsg = payload.new;
+        if (messageIdsSet.current.has(newMsg.id)) return;
+        messageIdsSet.current.add(newMsg.id);
+        if ((newMsg.to_user === user.id || newMsg.from_user === user.id)) {
+          if (chatUser && (newMsg.from_user === chatUser.id || newMsg.to_user === chatUser.id)) {
+            setMessages(prev => {
+              if (prev.some(m => m.id === newMsg.id)) return prev;
+              return [...prev, newMsg];
+            });
+            if (newMsg.to_user === user.id) {
+              supabase.from('messages').update({read:true}).eq('id', newMsg.id);
+              setUnread(prev => ({...prev, [newMsg.from_user]: 0}));
+            }
+          } else {
+            loadAll();
+          }
+        }
         setTimeout(() => msgEndRef.current?.scrollIntoView({behavior:'smooth'}), 100);
       }).subscribe();
-      return () => sub.unsubscribe();
+      return () => { pSub.unsubscribe(); mSub.unsubscribe(); };
     }, [chatUser, user.id]);
 
+    // Поиск
     React.useEffect(() => {
       if(!search.trim()){ setSearchUsers([]); setSearchPosts([]); return; }
       if(sType === 'users') setSearchUsers(users.filter(u=>u.id!==user.id && u.username.toLowerCase().includes(search.toLowerCase())));
       else setSearchPosts(posts.filter(p=>p.content?.toLowerCase().includes(search.toLowerCase())));
     }, [search, sType, users, posts]);
+
+    // Обработка упоминаний
+    const handlePostChange = (e) => {
+      const val = e.target.value;
+      setNewPost(val);
+      const cursorPos = e.target.selectionStart;
+      const textBeforeCursor = val.slice(0, cursorPos);
+      const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+      if (lastAtIndex !== -1) {
+        const afterAt = textBeforeCursor.slice(lastAtIndex + 1);
+        if (!afterAt.includes(' ') && afterAt.length < 30) {
+          setShowMentions(true);
+          setMentionQuery(afterAt);
+          setMentionPos(lastAtIndex);
+          return;
+        }
+      }
+      setShowMentions(false);
+    };
+
+    const insertMention = (username) => {
+      const before = newPost.slice(0, mentionPos);
+      const after = newPost.slice(mentionPos + 1 + mentionQuery.length);
+      setNewPost(`${before}@${username} ${after}`);
+      setShowMentions(false);
+      textareaRef.current?.focus();
+    };
 
     const uploadMedia = async (files) => {
       const uploaded = [];
@@ -402,7 +449,6 @@
     const createPost = async () => {
       if(!newPost.trim() && media.length===0 && !tempPoll){ showToast('Напишите текст или добавьте медиа/опрос'); return; }
       
-      // Проверяем упоминания
       const mentions = [...newPost.matchAll(/@(\w+)/g)].map(m=>m[1]);
       for(let m of mentions){
         const {data} = await supabase.from('users').select('username').eq('username',m).single();
@@ -437,7 +483,6 @@
       if(ins) setPosts([ins, ...posts]);
       setNewPost(''); setMedia([]); setTempPoll(null); setHideSel([]);
       
-      // Отправляем уведомления
       for(let m of mentions){
         const u = users.find(x=>x.username === m);
         if(u && u.id !== user.id){
@@ -489,18 +534,26 @@
       await supabase.from('users').update({following:nf}).eq('id',user.id); 
       user.following=nf; 
       let t=users.find(u=>u.id===id); 
-      if(t){let fl=t.followers||[]; let nfl=is?fl.filter(i=>i!==user.id):[...fl,user.id]; await supabase.from('users').update({followers:nfl}).eq('id',id);}
-      await loadAll(); 
+      if(t){
+        let fl=t.followers||[]; 
+        let nfl=is?fl.filter(i=>i!==user.id):[...fl,user.id]; 
+        await supabase.from('users').update({followers:nfl}).eq('id',id);
+        setUsers(prev => prev.map(u => u.id === id ? {...u, followers: nfl} : u));
+      }
       showToast(is?'Отписались':'Подписались'); 
+      setViewProfile(null);
+      loadAll();
     };
     
     const sendMsg = async () => {
       if(!msgText.trim() || !chatUser) return;
       const {data:ins} = await supabase.from('messages').insert({ from_user:user.id, to_user:chatUser.id, content:msgText, read:false, created_at:new Date() }).select().single();
-      if(ins) setMessages([...messages, ins]);
+      if(ins) {
+        setMessages(prev => [...prev, ins]);
+        msgEndRef.current?.scrollIntoView({behavior:'smooth'});
+      }
       setMsgText('');
       await supabase.from('notifications').insert({ user_id:chatUser.id, type:'message', from_user_id:user.id, from_username:user.username, text:`${user.username} написал вам`, read:false, created_at:new Date() });
-      setTimeout(() => msgEndRef.current?.scrollIntoView({behavior:'smooth'}), 100);
     };
     
     const upAvatar = async (file) => { 
@@ -548,15 +601,73 @@
       return (<div className="relative" ref={ref}><button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2"><i className="fas fa-ellipsis-h"></i></button>{open&&(<div className="dropdown-menu">{onEdit&&<div onClick={()=>{onEdit();setOpen(false);}} className="dropdown-item"><i className="fas fa-pen"></i> Редактировать</div>}{onShare&&<div onClick={()=>{onShare();setOpen(false);}} className="dropdown-item"><i className="fas fa-share-alt"></i> Поделиться</div>}{onDel&&<div onClick={()=>{onDel();setOpen(false);}} className="dropdown-item"><i className="fas fa-trash-alt"></i> Удалить</div>}</div>)}</div>);
     };
 
+    const renderProfilePage = (prof) => {
+      const [showSubs, setShowSubs] = React.useState(false);
+      const [showFollows, setShowFollows] = React.useState(false);
+      const profPosts = posts.filter(p=>p.user_id===prof.id);
+      const isFollowing = (user.following||[]).includes(prof.id);
+      
+      return (
+        <div className="min-h-screen p-4" style={{background:'#0a0a0a'}}>
+          <button onClick={()=>setViewProfile(null)} className="text-gray-400 mb-4 hover:text-white transition flex items-center gap-1"><i className="fas fa-arrow-left"></i> Назад</button>
+          <div className="card p-6 text-center mb-6">
+            <img src={prof.avatar||DEFAULT_AVATAR} className="w-20 h-20 rounded-full mx-auto border-2 border-blue-500" />
+            <h2 className="text-lg font-bold text-white mt-2">{prof.full_name||prof.username}</h2>
+            <p className="text-gray-400 text-sm">@{prof.username}</p>
+            <p className="text-gray-500 text-sm mt-2">{prof.bio||''}</p>
+            <div className="flex gap-2 justify-center mt-3">
+              <button onClick={()=>{setChatUser(prof); setViewProfile(null); setTab('chat');}} className="bg-green-600 text-white px-3 py-1 rounded-full text-xs hover:bg-green-700">Чат</button>
+              <button onClick={()=>follow(prof.id)} className={`px-3 py-1 rounded-full text-xs transition ${isFollowing?'bg-gray-600':'bg-blue-600'}`}>{isFollowing?'Отписаться':'Подписаться'}</button>
+            </div>
+            <div className="flex gap-4 justify-center mt-3 text-sm">
+              <button onClick={()=>{setShowSubs(!showSubs); setShowFollows(false);}} className="hover:text-blue-400 transition">
+                <span className="font-bold text-white">{prof.followers?.length||0}</span> подписчиков
+              </button>
+              <button onClick={()=>{setShowFollows(!showFollows); setShowSubs(false);}} className="hover:text-blue-400 transition">
+                <span className="font-bold text-white">{prof.following?.length||0}</span> подписок
+              </button>
+            </div>
+            {showSubs && (
+              <div className="mt-3 p-2 bg-[#2a2a2a] rounded-xl max-h-48 overflow-y-auto">
+                {users.filter(u=>prof.followers?.includes(u.id)).map(u=>(
+                  <div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#3a3a3a] rounded transition" onClick={()=>setViewProfile(u)}>
+                    <img src={u.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" />
+                    <span className="text-white text-sm">@{u.username}</span>
+                  </div>
+                ))}
+                {prof.followers?.length===0 && <div className="text-gray-500 text-sm text-center py-2">Нет подписчиков</div>}
+              </div>
+            )}
+            {showFollows && (
+              <div className="mt-3 p-2 bg-[#2a2a2a] rounded-xl max-h-48 overflow-y-auto">
+                {users.filter(u=>prof.following?.includes(u.id)).map(u=>(
+                  <div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#3a3a3a] rounded transition" onClick={()=>setViewProfile(u)}>
+                    <img src={u.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" />
+                    <span className="text-white text-sm">@{u.username}</span>
+                  </div>
+                ))}
+                {prof.following?.length===0 && <div className="text-gray-500 text-sm text-center py-2">Нет подписок</div>}
+              </div>
+            )}
+          </div>
+          {profPosts.map(p=>(
+            <div key={p.id} className="card p-3 mb-3">
+              <p className="text-white text-sm whitespace-pre-wrap">{renderText(p.content)}</p>
+              <div className="flex gap-3 mt-2 text-gray-500 text-xs">
+                <span><i className="fas fa-heart text-red-500"></i> {formatLikes(p.likes||0)}</span>
+                <span><i className="far fa-comment"></i> {(p.comments||[]).length}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    };
+
     if(loading) return <div className="min-h-screen flex items-center justify-center text-white"><i className="fas fa-spinner fa-spin mr-2"></i> Загрузка...</div>;
-    
     if(commentsPagePost) return <CommentsPage post={commentsPagePost} currentUser={user} onClose={()=>setCommentsPagePost(null)} onAddComment={addComment} onDeleteComment={deleteComment} />;
-    
-    if(viewProfile){
-      const prof=viewProfile;
-      const profPosts=posts.filter(p=>p.user_id===prof.id);
-      return (<div className="min-h-screen p-4" style={{background:'#0a0a0a'}}><button onClick={()=>setViewProfile(null)} className="text-gray-400 mb-4">← Назад</button><div className="card p-6 text-center mb-6"><img src={prof.avatar||DEFAULT_AVATAR} className="w-20 h-20 rounded-full mx-auto" /><h2 className="text-lg font-bold text-white mt-2">{prof.full_name||prof.username}</h2><p className="text-gray-400">@{prof.username}</p><p className="text-gray-500 text-sm">{prof.bio||''}</p><div className="flex gap-2 justify-center mt-3"><button onClick={()=>{setChatUser(prof); setViewProfile(null); setTab('chat');}} className="bg-green-600 px-3 py-1 rounded-full text-xs">Чат</button><button onClick={()=>follow(prof.id)} className={`px-3 py-1 rounded-full text-xs ${(user.following||[]).includes(prof.id)?'bg-gray-600':'bg-blue-600'}`}>{(user.following||[]).includes(prof.id)?'Отписаться':'Подписаться'}</button></div><div className="flex gap-4 justify-center mt-3 text-sm"><div><span className="font-bold text-white">{prof.followers?.length||0}</span> подписчиков</div><div><span className="font-bold text-white">{prof.following?.length||0}</span> подписок</div></div></div>{profPosts.map(p=><div key={p.id} className="card p-3 mb-3"><p className="text-white text-sm">{p.content}</p><div className="flex gap-3 mt-2 text-gray-500 text-xs"><span><i className="fas fa-heart"></i> {formatLikes(p.likes||0)}</span><span><i className="far fa-comment"></i> {(p.comments||[]).length}</span></div></div>)}</div>);
-    }
+    if(viewProfile) return renderProfilePage(viewProfile);
+
+    const mentionUsers = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0,5);
 
     return (
       <div className="min-h-screen pb-16" style={{background:'#0a0a0a'}}>
@@ -573,7 +684,7 @@
         <main className="max-w-2xl mx-auto p-3">
           {tab==='feed' && (
             <div>
-              <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full" /><div className="flex-1"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 sm:p-3 input-field text-white text-sm resize-none" value={newPost} onChange={e=>setNewPost(e.target.value)} /><div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreen({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2 flex-wrap"><label className={`white-icon-btn text-sm ${uploading?'opacity-50':''}`}><i className="fas fa-paperclip"></i> Файлы<input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');return;} setUploading(true); const up=await uploadMedia(files); setMedia([...media,...up]); setUploading(false); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="white-icon-btn text-sm"><i className="fas fa-chart-simple"></i> Опрос</button><button onClick={()=>setShowHideModal(true)} className="white-icon-btn text-sm"><i className="fas fa-eye-slash"></i> Скрыть</button><button onClick={createPost} className="white-glow-btn px-3 sm:px-4 py-1.5 rounded-full text-sm"><i className="fas fa-paper-plane mr-1"></i> Опубликовать</button></div></div></div></div>
+              <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 sm:p-3 input-field text-white text-sm resize-none" value={newPost} onChange={handlePostChange} />{showMentions && mentionUsers.length>0 && (<div className="mention-suggestions">{mentionUsers.map(u=><div key={u.id} className="mention-suggestion-item" onClick={()=>insertMention(u.username)}><img src={u.avatar||DEFAULT_AVATAR} className="w-5 h-5 rounded-full" /><span className="text-white text-sm">@{u.username}</span></div>)}</div>)}<div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreen({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2 flex-wrap"><label className={`white-icon-btn text-sm ${uploading?'opacity-50':''}`}><i className="fas fa-paperclip"></i> Файлы<input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');return;} setUploading(true); const up=await uploadMedia(files); setMedia([...media,...up]); setUploading(false); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="white-icon-btn text-sm"><i className="fas fa-chart-simple"></i> Опрос</button><button onClick={()=>setShowHideModal(true)} className="white-icon-btn text-sm"><i className="fas fa-eye-slash"></i> Скрыть</button><button onClick={createPost} className="white-glow-btn px-3 sm:px-4 py-1.5 rounded-full text-sm"><i className="fas fa-paper-plane mr-1"></i> Опубликовать</button></div></div></div></div>
               {posts.map(p=>{
                 const comments=p.comments||[];
                 const firstThree=comments.filter(c=>!c.reply_to_id).slice(0,3);
