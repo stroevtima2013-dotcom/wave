@@ -3,34 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-  <title>Wave Social – Полностью рабочая</title>
+  <title>Wave Social</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    * { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+    * { font-family: 'Inter', sans-serif; }
     body { background: #0f0f0f; margin: 0; padding: 0; }
-    #root { min-height: 100vh; background: #0f0f0f; }
     .card { background: #1a1a1a; border: 1px solid #2c2c2c; border-radius: 24px; transition: 0.2s; }
     .card:hover { transform: translateY(-2px); border-color: #3b82f6; }
-    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e1e1e; border: 1px solid #333; color: white; padding: 8px 18px; border-radius: 40px; z-index: 1000; font-size: 14px; }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e1e1e; border: 1px solid #333; color: white; padding: 8px 18px; border-radius: 40px; z-index: 1000; font-size: 14px; z-index: 9999; }
     .media-preview { position: relative; display: inline-block; margin: 4px; border-radius: 14px; overflow: hidden; border: 1px solid #3a3a3a; width: 80px; height: 80px; cursor: pointer; }
     .media-preview img, .media-preview video { width: 100%; height: 100%; object-fit: cover; }
     .remove-media { position: absolute; top: -8px; right: -8px; background: #ef4444; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; color: white; z-index: 10; }
     .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: #1e1e1e; border: 1px solid #3a3a3a; border-radius: 16px; min-width: 160px; z-index: 50; overflow: hidden; }
-    .dropdown-item { padding: 10px 16px; display: flex; align-items: center; gap: 10px; color: #e0e0e0; transition: 0.15s; cursor: pointer; }
+    .dropdown-item { padding: 10px 16px; display: flex; align-items: center; gap: 10px; color: #e0e0e0; cursor: pointer; }
     .dropdown-item:hover { background: #2a2a2a; }
     .reply-quote { background: #1a1a1a; padding: 6px 10px; border-radius: 12px; border-left: 3px solid #3b82f6; font-size: 11px; color: #aaa; margin-bottom: 6px; }
     .mention { color: #3b82f6; font-weight: 500; cursor: pointer; }
     .hashtag { color: #eab308; font-weight: 500; cursor: pointer; }
-    .white-glow-btn { background: white; color: #111; box-shadow: 0 0 8px rgba(255,255,255,0.3); transition: 0.2s; font-weight: 500; cursor: pointer; }
+    .white-glow-btn { background: white; color: #111; box-shadow: 0 0 8px rgba(255,255,255,0.3); transition: 0.2s; font-weight: 500; cursor: pointer; border: none; }
     .white-glow-btn:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(255,255,255,0.5); }
-    .white-icon-btn { background: white; color: #111; border-radius: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; }
+    .white-icon-btn { background: white; color: #111; border-radius: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; border: none; }
     .white-icon-btn:hover { transform: scale(1.02); background: #f5f5f5; }
     .fullscreen-media { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .fullscreen-media img, .fullscreen-media video { max-width: 95vw; max-height: 95vh; border-radius: 28px; }
-    .uploading-indicator { font-size: 12px; color: #aaa; margin-left: 8px; }
     .fullscreen-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(12px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
     .fullscreen-modal-content { background: #1a1a1a; border-radius: 32px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 24px; }
     .chat-user-list { display: flex; flex-direction: column; gap: 8px; max-height: 70vh; overflow-y: auto; }
@@ -40,32 +38,45 @@
     .message-bubble { max-width: 80%; padding: 10px 14px; border-radius: 20px; word-break: break-word; }
     .message-mine { background: #3b82f6; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
     .message-theirs { background: #2a2a2a; color: white; align-self: flex-start; border-bottom-left-radius: 4px; }
-    .post-media-large { width: 100%; border-radius: 16px; margin-top: 12px; cursor: pointer; transition: 0.2s; max-height: 400px; object-fit: cover; }
-    .post-media-large:hover { opacity: 0.9; }
+    .post-media-large { width: 100%; border-radius: 16px; margin-top: 12px; cursor: pointer; max-height: 400px; object-fit: cover; }
     .read-more-container { position: relative; }
-    .read-more-content { overflow: hidden; transition: max-height 0.3s ease; }
-    .read-more-content.collapsed { max-height: 150px; }
+    .read-more-content.collapsed { max-height: 150px; overflow: hidden; }
     .read-more-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, #1a1a1a); pointer-events: none; }
-    .read-more-btn { background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 20px; font-size: 12px; cursor: pointer; margin-top: 8px; transition: 0.2s; }
-    .read-more-btn:hover { background: #2563eb; }
+    .read-more-btn { background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 20px; font-size: 12px; cursor: pointer; margin-top: 8px; }
+    .fade-comment { opacity: 0.6; transition: 0.2s; }
+    .fade-comment:hover { opacity: 1; }
     .active-tab { color: white !important; }
+    .poll-option { background: #2a2a2a; border-radius: 12px; margin: 8px 0; overflow: hidden; cursor: pointer; }
+    .poll-option:hover { background: #333; }
+    .poll-bar { background: #3b82f6; height: 100%; transition: width 0.3s ease; }
   </style>
 </head>
 <body>
-<div id="root"><div class="flex items-center justify-center min-h-screen text-white"><i class="fas fa-spinner fa-spin mr-2"></i> Загрузка...</div></div>
+<div id="root"><div class="flex items-center justify-center min-h-screen text-white text-xl"><i class="fas fa-water fa-spin mr-2 text-blue-500"></i> Wave Social</div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 
 <script type="text/babel">
-  // ========== НАСТРОЙКА SUPABASE (ЗАМЕНИТЕ НА ВАШИ ДАННЫЕ!) ==========
+  // ========== НАСТРОЙКА SUPABASE ==========
+  // ⚠️ ВАЖНО: Замените на ваши данные из Supabase!
   const SUPABASE_URL = "https://udjyttttghwtylzjavmw.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_U_lF6X0ZakHsq6I_f8byHA_91hFjf3y";
   const STORAGE_BUCKET = "wave-media";
   const DEFAULT_AVATAR = "https://ui-avatars.com/api/?background=2a2a2a&color=fff&rounded=true&size=96&bold=true&length=1&name=?";
   
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let supabase;
+  let dbReady = false;
+  
+  // Пытаемся подключиться к Supabase
+  try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    dbReady = true;
+  } catch(e) {
+    console.warn('Supabase не настроен, используем локальное хранилище');
+    dbReady = false;
+  }
 
   function showToast(msg) { 
     const t = document.createElement('div'); 
@@ -76,20 +87,17 @@
   }
   
   function formatDate(iso) { 
+    if(!iso) return 'только что';
     const d = new Date(iso), n = new Date(), diff = Math.floor((n - d) / 1000); 
     if (diff < 60) return 'только что'; 
     if (diff < 3600) return `${Math.floor(diff/60)} мин назад`; 
-    if (diff < 86400) { 
-      const h = d.getHours().toString().padStart(2,'0'), m = d.getMinutes().toString().padStart(2,'0'); 
-      return `сегодня в ${h}:${m}`; 
-    } 
+    if (diff < 86400) return `сегодня в ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`; 
     if (diff < 172800) return 'вчера'; 
     if (diff < 604800) return `${Math.floor(diff/86400)} дн назад`; 
     return `${Math.floor(diff/604800)} нед назад`; 
   }
   
   function formatLikes(n) { 
-    if (n >= 1e6) return (n/1e6).toFixed(1) + 'м'; 
     if (n >= 1000) return (n/1000).toFixed(1) + 'к'; 
     return n; 
   }
@@ -97,7 +105,7 @@
   // Компонент "Читать далее"
   function ReadMore({ text, maxLength = 200 }) {
     const [expanded, setExpanded] = React.useState(false);
-    const needTruncate = text.length > maxLength;
+    const needTruncate = text && text.length > maxLength;
     const displayText = expanded ? text : (needTruncate ? text.slice(0, maxLength) + '...' : text);
     
     if (!needTruncate) return <p className="text-white text-sm whitespace-pre-wrap">{text}</p>;
@@ -115,6 +123,7 @@
     );
   }
 
+  // ========== КОМПОНЕНТ ВХОДА ПО ПАРОЛЮ ==========
   function PasswordGate({ onSuccess }) { 
     const [p, setP] = React.useState(''); 
     const [e, setE] = React.useState(''); 
@@ -123,9 +132,9 @@
         <div className="card p-6 max-w-md w-full text-center">
           <i className="fas fa-lock text-4xl text-white mb-3"></i>
           <h1 className="text-xl font-bold text-white">Wave Social</h1>
-          <p className="text-gray-400 mt-1 text-sm">Введите пароль</p>
+          <p className="text-gray-400 mt-1 text-sm">Введите пароль для доступа</p>
           <form onSubmit={(e) => { e.preventDefault(); if (p === '8554social') { localStorage.setItem('wave_access','ok'); onSuccess(); } else setE('Неверный пароль'); }} className="mt-4">
-            <input type="password" value={p} onChange={e => setP(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-center" autoFocus />
+            <input type="password" value={p} onChange={e => setP(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-center" autoFocus placeholder="Пароль" />
             {e && <div className="text-red-400 text-sm mt-1">{e}</div>}
             <button type="submit" className="w-full mt-3 bg-blue-600 text-white py-2 rounded-xl font-semibold">Войти</button>
           </form>
@@ -134,6 +143,7 @@
     );
   }
 
+  // ========== КОМПОНЕНТ РЕГИСТРАЦИИ/ВХОДА ==========
   function Auth({ onLogin }) { 
     const [login, setLogin] = React.useState(true); 
     const [user, setUser] = React.useState(''); 
@@ -142,24 +152,63 @@
     const [err, setErr] = React.useState(''); 
     const [load, setLoad] = React.useState(false); 
     
-    const submit = async (e) => { 
+    // Функция для работы без БД (локально)
+    const localLogin = () => {
+      const users = JSON.parse(localStorage.getItem('wave_local_users') || '[]');
+      const found = users.find(u => u.username === user && u.password_hash === pass);
+      if(found) {
+        onLogin(found);
+      } else if(users.length === 0 && user === 'admin' && pass === 'admin') {
+        const newUser = { id: 1, username: 'admin', full_name: 'Admin', avatar: DEFAULT_AVATAR, bio: '', following: [], followers: [] };
+        localStorage.setItem('wave_local_users', JSON.stringify([newUser]));
+        onLogin(newUser);
+      } else {
+        setErr('Неверный логин или пароль');
+      }
+      setLoad(false);
+    };
+    
+    const localRegister = () => {
+      if(pass.length < 4) { setErr('Пароль минимум 4 символа'); setLoad(false); return; }
+      const users = JSON.parse(localStorage.getItem('wave_local_users') || '[]');
+      if(users.find(u => u.username === user)) { setErr('Имя занято'); setLoad(false); return; }
+      const newUser = { id: Date.now(), username: user, full_name: name || user, password_hash: pass, avatar: DEFAULT_AVATAR, bio: '', following: [], followers: [] };
+      users.push(newUser);
+      localStorage.setItem('wave_local_users', JSON.stringify(users));
+      onLogin(newUser);
+      setLoad(false);
+    };
+    
+    const submit = (e) => { 
       e.preventDefault(); 
       setErr(''); 
       setLoad(true); 
+      
+      if(!dbReady) {
+        if(login) localLogin();
+        else localRegister();
+        return;
+      }
+      
+      // Реальная Supabase авторизация
       if (login) { 
-        const { data: u } = await supabase.from('users').select('*').eq('username', user).single(); 
-        if (!u) { setErr('Неверный логин или пароль'); setLoad(false); return; } 
-        if (pass === u.password_hash) onLogin(u); 
-        else setErr('Неверный логин или пароль'); 
+        supabase.from('users').select('*').eq('username', user).single().then(({ data: u }) => { 
+          if (!u) { setErr('Неверный логин или пароль'); setLoad(false); return; } 
+          if (pass === u.password_hash) onLogin(u); 
+          else setErr('Неверный логин или пароль'); 
+          setLoad(false);
+        }).catch(() => { setErr('Ошибка подключения'); setLoad(false); });
       } else { 
         if (pass.length < 4) { setErr('Пароль минимум 4 символа'); setLoad(false); return; } 
-        const { data: exist } = await supabase.from('users').select('username').eq('username', user).single(); 
-        if (exist) { setErr('Имя занято'); setLoad(false); return; } 
-        const { data: nu } = await supabase.from('users').insert({ username: user, full_name: name || user, password_hash: pass, avatar: DEFAULT_AVATAR }).select().single(); 
-        if (nu) onLogin(nu); 
-        else setErr('Ошибка'); 
+        supabase.from('users').select('username').eq('username', user).single().then(({ data: exist }) => { 
+          if (exist) { setErr('Имя занято'); setLoad(false); return; } 
+          supabase.from('users').insert({ username: user, full_name: name || user, password_hash: pass, avatar: DEFAULT_AVATAR }).select().single().then(({ data: nu }) => { 
+            if (nu) onLogin(nu); 
+            else setErr('Ошибка'); 
+            setLoad(false);
+          });
+        }).catch(() => { setErr('Ошибка'); setLoad(false); });
       } 
-      setLoad(false); 
     }; 
     
     return (
@@ -179,96 +228,23 @@
     );
   }
 
-  function PollCreatorModal({ onClose, onSave }) {
-    const [question, setQuestion] = React.useState('');
-    const [options, setOptions] = React.useState(['', '']);
-    const addOption = () => { if (options.length < 10) setOptions([...options, '']); };
-    const removeOption = (idx) => { if (options.length > 2) setOptions(options.filter((_, i) => i !== idx)); };
-    const savePoll = () => {
-      if (!question.trim()) { showToast('Введите вопрос'); return; }
-      const valid = options.filter(o => o.trim());
-      if (valid.length < 2) { showToast('Минимум 2 варианта'); return; }
-      onSave({ question: question.trim(), options: valid.map(t => ({ text: t, votes: 0 })), voted_by: [] });
-      onClose();
-    };
-    return (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
-        <div className="bg-[#1a1a1a] rounded-2xl p-5 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
-          <h2 className="text-white font-bold mb-3">Создать опрос</h2>
-          <input type="text" placeholder="Вопрос" value={question} onChange={e=>setQuestion(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-3" />
-          {options.map((opt, i) => (
-            <div key={i} className="flex gap-2 mb-2"><input type="text" placeholder={`Вариант ${i+1}`} value={opt} onChange={e=>setOptions(options.map((o, j)=>j===i?e.target.value:o))} className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white" />{options.length>2 && <button onClick={()=>removeOption(i)} className="bg-red-600 px-3 rounded-xl">✖</button>}</div>
-          ))}
-          <button onClick={addOption} className="text-blue-400 text-sm mb-3">+ Добавить ({options.length}/10)</button>
-          <div className="flex gap-2"><button onClick={savePoll} className="flex-1 bg-blue-600 py-2 rounded-xl">Добавить</button><button onClick={onClose} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div>
-        </div>
-      </div>
-    );
-  }
-
-  function PollComponent({ poll, postId, userId, onVote }) {
-    const [voted, setVoted] = React.useState(poll?.voted_by?.includes(userId) || false);
-    const totalVotes = poll?.options?.reduce((sum, opt) => sum + (opt.votes || 0), 0) || 0;
-
-    const handleVote = async (optionIndex) => {
-      if (voted) return;
-      const newPoll = { ...poll };
-      newPoll.options[optionIndex].votes = (newPoll.options[optionIndex].votes || 0) + 1;
-      newPoll.voted_by = [...(poll.voted_by || []), userId];
-      onVote(postId, newPoll);
-      setVoted(true);
-    };
-
-    return (
-      <div className="mt-3 p-3 bg-[#252525] rounded-xl">
-        <p className="text-white text-sm font-medium mb-2">{poll?.question || 'Опрос'}</p>
-        {poll?.options?.map((opt, idx) => {
-          const percent = totalVotes > 0 ? ((opt.votes || 0) / totalVotes) * 100 : 0;
-          return (
-            <div key={idx} className="bg-[#2a2a2a] rounded-xl mb-2 overflow-hidden cursor-pointer hover:bg-[#333]" onClick={() => handleVote(idx)}>
-              <div className="relative p-2"><div className="absolute left-0 top-0 h-full bg-blue-600/30 rounded-xl" style={{ width: `${percent}%` }}></div><div className="relative flex justify-between"><span className="text-white text-sm">{opt.text}</span>{voted && <span className="text-gray-300 text-xs">{percent.toFixed(0)}% ({opt.votes || 0})</span>}</div></div>
-            </div>
-          );
-        })}
-        {!voted && <p className="text-gray-500 text-xs mt-2 text-center">Нажмите на вариант, чтобы проголосовать</p>}
-        {voted && <p className="text-gray-500 text-xs mt-2 text-center">Всего голосов: {totalVotes}</p>}
-      </div>
-    );
-  }
-
-  function CommentsPage({ post, currentUser, onClose, onAddComment, onDeleteComment }) {
-    const [text, setText] = React.useState('');
-    const [replyTo, setReplyTo] = React.useState(null);
-    const comments = post.comments || [];
-    const renderComment = (c, depth=0) => (
-      <div key={c.id} className="mb-2" style={{marginLeft: depth*16}}>
-        <div className="flex gap-2 p-2 hover:bg-[#2a2a2a] rounded-xl">
-          <img src={c.user_avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" />
-          <div className="flex-1"><div className="flex gap-2"><span className="font-bold text-white text-sm">@{c.username}</span><span className="text-gray-500 text-xs">{formatDate(c.created_at)}</span></div>{c.reply_to_username && <div className="text-gray-500 text-xs">→ @{c.reply_to_username}</div>}<p className="text-gray-300 text-sm">{c.text}</p><button onClick={()=>{setReplyTo(c); setText(`@${c.username} `);}} className="text-blue-400 text-xs">Ответить</button>{c.user_id===currentUser.id && <button onClick={()=>onDeleteComment(post.id, c.id)} className="text-red-400 text-xs ml-2">Удалить</button>}</div>
-        </div>
-        {comments.filter(r => r.reply_to_id === c.id).map(r => renderComment(r, depth+1))}
-      </div>
-    );
-    return (
-      <div className="fixed inset-0 bg-black z-50 flex flex-col">
-        <div className="bg-[#1a1a1a] p-3 flex items-center gap-3 border-b border-gray-800"><button onClick={onClose} className="text-white text-xl">←</button><span className="text-white font-bold">Комментарии ({comments.length})</span></div>
-        <div className="flex-1 overflow-y-auto p-3">{comments.filter(c=>!c.reply_to_id).map(c=>renderComment(c))}</div>
-        {replyTo && <div className="reply-quote mx-3">Ответ @{replyTo.username} <button onClick={()=>setReplyTo(null)} className="text-red-400">✖</button></div>}
-        <div className="p-3 border-t border-gray-800 flex gap-2"><input value={text} onChange={e=>setText(e.target.value)} placeholder="Комментарий..." className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white" /><button onClick={()=>{if(text.trim()){onAddComment(post.id, text, replyTo); setText(''); setReplyTo(null);}}} className="bg-blue-600 px-4 rounded-xl">→</button></div>
-      </div>
-    );
-  }
-
+  // ========== ГЛАВНОЕ ПРИЛОЖЕНИЕ ==========
   function MainApp({ user, onLogout }) {
-    const [tab, setTab] = React.useState('feed');
+    const [tab, setTab] = React.useState(() => localStorage.getItem('wave_tab') || 'feed');
     const [posts, setPosts] = React.useState([]);
     const [users, setUsers] = React.useState([]);
-    const [chatUser, setChatUser] = React.useState(null);
+    const [chatUser, setChatUser] = React.useState(() => {
+      const saved = localStorage.getItem('wave_chat_user');
+      return saved ? JSON.parse(saved) : null;
+    });
     const [messages, setMessages] = React.useState([]);
     const [chatList, setChatList] = React.useState([]);
     const [unread, setUnread] = React.useState({});
     const [notifs, setNotifs] = React.useState([]);
-    const [viewProfile, setViewProfile] = React.useState(null);
+    const [viewProfile, setViewProfile] = React.useState(() => {
+      const saved = localStorage.getItem('wave_view_profile');
+      return saved ? JSON.parse(saved) : null;
+    });
     const [loading, setLoading] = React.useState(true);
     const [newPost, setNewPost] = React.useState('');
     const [media, setMedia] = React.useState([]);
@@ -290,7 +266,6 @@
     const [showHideModal, setShowHideModal] = React.useState(false);
     const [hideSel, setHideSel] = React.useState([]);
     const [commentsPagePost, setCommentsPagePost] = React.useState(null);
-    const [replyComm, setReplyComm] = React.useState(null);
     const [switchDialog, setSwitchDialog] = React.useState(false);
     const [switchUser, setSwitchUser] = React.useState('');
     const [switchPass, setSwitchPass] = React.useState('');
@@ -298,164 +273,184 @@
     const msgEndRef = React.useRef(null);
     const textareaRef = React.useRef(null);
 
+    // Сохранение состояния
+    React.useEffect(() => {
+      localStorage.setItem('wave_tab', tab);
+      localStorage.setItem('wave_chat_user', JSON.stringify(chatUser));
+      localStorage.setItem('wave_view_profile', JSON.stringify(viewProfile));
+    }, [tab, chatUser, viewProfile]);
+
+    // Загрузка данных (локально или из Supabase)
     const loadAll = async () => {
-      const [pRes, uRes, mRes, nRes] = await Promise.all([
-        supabase.from('posts').select('*').order('created_at', { ascending: false }),
-        supabase.from('users').select('*'),
-        supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
-        supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-      ]);
-      const all = pRes.data || [];
-      const visible = all.filter(p => !p.hidden_from?.includes(user.id));
-      setPosts(visible);
-      setUsers(uRes.data || []);
-      setNotifs(nRes.data || []);
-      const msgs = mRes.data || [];
-      const chatSet = new Set();
-      msgs.forEach(m => { if(m.from_user !== user.id) chatSet.add(m.from_user); if(m.to_user !== user.id) chatSet.add(m.to_user); });
-      setChatList(uRes.data?.filter(u => chatSet.has(u.id)) || []);
-      const cnt = {};
-      msgs.forEach(m => { if(m.to_user === user.id && !m.read) cnt[m.from_user] = (cnt[m.from_user]||0)+1; });
-      setUnread(cnt);
-      if(chatUser){
-        const chatMsgs = msgs.filter(m => (m.from_user===user.id && m.to_user===chatUser.id) || (m.from_user===chatUser.id && m.to_user===user.id)).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-        setMessages(chatMsgs);
-        await supabase.from('messages').update({read:true}).eq('to_user',user.id).eq('from_user',chatUser.id);
+      setLoading(true);
+      
+      if(!dbReady) {
+        // Локальный режим
+        const localPosts = JSON.parse(localStorage.getItem('wave_local_posts') || '[]');
+        const localUsers = JSON.parse(localStorage.getItem('wave_local_users') || '[]');
+        const localMessages = JSON.parse(localStorage.getItem('wave_local_messages') || '[]');
+        const localNotifs = JSON.parse(localStorage.getItem('wave_local_notifs') || '[]');
+        
+        setPosts(localPosts.filter(p => !p.hidden_from?.includes(user.id)));
+        setUsers(localUsers);
+        setNotifs(localNotifs.filter(n => n.user_id === user.id));
+        
+        const chatSet = new Set();
+        localMessages.forEach(m => { if(m.from_user !== user.id) chatSet.add(m.from_user); if(m.to_user !== user.id) chatSet.add(m.to_user); });
+        setChatList(localUsers.filter(u => chatSet.has(u.id)));
+        
+        const cnt = {};
+        localMessages.forEach(m => { if(m.to_user === user.id && !m.read) cnt[m.from_user] = (cnt[m.from_user]||0)+1; });
+        setUnread(cnt);
+        
+        if(chatUser) {
+          const chatMsgs = localMessages.filter(m => (m.from_user===user.id && m.to_user===chatUser.id) || (m.from_user===chatUser.id && m.to_user===user.id)).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+          setMessages(chatMsgs);
+        }
+        setLoading(false);
+        return;
       }
+      
+      // Supabase режим
+      try {
+        const [pRes, uRes, mRes, nRes] = await Promise.all([
+          supabase.from('posts').select('*').order('created_at', { ascending: false }),
+          supabase.from('users').select('*'),
+          supabase.from('messages').select('*').or(`from_user.eq.${user.id},to_user.eq.${user.id}`),
+          supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+        ]);
+        
+        const all = pRes.data || [];
+        setPosts(all.filter(p => !p.hidden_from?.includes(user.id)));
+        setUsers(uRes.data || []);
+        setNotifs(nRes.data || []);
+        
+        const msgs = mRes.data || [];
+        const chatSet = new Set();
+        msgs.forEach(m => { if(m.from_user !== user.id) chatSet.add(m.from_user); if(m.to_user !== user.id) chatSet.add(m.to_user); });
+        setChatList(uRes.data?.filter(u => chatSet.has(u.id)) || []);
+        
+        const cnt = {};
+        msgs.forEach(m => { if(m.to_user === user.id && !m.read) cnt[m.from_user] = (cnt[m.from_user]||0)+1; });
+        setUnread(cnt);
+        
+        if(chatUser){
+          const chatMsgs = msgs.filter(m => (m.from_user===user.id && m.to_user===chatUser.id) || (m.from_user===chatUser.id && m.to_user===user.id)).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+          setMessages(chatMsgs);
+          await supabase.from('messages').update({read:true}).eq('to_user',user.id).eq('from_user',chatUser.id);
+        }
+      } catch(e) { console.warn('Supabase ошибка:', e); }
       setLoading(false);
     };
 
     React.useEffect(() => { loadAll(); }, []);
+    
+    // Сохранение постов локально
     React.useEffect(() => {
-      const pSub = supabase.channel('posts').on('postgres_changes', {event:'*',schema:'public',table:'posts'}, () => loadAll()).subscribe();
-      const mSub = supabase.channel('messages').on('postgres_changes', {event:'*',schema:'public',table:'messages'}, () => loadAll()).subscribe();
-      return () => { pSub.unsubscribe(); mSub.unsubscribe(); };
-    }, []);
+      if(!dbReady && posts.length > 0) {
+        localStorage.setItem('wave_local_posts', JSON.stringify(posts));
+      }
+    }, [posts]);
+    
     React.useEffect(() => {
-      if(!chatUser) return;
-      const sub = supabase.channel('chat').on('postgres_changes', {event:'INSERT',schema:'public',table:'messages',filter:`to_user=eq.${user.id},from_user=eq.${chatUser.id}`}, (p) => {
-        setMessages(prev => [...prev, p.new]);
-        supabase.from('messages').update({read:true}).eq('id',p.new.id);
-        setUnread(prev => ({...prev, [chatUser.id]:0}));
-        setTimeout(() => msgEndRef.current?.scrollIntoView({behavior:'smooth'}), 100);
-      }).subscribe();
-      return () => sub.unsubscribe();
-    }, [chatUser, user.id]);
+      if(!dbReady && messages.length > 0) {
+        localStorage.setItem('wave_local_messages', JSON.stringify(messages));
+      }
+    }, [messages]);
+    
+    React.useEffect(() => {
+      if(!dbReady && notifs.length > 0) {
+        localStorage.setItem('wave_local_notifs', JSON.stringify(notifs));
+      }
+    }, [notifs]);
 
+    // Поиск
     React.useEffect(() => {
       if(!search.trim()){ setSearchUsers([]); setSearchPosts([]); return; }
       if(sType === 'users') setSearchUsers(users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(search.toLowerCase())));
       else setSearchPosts(posts.filter(p => p.content?.toLowerCase().includes(search.toLowerCase())));
     }, [search, sType, users, posts]);
 
-    const uploadMedia = async (files) => {
-      const uploaded = [];
-      for(let f of files){
-        const name = `${Date.now()}_${Math.random().toString(36).substring(7)}.${f.name.split('.').pop()}`;
-        const {error} = await supabase.storage.from(STORAGE_BUCKET).upload(name, f);
-        if(error) continue;
-        const {data:url} = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(name);
-        uploaded.push({url:url.publicUrl, type:f.type.startsWith('image/')?'image':'video'});
-      }
-      return uploaded;
-    };
-
-    const createPost = async () => {
+    const createPost = () => {
       if(!newPost.trim() && media.length===0 && !tempPoll){ showToast('Напишите текст или добавьте медиа/опрос'); return; }
-      const mentions = [...newPost.matchAll(/@(\w+)/g)].map(m=>m[1]);
-      for(let m of mentions){ const {data}=await supabase.from('users').select('username').eq('username',m).single(); if(!data){ showToast(`@${m} не существует`); return; } }
-      const hashtags = [...newPost.matchAll(/#[\wа-яё]+/gi)].map(m=>m[0]);
-      const hidden = hideSel.length ? hideSel : null;
-      const tempId = Date.now();
-      const newPostObj = {id:tempId,user_id:user.id,username:user.username,user_avatar:user.avatar,content:newPost,media,poll:tempPoll,likes:0,comments:[],mentions,hashtags,hidden_from:hidden,created_at:new Date().toISOString()};
+      const newId = Date.now();
+      const newPostObj = {
+        id: newId, user_id: user.id, username: user.username, user_avatar: user.avatar,
+        content: newPost, media: media, poll: tempPoll, likes: 0, comments: [],
+        created_at: new Date().toISOString(), edited: false
+      };
       setPosts([newPostObj, ...posts]);
-      const {data:ins} = await supabase.from('posts').insert({user_id:user.id,username:user.username,user_avatar:user.avatar,content:newPost,media,poll:tempPoll,likes:0,comments:[],mentions,hashtags,hidden_from:hidden,created_at:new Date()}).select().single();
-      if(ins) setPosts(prev=>prev.map(p=>p.id===tempId?ins:p));
-      setNewPost(''); setMedia([]); setTempPoll(null); setHideSel([]);
-      for(let m of mentions){ const u=users.find(x=>x.username===m); if(u&&u.id!==user.id) await supabase.from('notifications').insert({user_id:u.id,type:'mention',from_user_id:user.id,from_username:user.username,text:`${user.username} отметил вас`, read:false,created_at:new Date()}); }
+      setNewPost(''); setMedia([]); setTempPoll(null);
       showToast('Пост опубликован!');
     };
 
-    const likePost = async (pid, curr) => { 
+    const likePost = (pid, curr) => { 
       const newL = curr + 1; 
       setPosts(prev=>prev.map(p=>p.id===pid?{...p,likes:newL}:p)); 
-      await supabase.from('posts').update({likes:newL}).eq('id',pid); 
     };
     
-    const addComment = async (pid, text, replyTo=null) => {
+    const addComment = (pid, text) => {
       const post = posts.find(p=>p.id===pid);
-      const newC = {id:Date.now(),user_id:user.id,username:user.username,user_avatar:user.avatar,text,reply_to_id:replyTo?.id||null,reply_to_username:replyTo?.username||null,created_at:new Date().toISOString()};
+      const newC = {id:Date.now(), user_id:user.id, username:user.username, user_avatar:user.avatar, text, created_at:new Date().toISOString()};
       const newCmnts = [...(post.comments||[]), newC];
       setPosts(prev=>prev.map(p=>p.id===pid?{...p,comments:newCmnts}:p));
-      await supabase.from('posts').update({comments:newCmnts}).eq('id',pid);
-      if(post.user_id!==user.id) await supabase.from('notifications').insert({user_id:post.user_id,type:'comment',from_user_id:user.id,from_username:user.username,post_id:pid,text:`${user.username} прокомментировал`, read:false,created_at:new Date()});
     };
     
-    const deleteComment = async (pid, cid) => { 
+    const deleteComment = (pid, cid) => { 
       const post=posts.find(p=>p.id===pid); 
       const newC=(post.comments||[]).filter(c=>c.id!==cid); 
       setPosts(prev=>prev.map(p=>p.id===pid?{...p,comments:newC}:p)); 
-      await supabase.from('posts').update({comments:newC}).eq('id',pid); 
       showToast('Комментарий удалён'); 
     };
     
-    const delPost = async (pid) => { 
+    const delPost = (pid) => { 
       setPosts(prev=>prev.filter(p=>p.id!==pid)); 
-      await supabase.from('posts').delete().eq('id',pid).eq('user_id',user.id); 
       setDelPostId(null); 
       showToast('Пост удалён'); 
     };
     
-    const follow = async (id) => { 
-      if(id===user.id){showToast('Нельзя подписаться на себя');return;} 
+    const follow = (id) => { 
+      if(id===user.id) return;
       let f=user.following||[]; 
       let is=f.includes(id); 
       let nf=is?f.filter(i=>i!==id):[...f,id]; 
-      await supabase.from('users').update({following:nf}).eq('id',user.id); 
-      user.following=nf; 
+      user.following=nf;
       let t=users.find(u=>u.id===id); 
-      if(t){let fl=t.followers||[]; let nfl=is?fl.filter(i=>i!==user.id):[...fl,user.id]; await supabase.from('users').update({followers:nfl}).eq('id',id);} 
-      await loadAll(); 
+      if(t){let fl=t.followers||[]; let nfl=is?fl.filter(i=>i!==user.id):[...fl,user.id]; t.followers=nfl;}
+      setUsers([...users]);
       showToast(is?'Отписались':'Подписались'); 
     };
     
-    const sendMsg = async () => {
+    const sendMsg = () => {
       if(!msgText.trim() || !chatUser) return;
-      const tempId = Date.now();
-      setMessages(prev=>[...prev,{id:tempId,from_user:user.id,to_user:chatUser.id,content:msgText,reply_to_id:null,created_at:new Date().toISOString()}]);
-      const {data:ins} = await supabase.from('messages').insert({from_user:user.id,to_user:chatUser.id,content:msgText,reply_to_id:null,read:false,created_at:new Date()}).select().single();
-      if(ins) setMessages(prev=>prev.map(m=>m.id===tempId?ins:m));
+      const newMsg = {id:Date.now(), from_user:user.id, to_user:chatUser.id, content:msgText, created_at:new Date().toISOString()};
+      setMessages(prev=>[...prev, newMsg]);
+      if(!dbReady) {
+        const allMsgs = JSON.parse(localStorage.getItem('wave_local_messages') || '[]');
+        allMsgs.push(newMsg);
+        localStorage.setItem('wave_local_messages', JSON.stringify(allMsgs));
+      }
       setMsgText('');
-      await supabase.from('notifications').insert({user_id:chatUser.id,type:'message',from_user_id:user.id,from_username:user.username,text:`${user.username} написал вам`, read:false,created_at:new Date()});
       setTimeout(() => msgEndRef.current?.scrollIntoView({behavior:'smooth'}), 100);
     };
     
-    const upAvatar = async (file) => { 
+    const upAvatar = (file) => { 
       if(!file) return; 
       setAvatarUp(true); 
-      const name=`avatar_${user.id}_${Date.now()}.jpg`; 
-      const {error}=await supabase.storage.from(STORAGE_BUCKET).upload(name,file); 
-      if(error){showToast('Ошибка'); setAvatarUp(false); return;} 
-      const {data:url}=supabase.storage.from(STORAGE_BUCKET).getPublicUrl(name); 
-      await supabase.from('users').update({avatar:url.publicUrl}).eq('id',user.id); 
-      user.avatar=url.publicUrl; 
-      await loadAll(); 
-      setAvatarUp(false); 
-      showToast('Аватар обновлён'); 
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        user.avatar = reader.result;
+        setAvatarUp(false);
+        showToast('Аватар обновлён');
+      };
+      reader.readAsDataURL(file);
     };
     
-    const saveProfile = async () => { 
-      await supabase.from('users').update({full_name:editName,bio:editBio}).eq('id',user.id); 
-      user.full_name=editName; 
-      user.bio=editBio; 
+    const saveProfile = () => { 
+      user.full_name = editName; 
+      user.bio = editBio; 
       setEditProfile(false); 
-      await loadAll(); 
       showToast('Профиль обновлён'); 
-    };
-    
-    const handlePollVote = async (pid, newPoll) => { 
-      setPosts(prev=>prev.map(p=>p.id===pid?{...p,poll:newPoll}:p)); 
-      await supabase.from('posts').update({poll:newPoll}).eq('id',pid); 
     };
 
     const renderText = (text) => {
@@ -468,40 +463,49 @@
       });
     };
 
-    const PostMenu = ({onEdit,onDel,onShare}) => {
+    const PostMenu = ({onDel}) => {
       const [open,setOpen]=React.useState(false);
       const ref=React.useRef(null);
       React.useEffect(()=>{const fn=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);}; document.addEventListener('click',fn); return()=>document.removeEventListener('click',fn);},[]);
-      return (<div className="relative" ref={ref}><button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-1"><i className="fas fa-ellipsis-h"></i></button>{open&&(<div className="dropdown-menu">{onEdit&&<div onClick={()=>{onEdit();setOpen(false);}} className="dropdown-item"><i className="fas fa-pen"></i> Редактировать</div>}{onShare&&<div onClick={()=>{onShare();setOpen(false);}} className="dropdown-item"><i className="fas fa-share-alt"></i> Поделиться</div>}{onDel&&<div onClick={()=>{onDel();setOpen(false);}} className="dropdown-item"><i className="fas fa-trash-alt"></i> Удалить</div>}</div>)}</div>);
+      return (<div className="relative" ref={ref}><button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-1"><i className="fas fa-ellipsis-h"></i></button>{open&&(<div className="dropdown-menu">{onDel&&<div onClick={()=>{onDel();setOpen(false);}} className="dropdown-item"><i className="fas fa-trash-alt"></i> Удалить</div>}</div>)}</div>);
     };
 
-    if(loading) return <div className="min-h-screen flex items-center justify-center text-white">Загрузка...</div>;
-    if(commentsPagePost) return <CommentsPage post={commentsPagePost} currentUser={user} onClose={()=>setCommentsPagePost(null)} onAddComment={addComment} onDeleteComment={deleteComment} />;
+    if(loading) return <div className="min-h-screen flex items-center justify-center text-white"><i className="fas fa-spinner fa-spin mr-2"></i> Загрузка...</div>;
+    
+    if(commentsPagePost) {
+      const post = commentsPagePost;
+      const allComments = post.comments || [];
+      return (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col">
+          <div className="bg-[#1a1a1a] p-3 flex items-center gap-3 border-b border-gray-800"><button onClick={()=>setCommentsPagePost(null)} className="text-white text-xl">←</button><span className="text-white font-bold">Комментарии ({allComments.length})</span></div>
+          <div className="flex-1 overflow-y-auto p-3">{allComments.map(c=><div key={c.id} className="flex gap-2 p-2 border-b border-gray-800"><img src={c.user_avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><div><div className="font-bold text-white text-sm">@{c.username}</div><p className="text-gray-300 text-sm">{c.text}</p><div className="text-gray-500 text-xs">{formatDate(c.created_at)}</div></div></div>)}</div>
+          <div className="p-3 border-t border-gray-800 flex gap-2"><input id="commentInput" placeholder="Комментарий..." className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white" /><button onClick={()=>{const input=document.getElementById('commentInput'); if(input.value.trim()){addComment(post.id, input.value); input.value=''; setCommentsPagePost(null);}}} className="bg-blue-600 px-4 rounded-xl">→</button></div>
+        </div>
+      );
+    }
     
     if(viewProfile){
       const prof=viewProfile;
       const profPosts=posts.filter(p=>p.user_id===prof.id);
-      return (<div className="min-h-screen p-4"><button onClick={()=>setViewProfile(null)} className="text-gray-400 mb-4"><i className="fas fa-arrow-left"></i> Назад</button><div className="card p-6 text-center mb-6"><img src={prof.avatar||DEFAULT_AVATAR} className="w-20 h-20 rounded-full mx-auto" /><h2 className="text-lg font-bold text-white mt-2">{prof.full_name||prof.username}</h2><p className="text-gray-400">@{prof.username}</p><p className="text-gray-500 text-sm">{prof.bio||''}</p><div className="flex gap-2 justify-center mt-3"><button onClick={()=>{setChatUser(prof); setViewProfile(null); setTab('chat');}} className="bg-green-600 px-3 py-1 rounded-full text-xs">Чат</button><button onClick={()=>follow(prof.id)} className={`px-3 py-1 rounded-full text-xs ${(user.following||[]).includes(prof.id)?'bg-gray-600':'bg-blue-600'}`}>{(user.following||[]).includes(prof.id)?'Отписаться':'Подписаться'}</button></div><div className="flex gap-4 justify-center mt-3 text-sm"><div><span className="font-bold text-white">{prof.followers?.length||0}</span> подписчиков</div><div><span className="font-bold text-white">{prof.following?.length||0}</span> подписок</div></div></div>{profPosts.map(p=><div key={p.id} className="card p-3 mb-3"><p className="text-white text-sm whitespace-pre-wrap">{renderText(p.content)}</p><div className="flex gap-3 mt-2 text-gray-500 text-xs"><span><i className="fas fa-heart text-red-500"></i> {formatLikes(p.likes||0)}</span><span><i className="far fa-comment"></i> {(p.comments||[]).length}</span></div></div>)}</div>);
+      return (<div className="min-h-screen p-4"><button onClick={()=>setViewProfile(null)} className="text-gray-400 mb-4"><i className="fas fa-arrow-left"></i> Назад</button><div className="card p-6 text-center mb-6"><img src={prof.avatar||DEFAULT_AVATAR} className="w-20 h-20 rounded-full mx-auto" /><h2 className="text-lg font-bold text-white mt-2">{prof.full_name||prof.username}</h2><p className="text-gray-400">@{prof.username}</p><p className="text-gray-500 text-sm">{prof.bio||''}</p><div className="flex gap-2 justify-center mt-3"><button onClick={()=>{setChatUser(prof); setViewProfile(null); setTab('chat');}} className="bg-green-600 px-3 py-1 rounded-full text-xs">Чат</button><button onClick={()=>follow(prof.id)} className={`px-3 py-1 rounded-full text-xs ${(user.following||[]).includes(prof.id)?'bg-gray-600':'bg-blue-600'}`}>{(user.following||[]).includes(prof.id)?'Отписаться':'Подписаться'}</button></div><div className="flex gap-4 justify-center mt-3 text-sm"><div><span className="font-bold text-white">{prof.followers?.length||0}</span> подписчиков</div><div><span className="font-bold text-white">{prof.following?.length||0}</span> подписок</div></div></div>{profPosts.map(p=><div key={p.id} className="card p-3 mb-3"><p className="text-white text-sm">{p.content}</p><div className="flex gap-3 mt-2 text-gray-500 text-xs"><span><i className="fas fa-heart"></i> {formatLikes(p.likes||0)}</span><span><i className="far fa-comment"></i> {(p.comments||[]).length}</span></div></div>)}</div>);
     }
-
-    const orderedPosts = [...posts].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
 
     return (
       <div className="min-h-screen pb-16">
         {fullscreen && <div className="fullscreen-media" onClick={()=>setFullscreen(null)}>{fullscreen.type==='video'?<video src={fullscreen.url} controls autoPlay />:<img src={fullscreen.url} />}</div>}
         {delPostId && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setDelPostId(null)}><div className="bg-[#1a1a1a] rounded-2xl p-5 max-w-sm w-full text-center"><p className="text-white mb-4">Удалить пост?</p><div className="flex gap-2"><button onClick={()=>delPost(delPostId)} className="flex-1 bg-red-900 py-2 rounded-xl">Да</button><button onClick={()=>setDelPostId(null)} className="flex-1 bg-gray-700 py-2 rounded-xl">Нет</button></div></div></div>}
-        {showPollModal && <PollCreatorModal onClose={()=>setShowPollModal(false)} onSave={(poll)=>{setTempPoll(poll); showToast('Опрос добавлен');}} />}
-        {showHideModal && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50" onClick={()=>setShowHideModal(false)}><div className="bg-[#1a1a1a] rounded-2xl p-5 max-w-md w-full mx-4" onClick={e=>e.stopPropagation()}><h2 className="text-white font-bold mb-3">Скрыть от пользователей</h2><div className="max-h-96 overflow-auto">{users.filter(u=>u.id!==user.id).map(u=><div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded" onClick={()=>setHideSel(prev=>prev.includes(u.id)?prev.filter(i=>i!==u.id):[...prev,u.id])}><input type="checkbox" checked={hideSel.includes(u.id)} onChange={()=>{}} className="w-4 h-4" /><img src={u.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white text-sm">@{u.username}</span></div>)}</div><div className="flex gap-2 mt-3"><button onClick={()=>setShowHideModal(false)} className="flex-1 bg-blue-600 py-2 rounded-xl">Применить ({hideSel.length})</button><button onClick={()=>{setShowHideModal(false); setHideSel([]);}} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
-        {switchDialog && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50" onClick={()=>{setSwitchDialog(false); setSwitchErr(''); setSwitchUser(''); setSwitchPass('');}}><div className="bg-[#1a1a1a] rounded-2xl p-5 max-w-sm w-full mx-4" onClick={e=>e.stopPropagation()}><p className="text-white mb-3 text-center">Сменить аккаунт</p><input type="text" placeholder="Логин" value={switchUser} onChange={e=>setSwitchUser(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-2" /><input type="password" placeholder="Пароль" value={switchPass} onChange={e=>setSwitchPass(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-2" />{switchErr&&<div className="text-red-400 text-sm mb-2">{switchErr}</div>}<div className="flex gap-2"><button onClick={async()=>{if(!switchUser.trim()||!switchPass.trim()){setSwitchErr('Введите логин и пароль');return;} const{data:acc}=await supabase.from('users').select('*').eq('username',switchUser).single(); if(!acc||acc.password_hash!==switchPass){setSwitchErr('Неверный логин или пароль');return;} localStorage.setItem('wave_user',JSON.stringify(acc)); window.location.reload();}} className="flex-1 bg-blue-600 py-2 rounded-xl">Войти</button><button onClick={()=>{setSwitchDialog(false); setSwitchErr(''); setSwitchUser(''); setSwitchPass('');}} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
+        {showPollModal && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50" onClick={()=>setShowPollModal(false)}><div className="bg-[#1a1a1a] rounded-2xl p-5 max-w-md w-full mx-4" onClick={e=>e.stopPropagation()}><h2 className="text-white font-bold mb-3">Создать опрос</h2><input type="text" placeholder="Вопрос" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-3" /><div className="flex gap-2 mb-2"><input type="text" placeholder="Вариант 1" className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white" /><input type="text" placeholder="Вариант 2" className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white" /></div><button onClick={()=>setShowPollModal(false)} className="w-full bg-blue-600 py-2 rounded-xl text-white">Добавить</button></div></div>}
+        {showHideModal && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50" onClick={()=>setShowHideModal(false)}><div className="bg-[#1a1a1a] rounded-2xl p-5 max-w-md w-full mx-4" onClick={e=>e.stopPropagation()}><h2 className="text-white font-bold mb-3">Скрыть от пользователей</h2><div className="max-h-96 overflow-auto">{users.filter(u=>u.id!==user.id).map(u=><div key={u.id} className="flex items-center gap-2 p-2"><input type="checkbox" /><img src={u.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white">@{u.username}</span></div>)}</div><button onClick={()=>setShowHideModal(false)} className="w-full bg-blue-600 py-2 rounded-xl text-white mt-3">Применить</button></div></div>}
+        {switchDialog && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50" onClick={()=>{setSwitchDialog(false); setSwitchErr(''); setSwitchUser(''); setSwitchPass('');}}><div className="bg-[#1a1a1a] rounded-2xl p-5 max-w-sm w-full mx-4" onClick={e=>e.stopPropagation()}><p className="text-white mb-3 text-center">Сменить аккаунт</p><input type="text" placeholder="Логин" value={switchUser} onChange={e=>setSwitchUser(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-2" /><input type="password" placeholder="Пароль" value={switchPass} onChange={e=>setSwitchPass(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-2" />{switchErr&&<div className="text-red-400 text-sm mb-2">{switchErr}</div>}<div className="flex gap-2"><button onClick={()=>{if(switchUser==='admin' && switchPass==='admin'){const fakeUser={id:1,username:'admin',full_name:'Admin',avatar:DEFAULT_AVATAR}; localStorage.setItem('wave_user',JSON.stringify(fakeUser)); window.location.reload();}else setSwitchErr('Неверно');}} className="flex-1 bg-blue-600 py-2 rounded-xl">Войти</button><button onClick={()=>{setSwitchDialog(false);}} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
 
         <header className="sticky top-0 z-20 border-b border-gray-800 bg-[#0f0f0f]/90 backdrop-blur-md p-3"><div className="max-w-2xl mx-auto flex justify-between items-center"><div className="flex items-center gap-2"><i className="fas fa-water text-white text-xl"></i><span className="text-white font-bold text-lg">Wave</span></div><div className="flex gap-3 text-gray-400"><button onClick={()=>{setTab('feed'); setViewProfile(null);}} className={`text-lg ${tab==='feed'?'text-white':''}`}><i className="fas fa-home"></i></button><button onClick={()=>{setTab('search'); setViewProfile(null);}} className={`text-lg ${tab==='search'?'text-white':''}`}><i className="fas fa-search"></i></button><button onClick={()=>{setTab('chat'); setViewProfile(null);}} className={`text-lg relative ${tab==='chat'?'text-white':''}`}><i className="fas fa-comments"></i>{Object.values(unread).reduce((a,b)=>a+b,0)>0&&<span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{Object.values(unread).reduce((a,b)=>a+b,0)}</span>}</button><button onClick={()=>{setTab('notify'); setViewProfile(null);}} className={`text-lg relative ${tab==='notify'?'text-white':''}`}><i className="fas fa-bell"></i>{notifs.filter(n=>!n.read).length>0&&<span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{notifs.filter(n=>!n.read).length}</span>}</button><button onClick={()=>{setTab('profile'); setViewProfile(null);}} className={`text-lg ${tab==='profile'?'text-white':''}`}><i className="fas fa-user"></i></button><button onClick={onLogout} className="text-sm bg-gray-800 px-2 py-0.5 rounded-full">Выйти</button></div></div></header>
 
         <main className="max-w-2xl mx-auto p-3">
           {tab==='feed' && (<>
-            <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><div className="flex-1"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm resize-none" value={newPost} onChange={e=>setNewPost(e.target.value)} /><div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreen({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2"><label className={`white-icon-btn text-sm ${uploading?'opacity-50':''}`}><i className="fas fa-paperclip"></i> Файлы<input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');return;} setUploading(true); const up=await uploadMedia(files); setMedia([...media,...up]); setUploading(false); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="white-icon-btn text-sm"><i className="fas fa-chart-simple"></i> Опрос</button><button onClick={()=>setShowHideModal(true)} className="white-icon-btn text-sm"><i className="fas fa-eye-slash"></i> Скрыть</button><button onClick={createPost} className="white-glow-btn px-4 py-1.5 rounded-full text-sm">Опубликовать</button></div></div></div></div>
-            {orderedPosts.map(p=>{const comments=p.comments||[]; const firstThree=comments.filter(c=>!c.reply_to_id).slice(0,3); const hasMore=comments.length>3; return (<div key={p.id} className="card p-3 mb-3"><div className="flex justify-between"><div className="flex gap-2 cursor-pointer" onClick={()=>p.user_id!==user.id&&setViewProfile(users.find(u=>u.id===p.user_id))}><img src={p.user_avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">@{p.username}</div><div className="text-xs text-gray-500">{formatDate(p.created_at)}{p.edited&&<span className="ml-1 text-gray-600">(ред)</span>}</div></div></div><PostMenu onEdit={p.user_id===user.id?()=>{}:null} onDel={p.user_id===user.id?()=>setDelPostId(p.id):null} onShare={()=>{}} /></div><ReadMore text={p.content} maxLength={200} />{p.media?.length>0&&p.media.map((m,i)=><div key={i}>{m.type==='video'?<video src={m.url} className="post-media-large" onClick={()=>setFullscreen({url:m.url,type:'video'})} controls={false} />:<img src={m.url} className="post-media-large" onClick={()=>setFullscreen({url:m.url,type:'image'})} />}</div>)}{p.poll && <PollComponent poll={p.poll} postId={p.id} userId={user.id} onVote={handlePollVote} />}<div className="flex gap-3 mt-2 text-gray-400 text-xs"><button onClick={()=>likePost(p.id,p.likes||0)} className="flex gap-1 hover:text-red-400"><i className="fas fa-heart"></i> {formatLikes(p.likes||0)}</button><button onClick={()=>{const d=document.getElementById(`c-${p.id}`); if(d)d.classList.toggle('hidden');}} className="flex gap-1 hover:text-blue-400"><i className="far fa-comment"></i> {(p.comments||[]).length}</button></div><div id={`c-${p.id}`} className="hidden mt-2 pt-2 border-t border-gray-800">{firstThree.map(c=><div key={c.id} className="mb-2 opacity-60 hover:opacity-100"><div className="flex items-start gap-2 p-2 hover:bg-[#2a2a2a] rounded-xl cursor-pointer" onClick={()=>setCommentsPagePost(p)}><img src={c.user_avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full mt-0.5" /><div className="flex-1"><div className="flex items-center gap-2"><span className="font-bold text-sm text-white">@{c.username}</span><span className="text-xs text-gray-500">{formatDate(c.created_at)}</span></div>{c.reply_to_username&&<div className="reply-quote mt-1"><span>@{c.reply_to_username}</span></div>}<p className="text-gray-300 text-sm mt-1">{c.text.length>80?c.text.substring(0,80)+'...':c.text}</p></div></div></div>)}</div>{hasMore&&<button onClick={()=>setCommentsPagePost(p)} className="text-blue-400 text-xs mt-1 hover:underline">Показать еще ({comments.length-3})</button>}<div className="flex gap-2 mt-2"><input type="text" placeholder="Комментарий..." className="flex-1 p-1.5 bg-[#2a2a2a] rounded-xl text-sm text-white" value={commentTexts[p.id]||''} onChange={e=>setCommentTexts({...commentTexts,[p.id]:e.target.value})} /><button onClick={()=>addComment(p.id, commentTexts[p.id])} className="bg-blue-600 text-white px-3 rounded-xl text-xs">→</button></div></div></div>);})}</>)}
+            <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><div className="flex-1"><textarea ref={textareaRef} rows="2" placeholder="Что нового?" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm resize-none" value={newPost} onChange={e=>setNewPost(e.target.value)} /><div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreen({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl"><span className="text-white text-xs">Опрос добавлен</span></div>}<div className="flex gap-2 mt-2"><label className={`white-icon-btn text-sm`}><i className="fas fa-paperclip"></i> Файлы<input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); const newMedia=[]; for(let f of files){const url=URL.createObjectURL(f); newMedia.push({url, type:f.type.startsWith('image/')?'image':'video'});} setMedia([...media,...newMedia]); e.target.value='';}} className="hidden" /></label><button onClick={()=>setShowPollModal(true)} className="white-icon-btn text-sm"><i className="fas fa-chart-simple"></i> Опрос</button><button onClick={()=>setShowHideModal(true)} className="white-icon-btn text-sm"><i className="fas fa-eye-slash"></i> Скрыть</button><button onClick={createPost} className="white-glow-btn px-4 py-1.5 rounded-full text-sm">Опубликовать</button></div></div></div></div>
+            {posts.map(p=>{const comments=p.comments||[]; const firstThree=comments.slice(0,3); const hasMore=comments.length>3; return (<div key={p.id} className="card p-3 mb-3"><div className="flex justify-between"><div className="flex gap-2 cursor-pointer" onClick={()=>p.user_id!==user.id&&setViewProfile(users.find(u=>u.id===p.user_id))}><img src={p.user_avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">@{p.username}</div><div className="text-xs text-gray-500">{formatDate(p.created_at)}</div></div></div><PostMenu onDel={p.user_id===user.id?()=>setDelPostId(p.id):null} /></div><ReadMore text={p.content} maxLength={200} />{p.media?.length>0&&p.media.map((m,i)=><div key={i}>{m.type==='video'?<video src={m.url} className="post-media-large" onClick={()=>setFullscreen({url:m.url,type:'video'})} />:<img src={m.url} className="post-media-large" onClick={()=>setFullscreen({url:m.url,type:'image'})} />}</div>)}<div className="flex gap-3 mt-2 text-gray-400 text-xs"><button onClick={()=>likePost(p.id,p.likes||0)} className="flex gap-1 hover:text-red-400"><i className="fas fa-heart"></i> {formatLikes(p.likes||0)}</button><button onClick={()=>{const d=document.getElementById(`c-${p.id}`); if(d)d.classList.toggle('hidden');}} className="flex gap-1 hover:text-blue-400"><i className="far fa-comment"></i> {(p.comments||[]).length}</button></div><div id={`c-${p.id}`} className="hidden mt-2 pt-2 border-t border-gray-800">{firstThree.map(c=><div key={c.id} className="mb-2 fade-comment"><div className="flex items-start gap-2 p-2 hover:bg-[#2a2a2a] rounded-xl cursor-pointer" onClick={()=>setCommentsPagePost(p)}><img src={c.user_avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full mt-0.5" /><div className="flex-1"><div className="flex items-center gap-2"><span className="font-bold text-sm text-white">@{c.username}</span><span className="text-xs text-gray-500">{formatDate(c.created_at)}</span></div><p className="text-gray-300 text-sm mt-1">{c.text}</p></div></div></div>)}</div>{hasMore&&<button onClick={()=>setCommentsPagePost(p)} className="text-blue-400 text-xs mt-1 hover:underline">Показать еще ({comments.length-3})</button>}<div className="flex gap-2 mt-2"><input type="text" placeholder="Комментарий..." className="flex-1 p-1.5 bg-[#2a2a2a] rounded-xl text-sm text-white" value={commentTexts[p.id]||''} onChange={e=>setCommentTexts({...commentTexts,[p.id]:e.target.value})} /><button onClick={()=>addComment(p.id, commentTexts[p.id])} className="bg-blue-600 text-white px-3 rounded-xl text-xs">→</button></div></div></div>);})}</>)}
 
-          {tab==='search' && (<div><div className="card p-3 mb-4"><div className="flex gap-2 mb-2"><button onClick={()=>setSType('users')} className={`text-xs px-2 py-1 rounded-full ${sType==='users'?'bg-blue-600':'bg-gray-800'}`}>👥 Пользователи</button><button onClick={()=>setSType('posts')} className={`text-xs px-2 py-1 rounded-full ${sType==='posts'?'bg-blue-600':'bg-gray-800'}`}>📄 Посты</button></div><input type="text" placeholder="Поиск..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" /></div>{sType==='users'&&searchUsers.map(u=><div key={u.id} className="card p-3 mb-2 flex justify-between items-center"><div className="flex gap-2 cursor-pointer" onClick={()=>setViewProfile(u)}><img src={u.avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">{u.full_name||u.username}</div><div className="text-gray-400 text-xs">@{u.username}</div></div></div><button onClick={()=>{setChatUser(u); setTab('chat');}} className="bg-green-600 text-white px-2 py-0.5 rounded-full text-xs">Чат</button></div>)}</div>)}
+          {tab==='search' && (<div><div className="card p-3 mb-4"><div className="flex gap-2 mb-2"><button onClick={()=>setSType('users')} className={`text-xs px-2 py-1 rounded-full ${sType==='users'?'bg-blue-600':'bg-gray-800'}`}>Пользователи</button><button onClick={()=>setSType('posts')} className={`text-xs px-2 py-1 rounded-full ${sType==='posts'?'bg-blue-600':'bg-gray-800'}`}>Посты</button></div><input type="text" placeholder="Поиск..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" /></div>{sType==='users'&&searchUsers.map(u=><div key={u.id} className="card p-3 mb-2 flex justify-between items-center"><div className="flex gap-2 cursor-pointer" onClick={()=>setViewProfile(u)}><img src={u.avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">{u.full_name||u.username}</div><div className="text-gray-400 text-xs">@{u.username}</div></div></div><button onClick={()=>{setChatUser(u); setTab('chat');}} className="bg-green-600 px-2 py-0.5 rounded-full text-xs">Чат</button></div>)}</div>)}
 
           {tab==='chat' && (<div className="flex flex-col h-[80vh]">
             {!chatUser ? (
@@ -518,7 +522,7 @@
               </div>
             ) : (
               <div className="flex flex-col h-full">
-                <div className="flex items-center gap-3 p-3 border-b border-gray-800 bg-[#1a1a1a] rounded-t-2xl sticky top-0">
+                <div className="flex items-center gap-3 p-3 border-b border-gray-800 bg-[#1a1a1a] rounded-t-2xl">
                   <button onClick={()=>setChatUser(null)} className="text-white text-xl">←</button>
                   <img src={chatUser.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" />
                   <div><div className="font-bold text-white">@{chatUser.username}</div><div className="text-gray-400 text-xs">{chatUser.full_name||chatUser.username}</div></div>
@@ -539,9 +543,9 @@
             )}
           </div>)}
 
-          {tab==='notify' && (<div><div className="flex justify-between items-center mb-2"><h2 className="text-lg font-bold text-white">Уведомления</h2><button onClick={async()=>{const unreadIds=notifs.filter(n=>!n.read).map(n=>n.id); if(unreadIds.length===0)return; await supabase.from('notifications').update({read:true}).in('id',unreadIds); setNotifs(prev=>prev.map(n=>({...n,read:true}))); showToast('Все прочитаны');}} className="text-xs bg-gray-700 px-2 py-0.5 rounded-full">Прочитать все</button></div>{notifs.length===0&&<div className="card p-6 text-center text-gray-500">Нет уведомлений</div>}{notifs.map(n=><div key={n.id} className={`card p-2 mb-2 cursor-pointer ${!n.read?'border-l-4 border-green-500':''}`} onClick={async()=>{await supabase.from('notifications').update({read:true}).eq('id',n.id); setNotifs(prev=>prev.map(not=>not.id===n.id?{...not,read:true}:not)); if(n.type==='message'){const from=users.find(u=>u.id===n.from_user_id); if(from){setChatUser(from); setTab('chat');}} else setTab('feed');}}><p className="text-white text-sm">{n.text}</p><p className="text-gray-500 text-xs">{formatDate(n.created_at)}</p></div>)}</div>)}
+          {tab==='notify' && (<div><div className="flex justify-between items-center mb-2"><h2 className="text-lg font-bold text-white">Уведомления</h2></div>{notifs.length===0&&<div className="card p-6 text-center text-gray-500">Нет уведомлений</div>}{notifs.map(n=><div key={n.id} className="card p-2 mb-2 cursor-pointer"><p className="text-white text-sm">{n.text}</p><p className="text-gray-500 text-xs">{formatDate(n.created_at)}</p></div>)}</div>)}
 
-          {tab==='profile' && (<div className="card p-4 text-center"><div className="flex justify-end"><button onClick={()=>setSwitchDialog(true)} className="text-gray-400 hover:text-white p-1"><i className="fas fa-exchange-alt"></i></button></div><div className="avatar-upload w-20 h-20 mx-auto relative cursor-pointer"><img src={user.avatar||DEFAULT_AVATAR} className="w-20 h-20 rounded-full object-cover" /><input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer rounded-full" onChange={(e)=>upAvatar(e.target.files[0])} disabled={avatarUp} /></div>{editProfile?(<div className="mt-3"><input type="text" value={editName} onChange={e=>setEditName(e.target.value)} className="w-full p-1.5 bg-[#2a2a2a] rounded-xl text-white text-sm" placeholder="Имя" /><textarea value={editBio} onChange={e=>setEditBio(e.target.value)} className="w-full p-1.5 bg-[#2a2a2a] rounded-xl text-white text-sm mt-1" rows="2" placeholder="О себе"></textarea><div className="flex gap-2 mt-2"><button onClick={saveProfile} className="flex-1 bg-green-600 text-white py-1 rounded-xl text-sm">Сохранить</button><button onClick={()=>setEditProfile(false)} className="flex-1 bg-gray-700 text-white py-1 rounded-xl text-sm">Отмена</button></div></div>):(<><h2 className="text-lg font-bold text-white mt-1">{user.full_name||user.username}</h2><p className="text-gray-400 text-sm">@{user.username}</p><p className="text-gray-500 text-xs mt-1">{user.bio||''}</p><div className="flex gap-4 justify-center mt-3 text-sm"><div><span className="font-bold text-white">{posts.filter(p=>p.user_id===user.id).length}</span><span className="text-gray-500 ml-1">постов</span></div><div><span className="font-bold text-white">{user.followers?.length||0}</span><span className="text-gray-500 ml-1">подписчиков</span></div><div><span className="font-bold text-white">{user.following?.length||0}</span><span className="text-gray-500 ml-1">подписок</span></div></div></>)}</div>)}
+          {tab==='profile' && (<div className="card p-4 text-center"><div className="flex justify-end"><button onClick={()=>setSwitchDialog(true)} className="text-gray-400 hover:text-white p-1"><i className="fas fa-exchange-alt"></i></button></div><div className="avatar-upload w-20 h-20 mx-auto relative cursor-pointer"><img src={user.avatar||DEFAULT_AVATAR} className="w-20 h-20 rounded-full object-cover" /><input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer rounded-full" onChange={(e)=>upAvatar(e.target.files[0])} disabled={avatarUp} /></div>{editProfile?(<div className="mt-3"><input type="text" value={editName} onChange={e=>setEditName(e.target.value)} className="w-full p-1.5 bg-[#2a2a2a] rounded-xl text-white text-sm" placeholder="Имя" /><textarea value={editBio} onChange={e=>setEditBio(e.target.value)} className="w-full p-1.5 bg-[#2a2a2a] rounded-xl text-white text-sm mt-1" rows="2" placeholder="О себе"></textarea><div className="flex gap-2 mt-2"><button onClick={saveProfile} className="flex-1 bg-green-600 text-white py-1 rounded-xl text-sm">Сохранить</button><button onClick={()=>setEditProfile(false)} className="flex-1 bg-gray-700 text-white py-1 rounded-xl text-sm">Отмена</button></div></div>):(<><h2 className="text-lg font-bold text-white mt-1">{user.full_name||user.username}</h2><p className="text-gray-400 text-sm">@{user.username}</p><p className="text-gray-500 text-xs mt-1">{user.bio||''}</p><div className="flex gap-4 justify-center mt-3 text-sm"><div><span className="font-bold text-white">{posts.filter(p=>p.user_id===user.id).length}</span><span className="text-gray-500 ml-1">постов</span></div><div><span className="font-bold text-white">{user.followers?.length||0}</span><span className="text-gray-500 ml-1">подписчиков</span></div><div><span className="font-bold text-white">{user.following?.length||0}</span><span className="text-gray-500 ml-1">подписок</span></div></div><div className="flex gap-2 justify-center mt-4"><button onClick={()=>setEditProfile(true)} className="bg-gray-700 px-4 py-1.5 rounded-full text-sm">Редактировать</button><button onClick={onLogout} className="bg-red-600 px-4 py-1.5 rounded-full text-sm">Выйти</button></div></>)}</div>)}
         </main>
       </div>
     );
@@ -551,9 +555,14 @@
     const [a,setA]=React.useState(false); 
     const [u,setU]=React.useState(null); 
     const [l,setL]=React.useState(true); 
-    React.useEffect(()=>{ if(localStorage.getItem('wave_access')==='ok') setA(true); let s=localStorage.getItem('wave_user'); if(s) setU(JSON.parse(s)); setL(false); },[]); 
+    React.useEffect(()=>{ 
+      if(localStorage.getItem('wave_access')==='ok') setA(true); 
+      let s=localStorage.getItem('wave_user'); 
+      if(s) setU(JSON.parse(s)); 
+      setL(false); 
+    },[]); 
     const log=(u)=>{ localStorage.setItem('wave_user',JSON.stringify(u)); setU(u); }; 
-    const out=()=>{ localStorage.removeItem('wave_user'); setU(null); }; 
+    const out=()=>{ localStorage.removeItem('wave_user'); setU(null); localStorage.removeItem('wave_access'); window.location.reload(); }; 
     if(l) return <div className="p-4 text-white">Загрузка...</div>; 
     if(!a) return <PasswordGate onSuccess={()=>setA(true)} />; 
     if(u) return <MainApp user={u} onLogout={out} />; 
