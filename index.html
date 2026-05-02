@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Wave Social – Полная версия</title>
+  <title>Wave Social – Реальная соцсеть</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
@@ -21,7 +21,8 @@
     .dropdown-item { padding: 10px 16px; display: flex; align-items: center; gap: 10px; color: #e0e0e0; transition: 0.15s; cursor: pointer; }
     .dropdown-item:hover { background: #2a2a2a; }
     .edit-input, .edit-textarea { background: #2a2a2a; border: none; border-radius: 16px; padding: 10px 14px; color: white; width: 100%; margin-top: 8px; }
-    .reply-quote { background: #111; padding: 8px 12px; border-radius: 14px; border-left: 3px solid #3b82f6; font-size: 12px; color: #aaa; margin-bottom: 8px; }
+    .reply-quote { background: #1a1a1a; padding: 8px 12px; border-radius: 14px; border-left: 3px solid #3b82f6; font-size: 12px; color: #aaa; margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .reply-quote span { color: #3b82f6; font-weight: 500; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
     .modal-card { background: #1e1e1e; border-radius: 28px; padding: 24px; max-width: 360px; width: 90%; text-align: center; border: 1px solid #3a3a3a; }
     .share-list, .hide-list { max-height: 300px; overflow-y: auto; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
@@ -36,6 +37,7 @@
     .fullscreen-media img, .fullscreen-media video { max-width: 95vw; max-height: 95vh; border-radius: 28px; box-shadow: 0 0 50px rgba(255,255,255,0.2); }
     .white-icon-btn { background: white; color: #111; border-radius: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; box-shadow: 0 0 6px rgba(255,255,255,0.3); transition: 0.2s; cursor: pointer; }
     .white-icon-btn:hover { transform: scale(1.02); box-shadow: 0 0 15px rgba(255,255,255,0.5); background: #f5f5f5; }
+    .uploading-indicator { font-size: 12px; color: #aaa; margin-left: 8px; }
   </style>
 </head>
 <body>
@@ -53,7 +55,27 @@
   const DEFAULT_AVATAR = "https://ui-avatars.com/api/?background=2a2a2a&color=fff&rounded=true&size=96&bold=true&length=1&name=?";
 
   function showToast(msg) { const t=document.createElement('div'); t.className='toast'; t.innerText=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2500); }
-  function formatDate(iso) { const d=new Date(iso), n=new Date(), diff=Math.floor((n-d)/1000); if(diff<60) return 'только что'; if(diff<3600) return `${Math.floor(diff/60)} мин назад`; if(diff<86400) return `сегодня в ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`; if(diff<172800) return 'вчера'; if(diff<604800) return `${Math.floor(diff/86400)} дн назад`; if(diff<2592000) return `${Math.floor(diff/604800)} нед назад`; if(diff<31536000) return `${Math.floor(diff/2592000)} мес назад`; return `${Math.floor(diff/31536000)} г назад`; }
+  
+  // Функция для отображения даты без сдвига часового пояса
+  function formatDate(iso) {
+    const date = new Date(iso);
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+    if (diff < 60) return 'только что';
+    if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
+    // Для сегодняшних постов показываем локальное время (без сдвига)
+    if (diff < 86400) {
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `сегодня в ${hours}:${minutes}`;
+    }
+    if (diff < 172800) return 'вчера';
+    if (diff < 604800) return `${Math.floor(diff / 86400)} дн назад`;
+    if (diff < 2592000) return `${Math.floor(diff / 604800)} нед назад`;
+    if (diff < 31536000) return `${Math.floor(diff / 2592000)} мес назад`;
+    return `${Math.floor(diff / 31536000)} г назад`;
+  }
+  
   function formatLikes(n){ if(n>=1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'')+'м'; if(n>=1000) return (n/1000).toFixed(1).replace(/\.0$/,'')+'к'; return n; }
 
   function PasswordGate({onSuccess}){ const [pass,setPass]=React.useState(''); const [err,setErr]=React.useState(''); return (<div className="min-h-screen flex items-center justify-center p-4"><div className="card p-6 max-w-md w-full text-center"><i className="fas fa-lock text-4xl text-white mb-3"></i><h1 className="text-xl font-bold text-white">Wave Social</h1><p className="text-gray-400 mt-1 text-sm">Введите пароль</p><form onSubmit={(e)=>{e.preventDefault(); if(pass==='8554social'){localStorage.setItem('wave_access','ok'); onSuccess();}else setErr('Неверный пароль');}} className="mt-4"><input type="password" value={pass} onChange={e=>setPass(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-center" autoFocus />{err&&<div className="text-red-400 text-sm mt-1">{err}</div>}<button type="submit" className="w-full mt-3 bg-gray-700 text-white py-1.5 rounded-xl btn">Войти</button></form></div></div>);}
@@ -73,9 +95,11 @@
     const [newPostContent, setNewPostContent] = React.useState('');
     const [mediaList, setMediaList] = React.useState([]);
     const [uploadingMedia, setUploadingMedia] = React.useState(false);
+    const [uploadProgress, setUploadProgress] = React.useState('');
     const [commentTexts, setCommentTexts] = React.useState({});
     const [newMessageText, setNewMessageText] = React.useState('');
     const [replyToMessage, setReplyToMessage] = React.useState(null);
+    const [replyToMessageData, setReplyToMessageData] = React.useState(null);
     const [replyingToComment, setReplyingToComment] = React.useState(null);
     const [searchQuery, setSearchQuery] = React.useState('');
     const [searchUserResults, setSearchUserResults] = React.useState([]);
@@ -161,7 +185,9 @@
 
     const uploadMediaFiles = async (files) => {
       const uploaded = [];
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadProgress(`Загрузка ${i+1}/${files.length}: ${file.name}`);
         const ext = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
         const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, file);
@@ -169,21 +195,27 @@
         const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
         uploaded.push({ url: urlData.publicUrl, type: file.type.startsWith('image/') ? 'image' : 'video' });
       }
+      setUploadProgress('');
       return uploaded;
     };
 
     const sendMessage = async () => {
       if ((!newMessageText.trim() && !replyToMessage) || !chatUser) return;
       let content = newMessageText;
+      let replyToId = null;
       if (replyToMessage) {
         const replyToUser = replyToMessage.from_user === user.id ? chatUser.username : users.find(u => u.id === replyToMessage.from_user)?.username;
-        content = `[Ответ @${replyToUser}: "${replyToMessage.content.substring(0, 60)}"]\n${newMessageText}`;
+        content = newMessageText;
+        replyToId = replyToMessage.id;
       }
       const tempId = Date.now();
-      setMessages(prev => [...prev, { id: tempId, from_user: user.id, to_user: chatUser.id, content, created_at: new Date().toISOString() }]);
+      const newMsg = { id: tempId, from_user: user.id, to_user: chatUser.id, content, reply_to_id: replyToId, created_at: new Date().toISOString() };
+      setMessages(prev => [...prev, newMsg]);
       setNewMessageText('');
       setReplyToMessage(null);
-      const { data: inserted } = await supabase.from('messages').insert({ from_user: user.id, to_user: chatUser.id, content, read: false, created_at: new Date() }).select().single();
+      const { data: inserted } = await supabase.from('messages').insert({
+        from_user: user.id, to_user: chatUser.id, content, reply_to_id: replyToId, read: false, created_at: new Date()
+      }).select().single();
       if (inserted) setMessages(prev => prev.map(m => m.id === tempId ? inserted : m));
       await supabase.from('notifications').insert({ user_id: chatUser.id, type: 'message', from_user_id: user.id, from_username: user.username, text: `${user.username} отправил сообщение`, read: false, created_at: new Date() });
     };
@@ -260,8 +292,7 @@
       const hashtags = [...newPostContent.matchAll(/#[\wа-яё]+/gi)].map(m => m[0]);
       const hiddenFrom = hideSelected.length ? hideSelected : null;
       const tempId = Date.now();
-      const newPostObj = { id: tempId, user_id: user.id, username: user.username, user_avatar: user.avatar, content: newPostContent, media: mediaList, likes: 0, comments: [], mentions, hashtags, hidden_from: hiddenFrom, created_at: new Date().toISOString(), edited: false };
-      setPosts([newPostObj, ...posts]);
+      setPosts([{ id: tempId, user_id: user.id, username: user.username, user_avatar: user.avatar, content: newPostContent, media: mediaList, likes: 0, comments: [], mentions, hashtags, hidden_from: hiddenFrom, created_at: new Date().toISOString(), edited: false }, ...posts]);
       setNewPostContent('');
       setMediaList([]);
       setHidingPost(null);
@@ -288,9 +319,12 @@
     const addComment = async (postId) => {
       let text = commentTexts[postId] || '';
       if (!text.trim()) return;
-      if (replyingToComment) text = `[Ответ @${replyingToComment.username}: "${replyingToComment.text.substring(0, 60)}"]\n${text}`;
+      let replyToId = null;
+      if (replyingToComment) {
+        replyToId = replyingToComment.id;
+      }
       const post = posts.find(p => p.id === postId);
-      const newComment = { id: Date.now(), user_id: user.id, username: user.username, user_avatar: user.avatar, text, created_at: new Date().toISOString() };
+      const newComment = { id: Date.now(), user_id: user.id, username: user.username, user_avatar: user.avatar, text, reply_to_id: replyToId, created_at: new Date().toISOString() };
       const newComments = [...(post.comments || []), newComment];
       setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: newComments } : p));
       setCommentTexts({ ...commentTexts, [postId]: '' });
@@ -403,6 +437,22 @@
       return (<div className="relative" ref={ref}><button onClick={() => setOpen(!open)} className="text-gray-400 hover:text-white p-1"><i className="fas fa-ellipsis-h"></i></button>{open && (<div className="dropdown-menu"><div className="dropdown-item" onClick={() => { setEditingProfile(true); setOpen(false); }}><i className="fas fa-user-edit"></i> Редактировать профиль</div><div className="dropdown-item" onClick={() => { setSwitchAccountDialog(true); setOpen(false); }}><i className="fas fa-exchange-alt"></i> Сменить аккаунт</div><div className="dropdown-item" onClick={() => { setShowDeleteAccountConfirm(true); setOpen(false); }}><i className="fas fa-trash-alt"></i> Удалить аккаунт</div></div>)}</div>);
     };
 
+    const getRepliedMessageText = (replyToId) => {
+      if (!replyToId) return null;
+      const msg = messages.find(m => m.id === replyToId);
+      if (!msg) return null;
+      const author = msg.from_user === user.id ? 'Вы' : users.find(u => u.id === msg.from_user)?.username || 'Пользователь';
+      return { text: msg.content, author };
+    };
+
+    const getRepliedCommentText = (comment, postComments) => {
+      if (!comment.reply_to_id) return null;
+      const repliedComment = postComments.find(c => c.id === comment.reply_to_id);
+      if (!repliedComment) return null;
+      const author = repliedComment.user_id === user.id ? 'Вы' : repliedComment.username;
+      return { text: repliedComment.text, author };
+    };
+
     if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Загрузка...</div>;
 
     if (viewedProfile) {
@@ -425,11 +475,11 @@
       <header className="sticky top-0 z-20 border-b border-gray-800 bg-[#0f0f0f]/90 backdrop-blur-md p-4"><div className="max-w-2xl mx-auto flex justify-between items-center"><div className="flex items-center gap-2"><i className="fas fa-water text-white text-2xl"></i><span className="text-white font-bold text-xl">Wave</span></div><div className="flex gap-4 text-gray-400"><button onClick={() => { setActiveTab('feed'); setViewedProfile(null); }} className={`text-xl ${activeTab === 'feed' ? 'text-white' : ''}`}><i className="fas fa-home"></i></button><button onClick={() => { setActiveTab('search'); setViewedProfile(null); }} className={`text-xl ${activeTab === 'search' ? 'text-white' : ''}`}><i className="fas fa-search"></i></button><button onClick={() => { setActiveTab('chat'); setViewedProfile(null); }} className={`text-xl relative ${activeTab === 'chat' ? 'text-white' : ''}`}><i className="fas fa-comments"></i>{Object.values(unreadCounts).reduce((a,b)=>a+b,0)>0 && <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{Object.values(unreadCounts).reduce((a,b)=>a+b,0)}</span>}</button><button onClick={() => { setActiveTab('notify'); setViewedProfile(null); }} className={`text-xl relative ${activeTab === 'notify' ? 'text-white' : ''}`}><i className="fas fa-bell"></i>{notifications.filter(n => !n.read).length > 0 && <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{notifications.filter(n => !n.read).length}</span>}</button><button onClick={() => { setActiveTab('profile'); setViewedProfile(null); }} className={`text-xl ${activeTab === 'profile' ? 'text-white' : ''}`}><i className="fas fa-user"></i></button><button onClick={onLogout} className="text-sm bg-gray-800 px-3 py-1 rounded-full">Выйти</button></div></div></header>
 
       <main className="max-w-2xl mx-auto p-4">
-        {activeTab === 'feed' && (<><div className="card p-4 mb-6"><div className="flex gap-3"><img src={user.avatar || DEFAULT_AVATAR} className="w-10 h-10 rounded-full object-cover" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @username или #хештег" className="w-full p-3 bg-[#2a2a2a] rounded-2xl text-white resize-none" value={newPostContent} onChange={handlePostInput} />{showMentions && filteredMentions.length > 0 && (<div className="absolute bottom-full left-0 bg-[#2a2a2a] border border-gray-700 rounded-xl max-h-48 overflow-auto z-10 mb-1 w-48">{filteredMentions.map(u => (<div key={u.id} className="p-2 hover:bg-[#3a3a3a] cursor-pointer flex items-center gap-2" onClick={() => insertMention(u.username)}><img src={u.avatar || DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white">@{u.username}</span></div>))}</div>)}<div className="flex flex-wrap gap-2 mt-2">{mediaList.map((m, i) => (<div key={i} className="media-preview" onClick={() => setFullscreenMedia({ url: m.url, type: m.type })}>{m.type === 'video' ? <video src={m.url} /> : <img src={m.url} />}<button className="remove-media" onClick={(e) => { e.stopPropagation(); removeMedia(i); }}>×</button></div>))}</div><div className="flex gap-2 mt-2"><label className={`cursor-pointer bg-gray-800 p-2 rounded-xl ${uploadingMedia ? 'opacity-50' : ''}`}><i className="fas fa-paperclip"></i><input type="file" accept="image/*,video/*" multiple onChange={handleMediaUpload} className="hidden" disabled={uploadingMedia} /></label><button onClick={() => setHidingPost(true)} className="white-icon-btn"><i className="fas fa-cog"></i></button><button onClick={createPost} className="white-glow-btn px-6 py-2 rounded-full text-sm">Опубликовать</button></div></div></div></div>{posts.map(post => (<div key={post.id} className="card p-4 mb-4"><div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2 cursor-pointer" onClick={() => post.user_id !== user.id && setViewedProfile(users.find(u => u.id === post.user_id))}><img src={post.user_avatar || DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><span className="font-bold text-white hover:underline">@{post.username}</span></div><div className="flex items-center gap-2"><span className="text-gray-500 text-xs">{formatDate(post.created_at)}{post.edited && <span className="ml-1 text-gray-600">(изменено)</span>}</span><PostDropdownMenu onEdit={post.user_id === user.id ? () => { setEditingPost(post); setEditPostContent(post.content); } : null} onDelete={post.user_id === user.id ? () => setPostToDelete(post.id) : null} onShare={() => { setSharingPost(post); setShareSelected([]); }} onHide={post.user_id === user.id ? () => { setHidingPost(true); setHideSelected(post.hidden_from || []); } : null} /></div></div><p className="text-white whitespace-pre-wrap">{renderContent(post.content)}</p>{post.media && post.media.length > 0 && (<div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-3">{post.media.map((m, i) => (m.type === 'video' ? (<video key={i} src={m.url} className="w-full h-40 object-cover rounded-2xl cursor-pointer" onClick={() => setFullscreenMedia({ url: m.url, type: 'video' })} />) : (<img key={i} src={m.url} className="w-full h-40 object-cover rounded-2xl cursor-pointer" onClick={() => setFullscreenMedia({ url: m.url, type: 'image' })} />)))}</div>)}<div className="flex gap-4 mt-3 text-gray-400 text-sm"><button onClick={() => likePost(post.id, post.likes || 0)} className="flex gap-1 hover:text-red-400"><i className="fas fa-heart"></i> {formatLikes(post.likes || 0)}</button><button onClick={() => { const div = document.getElementById(`comments-${post.id}`); if (div) div.classList.toggle('hidden'); }} className="flex gap-1 hover:text-blue-400"><i className="far fa-comment"></i> {(post.comments || []).length}</button></div><div id={`comments-${post.id}`} className="hidden mt-3 pt-3 border-t border-gray-800">{replyingToComment && <div className="reply-quote">Ответ @{replyingToComment.username}: "{replyingToComment.text.substring(0,60)}"</div>}{(post.comments || []).map(c => (<div key={c.id} className="flex gap-2 mb-2 text-sm p-2 hover:bg-[#2a2a2a] rounded-xl cursor-pointer" onClick={() => setSelectedComment({ postId: post.id, comment: c })}><span className="font-bold text-gray-300" onClick={(e) => { e.stopPropagation(); if (c.user_id !== user.id) setViewedProfile(users.find(u => u.id === c.user_id)); }}>@{c.username}</span><span className="text-gray-400 whitespace-pre-wrap">{c.text}</span></div>))}<div className="flex gap-2 mt-2"><input id={`comment-input-${post.id}`} type="text" placeholder="Комментарий..." className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-sm text-white" value={commentTexts[post.id] || ''} onChange={e => setCommentTexts({ ...commentTexts, [post.id]: e.target.value })} /><button onClick={() => addComment(post.id)} className="bg-gray-700 text-white px-3 rounded-xl text-sm btn">→</button></div></div></div>))}</>)}
+        {activeTab === 'feed' && (<><div className="card p-4 mb-6"><div className="flex gap-3"><img src={user.avatar || DEFAULT_AVATAR} className="w-10 h-10 rounded-full object-cover" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @username или #хештег" className="w-full p-3 bg-[#2a2a2a] rounded-2xl text-white resize-none" value={newPostContent} onChange={handlePostInput} />{showMentions && filteredMentions.length > 0 && (<div className="absolute bottom-full left-0 bg-[#2a2a2a] border border-gray-700 rounded-xl max-h-48 overflow-auto z-10 mb-1 w-48">{filteredMentions.map(u => (<div key={u.id} className="p-2 hover:bg-[#3a3a3a] cursor-pointer flex items-center gap-2" onClick={() => insertMention(u.username)}><img src={u.avatar || DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white">@{u.username}</span></div>))}</div>)}<div className="flex flex-wrap gap-2 mt-2">{mediaList.map((m, i) => (<div key={i} className="media-preview" onClick={() => setFullscreenMedia({ url: m.url, type: m.type })}>{m.type === 'video' ? <video src={m.url} /> : <img src={m.url} />}<button className="remove-media" onClick={(e) => { e.stopPropagation(); removeMedia(i); }}>×</button></div>))}</div><div className="flex gap-2 mt-2"><label className={`cursor-pointer bg-gray-800 p-2 rounded-xl ${uploadingMedia ? 'opacity-50' : ''}`}><i className="fas fa-paperclip"></i><input type="file" accept="image/*,video/*" multiple onChange={handleMediaUpload} className="hidden" disabled={uploadingMedia} /></label>{uploadingMedia && <span className="uploading-indicator"><i className="fas fa-spinner fa-spin"></i> {uploadProgress}</span>}<button onClick={() => setHidingPost(true)} className="white-icon-btn"><i className="fas fa-cog"></i></button><button onClick={createPost} className="white-glow-btn px-6 py-2 rounded-full text-sm">Опубликовать</button></div></div></div></div>{posts.map(post => (<div key={post.id} className="card p-4 mb-4"><div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2 cursor-pointer" onClick={() => post.user_id !== user.id && setViewedProfile(users.find(u => u.id === post.user_id))}><img src={post.user_avatar || DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><span className="font-bold text-white hover:underline">@{post.username}</span></div><div className="flex items-center gap-2"><span className="text-gray-500 text-xs">{formatDate(post.created_at)}{post.edited && <span className="ml-1 text-gray-600">(изменено)</span>}</span><PostDropdownMenu onEdit={post.user_id === user.id ? () => { setEditingPost(post); setEditPostContent(post.content); } : null} onDelete={post.user_id === user.id ? () => setPostToDelete(post.id) : null} onShare={() => { setSharingPost(post); setShareSelected([]); }} onHide={post.user_id === user.id ? () => { setHidingPost(true); setHideSelected(post.hidden_from || []); } : null} /></div></div><p className="text-white whitespace-pre-wrap">{renderContent(post.content)}</p>{post.media && post.media.length > 0 && (<div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-3">{post.media.map((m, i) => (m.type === 'video' ? (<video key={i} src={m.url} className="w-full h-40 object-cover rounded-2xl cursor-pointer" onClick={() => setFullscreenMedia({ url: m.url, type: 'video' })} />) : (<img key={i} src={m.url} className="w-full h-40 object-cover rounded-2xl cursor-pointer" onClick={() => setFullscreenMedia({ url: m.url, type: 'image' })} />)))}</div>)}<div className="flex gap-4 mt-3 text-gray-400 text-sm"><button onClick={() => likePost(post.id, post.likes || 0)} className="flex gap-1 hover:text-red-400"><i className="fas fa-heart"></i> {formatLikes(post.likes || 0)}</button><button onClick={() => { const div = document.getElementById(`comments-${post.id}`); if (div) div.classList.toggle('hidden'); }} className="flex gap-1 hover:text-blue-400"><i className="far fa-comment"></i> {(post.comments || []).length}</button></div><div id={`comments-${post.id}`} className="hidden mt-3 pt-3 border-t border-gray-800">{(post.comments || []).map(c => { const repliedTo = getRepliedCommentText(c, post.comments); return (<div key={c.id} className="mb-2"><div className="flex items-start gap-2 p-2 hover:bg-[#2a2a2a] rounded-xl cursor-pointer" onClick={() => setSelectedComment({ postId: post.id, comment: c })}><img src={c.user_avatar || DEFAULT_AVATAR} className="w-6 h-6 rounded-full mt-0.5" /><div className="flex-1"><div className="flex items-center gap-2"><span className="font-bold text-sm text-white">@{c.username}</span><span className="text-xs text-gray-500">{formatDate(c.created_at)}</span></div>{repliedTo && (<div className="reply-quote mt-1"><span>@{repliedTo.author}</span><div className="text-gray-400 text-xs">{repliedTo.text.length > 80 ? repliedTo.text.substring(0, 80)+'...' : repliedTo.text}</div></div>)}<p className="text-gray-300 text-sm mt-1">{c.text}</p></div></div></div>);})}</div><div className="flex gap-2 mt-2"><input id={`comment-input-${post.id}`} type="text" placeholder="Написать комментарий..." className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-sm text-white" value={commentTexts[post.id] || ''} onChange={e => setCommentTexts({ ...commentTexts, [post.id]: e.target.value })} /><button onClick={() => addComment(post.id)} className="bg-gray-700 text-white px-3 rounded-xl text-sm btn">→</button></div></div></div>))}</>)}
 
         {activeTab === 'search' && (<div><div className="card p-4 mb-6"><div className="flex gap-2 mb-3"><button onClick={() => setSearchType('users')} className={`px-3 py-1 rounded-full text-sm ${searchType === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300'}`}>👥 Пользователи</button><button onClick={() => setSearchType('posts')} className={`px-3 py-1 rounded-full text-sm ${searchType === 'posts' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300'}`}>📄 Посты</button></div><input type="text" placeholder="Поиск пользователей, постов или хештегов #..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full p-3 bg-[#2a2a2a] rounded-xl text-white" /></div>{searchType === 'users' && searchUserResults.map(u => (<div key={u.id} className="card p-4 mb-3 flex items-center justify-between"><div className="flex items-center gap-3 cursor-pointer" onClick={() => setViewedProfile(u)}><img src={u.avatar || DEFAULT_AVATAR} className="w-10 h-10 rounded-full" /><div><div className="font-bold text-white">{u.full_name || u.username}</div><div className="text-gray-400 text-sm">@{u.username}</div></div></div><button onClick={() => { setChatUser(u); setActiveTab('chat'); }} className="bg-green-600 text-white px-3 py-1 rounded-full text-sm btn">Чат</button></div>))}{searchType === 'posts' && searchPostResults.map(post => (<div key={post.id} className="card p-4 mb-3 cursor-pointer" onClick={() => { setActiveTab('feed'); setTimeout(() => document.getElementById(`post-${post.id}`)?.scrollIntoView({ behavior: 'smooth' }), 100); }}><div className="flex items-center gap-2 mb-2"><img src={post.user_avatar || DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="font-bold text-white text-sm">@{post.username}</span></div><p className="text-white text-sm whitespace-pre-wrap">{post.content.substring(0, 100)}...</p><div className="flex gap-3 mt-2 text-gray-500 text-xs"><span><i className="fas fa-heart text-red-500"></i> {formatLikes(post.likes || 0)}</span><span><i className="far fa-comment"></i> {(post.comments || []).length}</span></div></div>))}</div>)}
 
-        {activeTab === 'chat' && (<div className="flex flex-col h-[70vh]"><div className="flex gap-2 mb-4 overflow-x-auto">{chatList.map(cu => (<button key={cu.id} onClick={() => setChatUser(cu)} className={`px-3 py-1 rounded-full text-sm ${chatUser?.id === cu.id ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300'}`}>@{cu.username}</button>))}</div>{chatUser ? (<div className="card flex flex-col h-full"><div className="p-3 border-b border-gray-800 font-bold text-white">Чат с @{chatUser.username}</div><div className="flex-1 overflow-y-auto p-3 space-y-2">{replyToMessage && (<div className="reply-quote"><i className="fas fa-reply mr-1"></i> Ответ @{replyToMessage.from_user === user.id ? chatUser.username : users.find(u => u.id === replyToMessage.from_user)?.username}: "{replyToMessage.content.substring(0, 60)}"</div>)}{messages.map((msg, idx) => (<div key={idx} className={`flex ${msg.from_user === user.id ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[70%] p-2 rounded-xl ${msg.from_user === user.id ? 'bg-blue-600 text-white' : 'bg-[#2a2a2a] text-white'} chat-bubble cursor-pointer`} onClick={() => setSelectedMessage({ msg })}><p className="text-sm whitespace-pre-wrap">{msg.content}</p><div className="text-xs opacity-70 mt-1">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div></div></div>))}<div ref={messagesEndRef} /></div><div className="p-3 border-t border-gray-800 flex gap-2"><input id="message-input" type="text" placeholder="Сообщение..." value={newMessageText} onChange={e => setNewMessageText(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()} className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" /><button onClick={sendMessage} className="bg-blue-600 text-white px-4 rounded-xl btn">→</button></div></div>) : (<div className="card p-8 text-center text-gray-500">Выберите чат</div>)}</div>)}
+        {activeTab === 'chat' && (<div className="flex flex-col h-[70vh]"><div className="flex gap-2 mb-4 overflow-x-auto">{chatList.map(cu => (<button key={cu.id} onClick={() => setChatUser(cu)} className={`px-3 py-1 rounded-full text-sm ${chatUser?.id === cu.id ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300'}`}>@{cu.username}</button>))}</div>{chatUser ? (<div className="card flex flex-col h-full"><div className="p-3 border-b border-gray-800 font-bold text-white">Чат с @{chatUser.username}</div><div className="flex-1 overflow-y-auto p-3 space-y-2">{replyToMessage && (() => { const replied = getRepliedMessageText(replyToMessage.id); return replied && (<div className="reply-quote"><span>@{replied.author}</span><div className="text-gray-400 text-xs">{replied.text.length > 80 ? replied.text.substring(0, 80)+'...' : replied.text}</div></div>); })()}{messages.map((msg, idx) => { const repliedTo = getRepliedMessageText(msg.reply_to_id); return (<div key={idx} className={`flex ${msg.from_user === user.id ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[70%] ${msg.from_user === user.id ? 'bg-blue-600 text-white' : 'bg-[#2a2a2a] text-white'} rounded-2xl p-2 cursor-pointer`} onClick={() => setSelectedMessage({ msg })}>{repliedTo && (<div className="reply-quote mb-1 text-xs"><span>@{repliedTo.author}</span><div className="text-gray-400">{repliedTo.text.length > 60 ? repliedTo.text.substring(0, 60)+'...' : repliedTo.text}</div></div>)}<p className="text-sm whitespace-pre-wrap">{msg.content}</p><div className="text-[10px] opacity-70 mt-1 text-right">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div></div></div>);})}<div ref={messagesEndRef} /></div><div className="p-3 border-t border-gray-800 flex gap-2"><input id="message-input" type="text" placeholder="Сообщение..." value={newMessageText} onChange={e => setNewMessageText(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()} className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" /><button onClick={sendMessage} className="bg-blue-600 text-white px-4 rounded-xl btn">→</button></div></div>) : (<div className="card p-8 text-center text-gray-500">Выберите чат</div>)}</div>)}
 
         {activeTab === 'notify' && (<div><div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold text-white">Уведомления</h2><button onClick={markAllNotificationsRead} className="text-sm bg-gray-700 text-white px-3 py-1 rounded-xl btn">Прочитать все</button></div>{notifications.length === 0 && <div className="card p-8 text-center text-gray-500">Нет уведомлений</div>}{notifications.map(n => (<div key={n.id} className={`card p-4 mb-3 cursor-pointer ${!n.read ? 'border-l-4 border-green-500' : ''}`} onClick={async () => { await supabase.from('notifications').update({ read: true }).eq('id', n.id); setNotifications(prev => prev.map(not => not.id === n.id ? { ...not, read: true } : not)); if (n.type === 'message') { const from = users.find(u => u.id === n.from_user_id); if (from) { setChatUser(from); setActiveTab('chat'); } } else { setActiveTab('feed'); } }}><p className="text-white">{n.text}</p><p className="text-xs text-gray-500 mt-1">{formatDate(n.created_at)}</p></div>))}</div>)}
 
