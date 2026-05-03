@@ -91,7 +91,6 @@
   
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // Хранилище онлайн-статусов
   let onlineUsers = new Set();
   let presenceChannel = null;
 
@@ -441,33 +440,24 @@
     const chatContainerRef = React.useRef(null);
     const postRefs = React.useRef({});
 
-    // Настройка онлайн-статусов
+    // Онлайн-статусы
     React.useEffect(() => {
       if (!supabase) return;
-      
-      // Инициализируем канал присутствия
       presenceChannel = supabase.channel('online-users', {
         config: { presence: { key: user.id.toString() } }
       });
-      
       presenceChannel.on('presence', { event: 'sync' }, () => {
         const newState = presenceChannel.presenceState();
         const online = new Set();
         Object.keys(newState).forEach(id => online.add(parseInt(id)));
         onlineUsers = online;
-        // Обновляем UI - форсируем перерендер
         setUsers(prev => [...prev]);
       });
-      
       presenceChannel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          await presenceChannel.track({
-            user_id: user.id,
-            online_at: new Date().toISOString()
-          });
+          await presenceChannel.track({ user_id: user.id, online_at: new Date().toISOString() });
         }
       });
-      
       return () => {
         if (presenceChannel) {
           presenceChannel.untrack();
@@ -747,69 +737,76 @@
       return (<div className="relative" ref={ref}><button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2"><i className="fas fa-ellipsis-h"></i></button>{open&&(<div className="dropdown-menu">{onEdit&&<div onClick={()=>{onEdit();setOpen(false);}} className="dropdown-item"><i className="fas fa-pen"></i> Редактировать</div>}{onShare&&<div onClick={()=>{onShare();setOpen(false);}} className="dropdown-item"><i className="fas fa-share-alt"></i> Поделиться</div>}{onDel&&<div onClick={()=>{onDel();setOpen(false);}} className="dropdown-item"><i className="fas fa-trash-alt"></i> Удалить</div>}</div>)}</div>);
     };
 
-    const renderProfilePage = (prof) => {
+    // ВАЖНО: Функция показа профиля — исправлена!
+    const renderProfilePage = (profileUser) => {
       const [showSubs, setShowSubs] = React.useState(false);
       const [showFollows, setShowFollows] = React.useState(false);
-      const profPosts = posts.filter(p=>p.user_id===prof.id);
-      const isFollowing = (user.following||[]).includes(prof.id);
-      const isOnline = isUserOnline(prof.id);
+      const profilePosts = posts.filter(p => p.user_id === profileUser.id);
+      const isFollowing = (user.following || []).includes(profileUser.id);
+      const isOnline = isUserOnline(profileUser.id);
       
       return (
-        <div className="min-h-screen" style={{background:'#0a0a0a'}}>
-          <button onClick={()=>setViewProfile(null)} className="fixed top-4 left-4 z-10 text-white bg-black/50 p-2 rounded-full hover:bg-black/70"><i className="fas fa-arrow-left"></i></button>
+        <div className="min-h-screen" style={{background: '#0a0a0a'}}>
+          <button onClick={() => setViewProfile(null)} className="fixed top-4 left-4 z-10 text-white bg-black/50 p-2 rounded-full hover:bg-black/70">
+            <i className="fas fa-arrow-left"></i>
+          </button>
           <div className="pt-12 px-4 pb-4">
             <div className="flex flex-col items-center">
               <div className="avatar-with-status">
-                <img src={prof.avatar||DEFAULT_AVATAR} className="w-24 h-24 rounded-full border-4 border-blue-500" />
+                <img src={profileUser.avatar || DEFAULT_AVATAR} className="w-24 h-24 rounded-full border-4 border-blue-500" />
                 <div className={`online-status ${isOnline ? '' : 'offline'}`} title={isOnline ? 'В сети' : 'Не в сети'}></div>
               </div>
-              <h2 className="text-xl font-bold text-white mt-3">{prof.full_name||prof.username}</h2>
-              <p className="text-gray-400 text-sm">@{prof.username}</p>
-              <p className="text-gray-500 text-sm mt-2 text-center">{prof.bio||''}</p>
-              {prof.id !== user.id && (
-                <button onClick={()=>follow(prof.id)} className={`mt-3 px-6 py-1.5 rounded-full text-sm transition ${isFollowing?'bg-gray-600':'bg-blue-600'}`}>{isFollowing?'Отписаться':'Подписаться'}</button>
+              <h2 className="text-xl font-bold text-white mt-3">{profileUser.full_name || profileUser.username}</h2>
+              <p className="text-gray-400 text-sm">@{profileUser.username}</p>
+              <p className="text-gray-500 text-sm mt-2 text-center">{profileUser.bio || ''}</p>
+              {profileUser.id !== user.id && (
+                <button onClick={() => follow(profileUser.id)} className={`mt-3 px-6 py-1.5 rounded-full text-sm transition ${isFollowing ? 'bg-gray-600' : 'bg-blue-600'}`}>
+                  {isFollowing ? 'Отписаться' : 'Подписаться'}
+                </button>
               )}
               <div className="flex gap-6 mt-4 text-sm">
-                <button onClick={()=>{setShowSubs(!showSubs); setShowFollows(false);}} className="hover:text-blue-400 transition">
-                  <span className="font-bold text-white text-lg">{prof.followers?.length||0}</span> подписчиков
+                <button onClick={() => { setShowSubs(!showSubs); setShowFollows(false); }} className="hover:text-blue-400 transition">
+                  <span className="font-bold text-white text-lg">{profileUser.followers?.length || 0}</span> подписчиков
                 </button>
-                <button onClick={()=>{setShowFollows(!showFollows); setShowSubs(false);}} className="hover:text-blue-400 transition">
-                  <span className="font-bold text-white text-lg">{prof.following?.length||0}</span> подписок
+                <button onClick={() => { setShowFollows(!showFollows); setShowSubs(false); }} className="hover:text-blue-400 transition">
+                  <span className="font-bold text-white text-lg">{profileUser.following?.length || 0}</span> подписок
                 </button>
               </div>
               {showSubs && (
                 <div className="mt-3 w-full max-h-48 overflow-y-auto bg-[#1a1a1a] rounded-xl p-2 border border-gray-800">
                   <h4 className="text-white text-sm font-medium mb-2">Подписчики</h4>
-                  {users.filter(u=>prof.followers?.includes(u.id)).map(u=>(
-                    <div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded transition" onClick={()=>setViewProfile(u)}>
-                      <img src={u.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" />
-                      <div><div className="text-white font-medium text-sm">@{u.username}</div><div className="text-gray-500 text-xs">{u.full_name||u.username}</div></div>
+                  {users.filter(u => profileUser.followers?.includes(u.id)).map(u => (
+                    <div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded transition" onClick={() => setViewProfile(u)}>
+                      <img src={u.avatar || DEFAULT_AVATAR} className="w-8 h-8 rounded-full" />
+                      <div><div className="text-white font-medium text-sm">@{u.username}</div><div className="text-gray-500 text-xs">{u.full_name || u.username}</div></div>
                     </div>
                   ))}
-                  {(!prof.followers || prof.followers.length === 0) && <div className="text-gray-500 text-sm text-center py-2">Нет подписчиков</div>}
+                  {(!profileUser.followers || profileUser.followers.length === 0) && <div className="text-gray-500 text-sm text-center py-2">Нет подписчиков</div>}
                 </div>
               )}
               {showFollows && (
                 <div className="mt-3 w-full max-h-48 overflow-y-auto bg-[#1a1a1a] rounded-xl p-2 border border-gray-800">
                   <h4 className="text-white text-sm font-medium mb-2">Подписки</h4>
-                  {users.filter(u=>prof.following?.includes(u.id)).map(u=>(
-                    <div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded transition" onClick={()=>setViewProfile(u)}>
-                      <img src={u.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" />
-                      <div><div className="text-white font-medium text-sm">@{u.username}</div><div className="text-gray-500 text-xs">{u.full_name||u.username}</div></div>
+                  {users.filter(u => profileUser.following?.includes(u.id)).map(u => (
+                    <div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded transition" onClick={() => setViewProfile(u)}>
+                      <img src={u.avatar || DEFAULT_AVATAR} className="w-8 h-8 rounded-full" />
+                      <div><div className="text-white font-medium text-sm">@{u.username}</div><div className="text-gray-500 text-xs">{u.full_name || u.username}</div></div>
                     </div>
                   ))}
-                  {(!prof.following || prof.following.length === 0) && <div className="text-gray-500 text-sm text-center py-2">Нет подписок</div>}
+                  {(!profileUser.following || profileUser.following.length === 0) && <div className="text-gray-500 text-sm text-center py-2">Нет подписок</div>}
                 </div>
               )}
               <div className="w-full mt-6 space-y-3">
                 <h3 className="text-white font-bold text-lg">Посты</h3>
-                {profPosts.map(p=>(
-                  <div key={p.id} ref={el => postRefs.current[p.id] = el} className="card p-3">
+                {profilePosts.length > 0 ? profilePosts.map(p => (
+                  <div key={p.id} className="card p-3">
                     <ReadMore text={p.content} maxLength={180} />
-                    <div className="flex gap-4 mt-2 text-gray-400 text-sm"><span><i className="fas fa-heart text-red-500"></i> {formatLikes(p.likes||0)}</span><span><i className="far fa-comment"></i> {(p.comments||[]).length}</span></div>
+                    <div className="flex gap-4 mt-2 text-gray-400 text-sm">
+                      <span><i className="fas fa-heart text-red-500"></i> {formatLikes(p.likes || 0)}</span>
+                      <span><i className="far fa-comment"></i> {(p.comments || []).length}</span>
+                    </div>
                   </div>
-                ))}
-                {profPosts.length === 0 && <div className="text-center text-gray-500 py-4">Нет постов</div>}
+                )) : <div className="text-center text-gray-500 py-4">Нет постов</div>}
               </div>
             </div>
           </div>
