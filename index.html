@@ -58,11 +58,10 @@
     .close-fullscreen:hover { background: rgba(80,80,100,0.9); transform: scale(1.05); }
     .shared-post-quote { background: #252525; border-radius: 16px; padding: 10px; margin-top: 6px; border-left: 3px solid #3b82f6; cursor: pointer; transition: 0.2s; }
     .shared-post-quote:hover { background: #2a2a2a; transform: translateX(2px); }
-    /* Стили для обрезки аватара */
     .avatar-crop-container { display: flex; flex-direction: column; align-items: center; }
-    .crop-canvas { border-radius: 50%; overflow: hidden; width: 200px; height: 200px; margin: 20px auto; border: 2px solid #3b82f6; }
-    .crop-canvas canvas { width: 100%; height: 100%; object-fit: cover; }
-    .crop-slider { width: 100%; margin: 15px 0; }
+    .crop-canvas { border-radius: 50%; overflow: hidden; width: 220px; height: 220px; margin: 20px auto; border: 3px solid #3b82f6; box-shadow: 0 0 15px rgba(59,130,246,0.3); background: #1a1a1a; cursor: grab; }
+    .crop-canvas:active { cursor: grabbing; }
+    .crop-slider { width: 100%; margin: 15px 0; accent-color: #3b82f6; }
     @media (max-width: 640px) {
       .message-bubble { max-width: 90%; }
       .chat-user-item { padding: 10px; }
@@ -73,7 +72,7 @@
       .close-fullscreen { top: 10px; right: 10px; width: 36px; height: 36px; font-size: 16px; }
       .post-actions { flex-wrap: wrap !important; gap: 6px !important; }
       .post-actions .icon-btn, .post-actions .white-glow-btn { flex: 0 0 auto; }
-      .crop-canvas { width: 150px; height: 150px; }
+      .crop-canvas { width: 180px; height: 180px; }
     }
   </style>
 </head>
@@ -171,10 +170,12 @@
     return uploaded;
   }
 
-  // Компонент для обрезки аватара
+  // Компонент для обрезки аватара с перемещением
   function AvatarCropper({ imageUrl, onCrop, onClose }) {
     const [zoom, setZoom] = React.useState(1);
     const [position, setPosition] = React.useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = React.useState(false);
+    const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
     const canvasRef = React.useRef(null);
     const imgRef = React.useRef(null);
     const [imgDimensions, setImgDimensions] = React.useState({ width: 0, height: 0 });
@@ -218,10 +219,42 @@
       drawCanvas();
     }, [zoom, position]);
 
+    const handleMouseDown = (e) => {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    };
+
+    const handleMouseMove = (e) => {
+      if (!isDragging) return;
+      const newX = e.clientX - dragStart.x;
+      const newY = e.clientY - dragStart.y;
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    React.useEffect(() => {
+      if (isDragging) {
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('mouseup', handleMouseUp);
+        };
+      }
+    }, [isDragging, dragStart]);
+
     const handleCrop = () => {
       const canvas = canvasRef.current;
       const croppedDataUrl = canvas.toDataURL('image/jpeg');
       onCrop(croppedDataUrl);
+    };
+
+    const resetPosition = () => {
+      setPosition({ x: 0, y: 0 });
+      setZoom(1);
     };
 
     return (
@@ -229,10 +262,19 @@
         <div className="fullscreen-modal-content" onClick={e => e.stopPropagation()}>
           <h2 className="text-white text-xl font-bold mb-4">Обрезка аватара</h2>
           <div className="avatar-crop-container">
-            <canvas ref={canvasRef} className="rounded-full w-48 h-48 object-cover border-2 border-blue-500" width="400" height="400" style={{ width: '200px', height: '200px' }} />
+            <canvas 
+              ref={canvasRef} 
+              className="rounded-full w-48 h-48 object-cover border-2 border-blue-500 cursor-grab active:cursor-grabbing" 
+              onMouseDown={handleMouseDown}
+              width="400" height="400" 
+              style={{ width: '220px', height: '220px', cursor: 'grab' }} 
+            />
             <input type="range" min="0.5" max="3" step="0.01" value={zoom} onChange={e => setZoom(parseFloat(e.target.value))} className="crop-slider mt-3" />
+            <div className="flex gap-2 mt-3">
+              <button onClick={resetPosition} className="text-xs text-gray-400 hover:text-white bg-gray-800 px-3 py-1 rounded-full">Сбросить</button>
+            </div>
             <div className="flex gap-2 mt-4 w-full">
-              <button onClick={handleCrop} className="flex-1 bg-blue-600 py-2 rounded-xl text-white">Применить</button>
+              <button onClick={handleCrop} className="flex-1 bg-blue-600 py-2 rounded-xl text-white font-semibold">Применить</button>
               <button onClick={onClose} className="flex-1 bg-gray-700 py-2 rounded-xl text-white">Отмена</button>
             </div>
           </div>
@@ -922,8 +964,8 @@
       const ref=React.useRef(null);
       React.useEffect(()=>{const fn=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);}; document.addEventListener('click',fn); return()=>document.removeEventListener('click',fn);},[]);
       return (
-        <div className="absolute top-4 right-4" ref={ref}>
-          <button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2"><i className="fas fa-ellipsis-v"></i></button>
+        <div className="absolute top-4 right-4 z-20" ref={ref}>
+          <button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2 rounded-full bg-black/30"><i className="fas fa-ellipsis-v"></i></button>
           {open&&(
             <div className="dropdown-menu">
               <div onClick={()=>{setEditProfile(true); setOpen(false);}} className="dropdown-item"><i className="fas fa-user-edit"></i> Редактировать профиль</div>
@@ -1193,6 +1235,7 @@
           </div>)}
 
           {tab==='notify' && (<div><div className="flex justify-between items-center mb-2"><h2 className="text-lg font-bold text-white">Уведомления</h2><button onClick={async()=>{const unreadIds=notifs.filter(n=>!n.read).map(n=>n.id); if(unreadIds.length===0)return; await supabase.from('notifications').update({read:true}).in('id',unreadIds); setNotifs(prev=>prev.map(n=>({...n,read:true}))); showToast('Все прочитаны');}} className="text-xs bg-gray-700 px-2 py-0.5 rounded-full">Прочитать все</button></div>{notifs.length===0&&<div className="card p-6 text-center text-gray-500">Нет уведомлений</div>}{notifs.map(n=><div key={n.id} className={`card p-2 mb-2 cursor-pointer ${!n.read?'border-l-4 border-green-500':''}`} onClick={async()=>{await supabase.from('notifications').update({read:true}).eq('id',n.id); setNotifs(prev=>prev.map(not=>not.id===n.id?{...not,read:true}:not)); if(n.type==='message'){const from=users.find(u=>u.id===n.from_user_id); if(from){setChatUser(from); setTab('chat');}} else setTab('feed');}}><p className="text-white text-sm">{n.text}</p><p className="text-gray-500 text-xs">{formatDate(n.created_at)}</p></div>)}</div>)}
+
         </main>
       </div>
     );
