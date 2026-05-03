@@ -31,18 +31,13 @@
     .icon-btn:hover { transform: scale(1.02); background: #f5f5f5; }
     .fullscreen-media { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .fullscreen-media img, .fullscreen-media video { max-width: 95vw; max-height: 95vh; border-radius: 28px; }
-    .uploading-indicator { font-size: 12px; color: #aaa; margin-left: 8px; }
     .fullscreen-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(12px); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .fullscreen-modal-content { background: #1a1a1a; border-radius: 32px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 24px; border: 1px solid #3a3a3a; animation: slideUp 0.2s ease; }
     @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    .fade-comment { opacity: 0.6; transition: 0.2s; }
-    .fade-comment:hover { opacity: 1; }
     .poll-option { background: #2a2a2a; border-radius: 12px; margin: 8px 0; overflow: hidden; cursor: pointer; transition: 0.2s; }
     .poll-option:hover { background: #333; }
     .poll-bar { background: #3b82f6; height: 100%; transition: width 0.3s ease; }
-    .active-tab { color: white !important; }
-    .chat-container { height: calc(70vh - 120px); overflow-y: auto; }
     .chat-user-list { display: flex; flex-direction: column; gap: 8px; max-height: 70vh; overflow-y: auto; }
     .chat-user-item { background: #1a1a1a; border-radius: 16px; padding: 12px; cursor: pointer; transition: 0.2s; border: 1px solid #2c2c2c; display: flex; align-items: center; gap: 12px; }
     .chat-user-item:hover { background: #252525; border-color: #3b82f6; }
@@ -50,14 +45,6 @@
     .message-bubble { max-width: 80%; padding: 10px 14px; border-radius: 20px; word-break: break-word; }
     .message-mine { background: #3b82f6; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
     .message-theirs { background: #2a2a2a; color: white; align-self: flex-start; border-bottom-left-radius: 4px; }
-    .post-media-large { width: 100%; border-radius: 16px; margin-top: 12px; cursor: pointer; max-height: 400px; object-fit: cover; }
-    .read-more-container { position: relative; }
-    .read-more-content { overflow: hidden; transition: max-height 0.3s ease; }
-    .read-more-content.collapsed { max-height: 150px; }
-    .read-more-content.expanded { max-height: 2000px; }
-    .read-more-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, #1a1a1a); pointer-events: none; }
-    .read-more-btn { background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 20px; font-size: 12px; cursor: pointer; margin-top: 8px; transition: 0.2s; display: inline-block; width: auto; }
-    .read-more-btn:hover { background: #2563eb; }
     .voice-message { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 30px; cursor: pointer; }
     .voice-message audio { height: 32px; }
     @media (max-width: 640px) {
@@ -66,7 +53,6 @@
       .card { border-radius: 16px; }
       .icon-btn { padding: 6px 12px; font-size: 12px; }
       .white-glow-btn { padding: 6px 14px; font-size: 12px; }
-      .post-media-large { max-height: 300px; }
     }
   </style>
 </head>
@@ -424,7 +410,6 @@
     const [showDeleteAccount, setShowDeleteAccount] = React.useState(false);
     const [recording, setRecording] = React.useState(false);
     const [mediaRecorder, setMediaRecorder] = React.useState(null);
-    const [audioChunks, setAudioChunks] = React.useState([]);
     const [uploadingVoice, setUploadingVoice] = React.useState(false);
     const msgEndRef = React.useRef(null);
     const textareaRef = React.useRef(null);
@@ -501,7 +486,6 @@
       return () => { pSub.unsubscribe(); mSub.unsubscribe(); };
     }, [chatUser, user.id]);
 
-    // ПОИСК ПО ХЕШТЕГАМ
     React.useEffect(() => {
       if(!search.trim()){ setSearchUsers([]); setSearchPosts([]); return; }
       if(sType === 'users') setSearchUsers(users.filter(u=>u.id!==user.id && u.username.toLowerCase().includes(search.toLowerCase())));
@@ -885,7 +869,7 @@
 
         <main className="max-w-2xl mx-auto p-3">
           {tab==='feed' && (<>
-            <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm resize-none" value={newPost} onChange={handlePostChange} />{showMentions && mentionUsers.length>0 && (<div className="absolute bottom-full left-0 bg-[#1a1a1a] border border-gray-700 rounded-xl max-h-36 overflow-auto z-10 mb-1 w-44">{mentionUsers.map(u=><div key={u.id} className="p-1.5 hover:bg-[#2a2a2a] cursor-pointer flex gap-2" onClick={()=>insertMention(u.username)}><img src={u.avatar||DEFAULT_AVATAR} className="w-5 h-5 rounded-full" /><span className="text-white text-xs">@{u.username}</span></div>)}</div>)}<div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreen({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2"><label className={`icon-btn text-sm ${uploading?'opacity-50':''}`}><i className="fas fa-paperclip"></i><input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');return;} setUploading(true); const up=await uploadMedia(files); setMedia([...media,...up]); setUploading(false); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="icon-btn text-sm"><i className="fas fa-chart-simple"></i></button><button onClick={()=>setShowHideModal(true)} className="icon-btn text-sm"><i className="fas fa-eye-slash"></i></button><button onClick={createPost} className="white-glow-btn text-sm">Опубликовать</button></div></div></div></div>
+            <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm resize-none" value={newPost} onChange={handlePostChange} />{showMentions && mentionUsers.length>0 && (<div className="absolute bottom-full left-0 bg-[#1a1a1a] border border-gray-700 rounded-xl max-h-36 overflow-auto z-10 mb-1 w-44">{mentionUsers.map(u=><div key={u.id} className="p-1.5 hover:bg-[#2a2a2a] cursor-pointer flex gap-2" onClick={()=>insertMention(u.username)}><img src={u.avatar||DEFAULT_AVATAR} className="w-5 h-5 rounded-full" /><span className="text-white text-xs">@{u.username}</span></div>)}</div>)}<div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreen({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2"><label className={`icon-btn text-sm ${uploading?'opacity-50':''}`}><i className="fas fa-paperclip"></i><input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');return;} setUploading(true); const up=await uploadMedia(files); setMedia([...media,...up]); setUploading(false); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="icon-btn text-sm"><i className="fas fa-chart-bar"></i></button><button onClick={()=>setShowHideModal(true)} className="icon-btn text-sm"><i className="fas fa-eye-slash"></i></button><button onClick={createPost} className="white-glow-btn text-sm">Опубликовать</button></div></div></div></div>
             {orderedPosts.map(p=>{
               const hasPoll = !!p.poll;
               const alreadyVoted = p.poll?.voted_by?.includes(user.id);
