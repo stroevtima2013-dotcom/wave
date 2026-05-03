@@ -239,55 +239,34 @@
   }
 
   function PollComponent({ poll, postId, userId, onVote }) {
-    const userVoteIndex = (() => {
-      if (!poll?.voted_by) return -1;
-      const userVotedFor = poll.voted_by.find(v => v.userId === userId);
-      if (userVotedFor) return userVotedFor.optionIndex;
-      return -1;
-    })();
+    const [voted, setVoted] = React.useState(poll?.voted_by?.includes(userId) || false);
     const totalVotes = poll?.options?.reduce((sum, opt) => sum + (opt.votes || 0), 0) || 0;
-    
     const handleVote = async (optionIndex) => {
-      let newPoll = JSON.parse(JSON.stringify(poll));
-      
-      // Если пользователь уже голосовал, удаляем его старый голос
-      if (userVoteIndex !== -1) {
-        const oldOptionIndex = userVoteIndex;
-        newPoll.options[oldOptionIndex].votes = Math.max(0, (newPoll.options[oldOptionIndex].votes || 0) - 1);
-        newPoll.voted_by = newPoll.voted_by.filter(v => v.userId !== userId);
-      }
-      
-      // Если голосуют за тот же вариант — просто сбрасываем (уже сброшено выше)
-      if (optionIndex === userVoteIndex) {
-        onVote(postId, newPoll);
-        return;
-      }
-      
-      // Добавляем новый голос
+      if (voted) return;
+      const newPoll = { ...poll };
       newPoll.options[optionIndex].votes = (newPoll.options[optionIndex].votes || 0) + 1;
-      newPoll.voted_by = [...(newPoll.voted_by || []), { userId: userId, optionIndex: optionIndex }];
+      newPoll.voted_by = [...(poll.voted_by || []), userId];
       onVote(postId, newPoll);
+      setVoted(true);
     };
-    
     return (
       <div className="mt-3 p-3 bg-[#252525] rounded-xl">
         <p className="text-white text-sm font-medium mb-2">{poll?.question || 'Опрос'}</p>
         {poll?.options?.map((opt, idx) => {
           const percent = totalVotes > 0 ? ((opt.votes || 0) / totalVotes) * 100 : 0;
-          const isUserVote = userVoteIndex === idx;
           return (
-            <div key={idx} className={`poll-option ${isUserVote ? 'border border-blue-500' : ''}`} onClick={() => handleVote(idx)}>
+            <div key={idx} className="poll-option" onClick={() => handleVote(idx)}>
               <div className="relative p-2">
                 <div className="poll-bar absolute left-0 top-0 h-full rounded-xl" style={{ width: `${percent}%`, opacity: 0.3 }}></div>
                 <div className="relative flex justify-between items-center z-10">
-                  <span className="text-white text-sm">{opt.text} {isUserVote && <span className="text-blue-400 text-xs ml-1">(ваш голос)</span>}</span>
-                  <span className="text-gray-300 text-xs">{percent.toFixed(1)}% ({opt.votes || 0})</span>
+                  <span className="text-white text-sm">{opt.text}</span>
+                  {voted && <span className="text-gray-300 text-xs">{percent.toFixed(1)}% ({opt.votes || 0})</span>}
                 </div>
               </div>
             </div>
           );
         })}
-        <p className="text-gray-500 text-xs mt-2 text-center">📊 Всего голосов: {totalVotes}</p>
+        <p className="text-gray-500 text-xs mt-2 text-center">{voted ? `✅ Всего голосов: ${totalVotes}` : '📊 Нажмите на вариант, чтобы проголосовать'}</p>
       </div>
     );
   }
@@ -563,7 +542,6 @@
       return () => { pSub.unsubscribe(); mSub.unsubscribe(); };
     }, [chatUser, user.id]);
 
-    // ПОИСК ПО ХЕШТЕГАМ
     React.useEffect(() => {
       if(!search.trim()){ setSearchUsers([]); setSearchPosts([]); return; }
       if(sType === 'users') setSearchUsers(users.filter(u=>u.id!==user.id && u.username.toLowerCase().includes(search.toLowerCase())));
@@ -618,13 +596,6 @@
     const upAvatar = async (file) => { 
       if(!file) return; 
       setAvatarUp(true); 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        user.avatar = reader.result;
-        setUsers(prev => prev.map(u => u.id === user.id ? {...u, avatar: reader.result} : u));
-        setAvatarUp(false);
-      };
-      reader.readAsDataURL(file);
       try {
         const name = `avatar_${user.id}_${Date.now()}.jpg`;
         const {error} = await supabase.storage.from(STORAGE_BUCKET).upload(name, file);
@@ -634,7 +605,8 @@
         user.avatar = url.publicUrl;
         setUsers(prev => prev.map(u => u.id === user.id ? {...u, avatar: url.publicUrl} : u));
         showToast('Аватар обновлён');
-      } catch(e) { console.error(e); }
+      } catch(e) { console.error(e); showToast('Ошибка загрузки аватара'); }
+      setAvatarUp(false);
     };
 
     const createPost = async () => {
@@ -759,7 +731,7 @@
         setSharePost(null);
         showToast('Пост отправлен в чат');
       } else {
-        showToast('Ошибка при отправке');
+        showToast('Ошибка при отправке: ' + error.message);
       }
     };
     
@@ -801,11 +773,11 @@
       else { setShowFollows(true); setShowSubs(false); }
     };
 
-    const PostMenu = ({onEdit,onDel,onShare,onChangeVote,hasPoll}) => {
+    const PostMenu = ({onEdit,onDel,onShare}) => {
       const [open,setOpen]=React.useState(false);
       const ref=React.useRef(null);
       React.useEffect(()=>{const fn=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);}; document.addEventListener('click',fn); return()=>document.removeEventListener('click',fn);},[]);
-      return (<div className="relative" ref={ref}><button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2"><i className="fas fa-ellipsis-h"></i></button>{open&&(<div className="dropdown-menu">{onEdit&&<div onClick={()=>{onEdit();setOpen(false);}} className="dropdown-item"><i className="fas fa-pen"></i> Редактировать</div>}{onShare&&<div onClick={()=>{onShare();setOpen(false);}} className="dropdown-item"><i className="fas fa-share-alt"></i> Поделиться</div>}{hasPoll && onChangeVote && <div onClick={()=>{onChangeVote();setOpen(false);}} className="dropdown-item"><i className="fas fa-sync-alt"></i> Изменить голос</div>}{onDel&&<div onClick={()=>{onDel();setOpen(false);}} className="dropdown-item"><i className="fas fa-trash-alt"></i> Удалить</div>}</div>)}</div>);
+      return (<div className="relative" ref={ref}><button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2"><i className="fas fa-ellipsis-h"></i></button>{open&&(<div className="dropdown-menu">{onEdit&&<div onClick={()=>{onEdit();setOpen(false);}} className="dropdown-item"><i className="fas fa-pen"></i> Редактировать</div>}{onShare&&<div onClick={()=>{onShare();setOpen(false);}} className="dropdown-item"><i className="fas fa-share-alt"></i> Поделиться</div>}{onDel&&<div onClick={()=>{onDel();setOpen(false);}} className="dropdown-item"><i className="fas fa-trash-alt"></i> Удалить</div>}</div>)}</div>);
     };
 
     const ProfileMenu = () => {
@@ -979,14 +951,9 @@
             </div>
             {orderedPosts.map(p=>{
               const hasPoll = !!p.poll;
-              const alreadyVoted = p.poll?.voted_by?.some(v => v.userId === user.id);
               return (
                 <div key={p.id} ref={el => postRefs.current[p.id] = el} className="card p-3 mb-3">
-                  <div className="flex justify-between"><div className="flex gap-2 cursor-pointer" onClick={()=>p.user_id!==user.id&&setViewProfile(users.find(u=>u.id===p.user_id))}><img src={p.user_avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">@{p.username}</div><div className="text-xs text-gray-500">{formatDate(p.created_at)}{p.edited&&<span className="ml-1 text-gray-600">(ред)</span>}</div></div></div><PostMenu onEdit={p.user_id===user.id?()=>{setEditPost(p); setEditPostContent(p.content);}:null} onDel={p.user_id===user.id?()=>setDelPostId(p.id):null} onShare={()=>{setSharePost(p);}} onChangeVote={hasPoll && alreadyVoted ? () => {
-                      const newPoll = { ...p.poll, voted_by: (p.poll.voted_by || []).filter(v => v.userId !== user.id) };
-                      handlePollVote(p.id, newPoll);
-                      showToast('Ваш голос сброшен');
-                    } : null} hasPoll={hasPoll && alreadyVoted} /></div>
+                  <div className="flex justify-between"><div className="flex gap-2 cursor-pointer" onClick={()=>p.user_id!==user.id&&setViewProfile(users.find(u=>u.id===p.user_id))}><img src={p.user_avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">@{p.username}</div><div className="text-xs text-gray-500">{formatDate(p.created_at)}{p.edited&&<span className="ml-1 text-gray-600">(ред)</span>}</div></div></div><PostMenu onEdit={p.user_id===user.id?()=>{setEditPost(p); setEditPostContent(p.content);}:null} onDel={p.user_id===user.id?()=>setDelPostId(p.id):null} onShare={()=>{setSharePost(p);}} /></div>
                   <div className="text-white text-sm whitespace-pre-wrap">{renderText(p.content)}</div>
                   <MediaCollage media={p.media} onFullscreen={(m)=>setFullscreenMedia(m)} />
                   {p.poll && <PollComponent poll={p.poll} postId={p.id} userId={user.id} onVote={handlePollVote} />}
@@ -1044,7 +1011,7 @@
 
           {tab==='notify' && (<div><div className="flex justify-between items-center mb-2"><h2 className="text-lg font-bold text-white">Уведомления</h2><button onClick={async()=>{const unreadIds=notifs.filter(n=>!n.read).map(n=>n.id); if(unreadIds.length===0)return; await supabase.from('notifications').update({read:true}).in('id',unreadIds); setNotifs(prev=>prev.map(n=>({...n,read:true}))); showToast('Все прочитаны');}} className="text-xs bg-gray-700 px-2 py-0.5 rounded-full">Прочитать все</button></div>{notifs.length===0&&<div className="card p-6 text-center text-gray-500">Нет уведомлений</div>}{notifs.map(n=><div key={n.id} className={`card p-2 mb-2 cursor-pointer ${!n.read?'border-l-4 border-green-500':''}`} onClick={async()=>{await supabase.from('notifications').update({read:true}).eq('id',n.id); setNotifs(prev=>prev.map(not=>not.id===n.id?{...not,read:true}:not)); if(n.type==='message'){const from=users.find(u=>u.id===n.from_user_id); if(from){setChatUser(from); setTab('chat');}} else setTab('feed');}}><p className="text-white text-sm">{n.text}</p><p className="text-gray-500 text-xs">{formatDate(n.created_at)}</p></div>)}</div>)}
 
-          {tab==='profile' && (<div className="card p-4 text-center relative"><ProfileMenu /><div className="avatar-upload w-20 h-20 mx-auto relative cursor-pointer"><img src={user.avatar||DEFAULT_AVATAR} className="w-20 h-20 rounded-full object-cover" /><input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer rounded-full" onChange={(e)=>upAvatar(e.target.files[0])} disabled={avatarUp} /></div>{editProfile?(<div className="mt-3"><input type="text" value={editName} onChange={e=>setEditName(e.target.value)} className="w-full p-1.5 bg-[#2a2a2a] rounded-xl text-white text-sm" placeholder="Имя" /><textarea value={editBio} onChange={e=>setEditBio(e.target.value)} className="w-full p-1.5 bg-[#2a2a2a] rounded-xl text-white text-sm mt-1" rows="2" placeholder="О себе"></textarea><div className="flex gap-2 mt-2"><button onClick={saveProfile} className="flex-1 bg-green-600 text-white py-1 rounded-xl text-sm">Сохранить</button><button onClick={()=>setEditProfile(false)} className="flex-1 bg-gray-700 text-white py-1 rounded-xl text-sm">Отмена</button></div></div>):(<><h2 className="text-lg font-bold text-white mt-1">{user.full_name||user.username}</h2><p className="text-gray-400 text-sm">@{user.username}</p><p className="text-gray-500 text-xs mt-1">{user.bio||''}</p><div className="flex gap-4 justify-center mt-3 text-sm"><div><span className="font-bold text-white">{myPosts.length}</span><span className="text-gray-500 ml-1">постов</span></div><button onClick={()=>openProfileFollowList(user, 'subs')} className="cursor-pointer hover:text-blue-400 transition"><span className="font-bold text-white">{user.followers?.length||0}</span><span className="text-gray-500 ml-1">подписчиков</span></button><button onClick={()=>openProfileFollowList(user, 'follows')} className="cursor-pointer hover:text-blue-400 transition"><span className="font-bold text-white">{user.following?.length||0}</span><span className="text-gray-500 ml-1">подписок</span></button></div></>)}</div>)}
+          {tab==='profile' && (<div className="card p-4 text-center relative"><ProfileMenu /><div className="avatar-upload w-20 h-20 mx-auto relative cursor-pointer"><img src={user.avatar||DEFAULT_AVATAR} className="w-20 h-20 rounded-full object-cover" /><input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer rounded-full" onChange={(e)=>{if(e.target.files[0]) upAvatar(e.target.files[0]); e.target.value='';}} disabled={avatarUp} /></div>{editProfile?(<div className="mt-3"><input type="text" value={editName} onChange={e=>setEditName(e.target.value)} className="w-full p-1.5 bg-[#2a2a2a] rounded-xl text-white text-sm" placeholder="Имя" /><textarea value={editBio} onChange={e=>setEditBio(e.target.value)} className="w-full p-1.5 bg-[#2a2a2a] rounded-xl text-white text-sm mt-1" rows="2" placeholder="О себе"></textarea><div className="flex gap-2 mt-2"><button onClick={saveProfile} className="flex-1 bg-green-600 text-white py-1 rounded-xl text-sm">Сохранить</button><button onClick={()=>setEditProfile(false)} className="flex-1 bg-gray-700 text-white py-1 rounded-xl text-sm">Отмена</button></div></div>):(<><h2 className="text-lg font-bold text-white mt-1">{user.full_name||user.username}</h2><p className="text-gray-400 text-sm">@{user.username}</p><p className="text-gray-500 text-xs mt-1">{user.bio||''}</p><div className="flex gap-4 justify-center mt-3 text-sm"><div><span className="font-bold text-white">{myPosts.length}</span><span className="text-gray-500 ml-1">постов</span></div><button onClick={()=>openProfileFollowList(user, 'subs')} className="cursor-pointer hover:text-blue-400 transition"><span className="font-bold text-white">{user.followers?.length||0}</span><span className="text-gray-500 ml-1">подписчиков</span></button><button onClick={()=>openProfileFollowList(user, 'follows')} className="cursor-pointer hover:text-blue-400 transition"><span className="font-bold text-white">{user.following?.length||0}</span><span className="text-gray-500 ml-1">подписок</span></button></div></>)}</div>)}
         </main>
       </div>
     );
