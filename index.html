@@ -58,6 +58,8 @@
     .read-more-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, #1a1a1a); pointer-events: none; }
     .read-more-btn { background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 20px; font-size: 12px; cursor: pointer; margin-top: 8px; transition: 0.2s; display: inline-block; width: auto; }
     .read-more-btn:hover { background: #2563eb; }
+    .voice-message { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 30px; cursor: pointer; }
+    .voice-message audio { height: 32px; }
     @media (max-width: 640px) {
       .message-bubble { max-width: 90%; }
       .chat-user-item { padding: 10px; }
@@ -76,7 +78,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 
 <script type="text/babel">
-  // ========== ВАШИ ДАННЫЕ SUPABASE ==========
   const SUPABASE_URL = "https://udjyttttghwtylzjavmw.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_U_lF6X0ZakHsq6I_f8byHA_91hFjf3y";
   const STORAGE_BUCKET = "wave-media";
@@ -96,7 +97,7 @@
     if(!iso) return 'только что';
     const d = new Date(iso);
     const now = new Date();
-    const mskOffset = 3 * 60; // MSK UTC+3
+    const mskOffset = 3 * 60;
     const localOffset = now.getTimezoneOffset();
     const mskTime = new Date(d.getTime() + (localOffset + mskOffset) * 60000);
     const nowMsk = new Date(now.getTime() + (localOffset + mskOffset) * 60000);
@@ -123,18 +124,6 @@
     if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + 'м'; 
     if (n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/,'') + 'к'; 
     return n; 
-  }
-
-  function getRecommendationOrder(posts) {
-    const popular = posts.filter(p => (p.likes || 0) + (p.comments?.length || 0) > 5);
-    const normal = posts.filter(p => (p.likes || 0) + (p.comments?.length || 0) <= 5);
-    const mixed = [];
-    const maxLen = Math.max(popular.length, normal.length);
-    for (let i = 0; i < maxLen; i++) {
-      if (i < popular.length) mixed.push(popular[i]);
-      if (i < normal.length) mixed.push(normal[i]);
-    }
-    return mixed;
   }
 
   function MediaCollage({ media, onFullscreen }) {
@@ -415,7 +404,6 @@
     const [editPost, setEditPost] = React.useState(null);
     const [editPostContent, setEditPostContent] = React.useState('');
     const [sharePost, setSharePost] = React.useState(null);
-    const [shareSel, setShareSel] = React.useState([]);
     const [delPostId, setDelPostId] = React.useState(null);
     const [fullscreen, setFullscreen] = React.useState(null);
     const [tempPoll, setTempPoll] = React.useState(null);
@@ -423,7 +411,6 @@
     const [showHideModal, setShowHideModal] = React.useState(false);
     const [hideSel, setHideSel] = React.useState([]);
     const [commentsPagePost, setCommentsPagePost] = React.useState(null);
-    const [replyComm, setReplyComm] = React.useState(null);
     const [switchDialog, setSwitchDialog] = React.useState(false);
     const [switchUser, setSwitchUser] = React.useState('');
     const [switchPass, setSwitchPass] = React.useState('');
@@ -435,6 +422,10 @@
     const [showSubs, setShowSubs] = React.useState(false);
     const [showFollows, setShowFollows] = React.useState(false);
     const [showDeleteAccount, setShowDeleteAccount] = React.useState(false);
+    const [recording, setRecording] = React.useState(false);
+    const [mediaRecorder, setMediaRecorder] = React.useState(null);
+    const [audioChunks, setAudioChunks] = React.useState([]);
+    const [uploadingVoice, setUploadingVoice] = React.useState(false);
     const msgEndRef = React.useRef(null);
     const textareaRef = React.useRef(null);
     const messageIdsSet = React.useRef(new Set());
@@ -510,10 +501,15 @@
       return () => { pSub.unsubscribe(); mSub.unsubscribe(); };
     }, [chatUser, user.id]);
 
+    // ПОИСК ПО ХЕШТЕГАМ
     React.useEffect(() => {
       if(!search.trim()){ setSearchUsers([]); setSearchPosts([]); return; }
       if(sType === 'users') setSearchUsers(users.filter(u=>u.id!==user.id && u.username.toLowerCase().includes(search.toLowerCase())));
-      else setSearchPosts(posts.filter(p=>p.content?.toLowerCase().includes(search.toLowerCase())));
+      else {
+        const hashtagPattern = new RegExp(`#${search}`, 'i');
+        const filtered = posts.filter(p => p.content && hashtagPattern.test(p.content));
+        setSearchPosts(filtered);
+      }
     }, [search, sType, users, posts]);
 
     const handlePostChange = (e) => {
@@ -671,18 +667,56 @@
         setUsers(prev => prev.map(u => u.id === id ? {...u, followers: nfl} : u));
       }
       showToast(is?'Отписались':'Подписались'); 
-      // не сбрасываем viewProfile — просто обновляем данные
       await loadAll(); 
     };
     
-    const sendMsg = async () => {
-      if(!msgText.trim() || !chatUser) return;
-      const {data:ins} = await supabase.from('messages').insert({ from_user:user.id, to_user:chatUser.id, content:msgText, read:false, created_at:new Date() }).select().single();
+    const sendMsg = async (textOrVoice) => {
+      const content = typeof textOrVoice === 'string' ? textOrVoice : msgText;
+      if((!content || !content.trim()) && !textOrVoice?.url) return;
+      const msgObj = { from_user:user.id, to_user:chatUser.id, read:false, created_at:new Date() };
+      if (typeof textOrVoice === 'string' || content.trim()) {
+        msgObj.content = content;
+      }
+      if (textOrVoice?.url) {
+        msgObj.voice_url = textOrVoice.url;
+      }
+      const {data:ins} = await supabase.from('messages').insert(msgObj).select().single();
       if(ins) setMessages(prev => [...prev, ins]);
       setMsgText('');
       await supabase.from('notifications').insert({ user_id:chatUser.id, type:'message', from_user_id:user.id, from_username:user.username, text:`${user.username} написал вам`, read:false, created_at:new Date() });
     };
-    
+
+    const startRecording = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        const chunks = [];
+        recorder.ondataavailable = (e) => chunks.push(e.data);
+        recorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          const file = new File([blob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
+          setUploadingVoice(true);
+          const name = `voice_${user.id}_${Date.now()}.webm`;
+          const {error} = await supabase.storage.from(STORAGE_BUCKET).upload(name, file);
+          if(error) { showToast('Ошибка загрузки голосового'); setUploadingVoice(false); return; }
+          const {data:url} = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(name);
+          await sendMsg({ url: url.publicUrl });
+          setUploadingVoice(false);
+          stream.getTracks().forEach(track => track.stop());
+        };
+        recorder.start();
+        setMediaRecorder(recorder);
+        setRecording(true);
+      } catch(e) { showToast('Нет доступа к микрофону'); }
+    };
+
+    const stopRecording = () => {
+      if (mediaRecorder) {
+        mediaRecorder.stop();
+        setRecording(false);
+      }
+    };
+
     const sharePostToChat = async (post, chatUserId) => {
       const sharedContent = `📌 Поделился(ась) постом:\n\n"${post.content?.substring(0, 200)}"${post.content?.length > 200 ? '...' : ''}\n\n❤️ ${formatLikes(post.likes || 0)} лайков | 💬 ${(post.comments || []).length} комментариев`;
       await supabase.from('messages').insert({ from_user:user.id, to_user:chatUserId, content:sharedContent, shared_post_id:post.id, read:false, created_at:new Date() });
@@ -711,6 +745,14 @@
       await supabase.from('posts').update({poll:newPoll}).eq('id',pid); 
     };
 
+    const changeMyVote = async (post) => {
+      if (!post.poll) return;
+      const newPoll = { ...post.poll, voted_by: post.poll.voted_by.filter(id => id !== user.id) };
+      setPosts(prev=>prev.map(p=>p.id===post.id?{...p,poll:newPoll}:p));
+      await supabase.from('posts').update({poll:newPoll}).eq('id',post.id);
+      showToast('Ваш голос сброшен, можете проголосовать снова');
+    };
+
     const renderText = (text) => {
       if(!text) return null;
       const parts = text.split(/(@\w+|#[\wа-яё]+)/gi);
@@ -727,11 +769,11 @@
       else { setShowFollows(true); setShowSubs(false); }
     };
 
-    const PostMenu = ({onEdit,onDel,onShare}) => {
+    const PostMenu = ({onEdit,onDel,onShare,onChangeVote,hasPoll}) => {
       const [open,setOpen]=React.useState(false);
       const ref=React.useRef(null);
       React.useEffect(()=>{const fn=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);}; document.addEventListener('click',fn); return()=>document.removeEventListener('click',fn);},[]);
-      return (<div className="relative" ref={ref}><button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2"><i className="fas fa-ellipsis-h"></i></button>{open&&(<div className="dropdown-menu">{onEdit&&<div onClick={()=>{onEdit();setOpen(false);}} className="dropdown-item"><i className="fas fa-pen"></i> Редактировать</div>}{onShare&&<div onClick={()=>{onShare();setOpen(false);}} className="dropdown-item"><i className="fas fa-share-alt"></i> Поделиться</div>}{onDel&&<div onClick={()=>{onDel();setOpen(false);}} className="dropdown-item"><i className="fas fa-trash-alt"></i> Удалить</div>}</div>)}</div>);
+      return (<div className="relative" ref={ref}><button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2"><i className="fas fa-ellipsis-h"></i></button>{open&&(<div className="dropdown-menu">{onEdit&&<div onClick={()=>{onEdit();setOpen(false);}} className="dropdown-item"><i className="fas fa-pen"></i> Редактировать</div>}{onShare&&<div onClick={()=>{onShare();setOpen(false);}} className="dropdown-item"><i className="fas fa-share-alt"></i> Поделиться</div>}{hasPoll && onChangeVote && <div onClick={()=>{onChangeVote();setOpen(false);}} className="dropdown-item"><i className="fas fa-sync-alt"></i> Изменить голос</div>}{onDel&&<div onClick={()=>{onDel();setOpen(false);}} className="dropdown-item"><i className="fas fa-trash-alt"></i> Удалить</div>}</div>)}</div>);
     };
 
     const ProfileMenu = () => {
@@ -739,8 +781,8 @@
       const ref=React.useRef(null);
       React.useEffect(()=>{const fn=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);}; document.addEventListener('click',fn); return()=>document.removeEventListener('click',fn);},[]);
       return (
-        <div className="relative" ref={ref}>
-          <button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2"><i className="fas fa-ellipsis-v"></i></button>
+        <div className="absolute top-4 right-4 z-10" ref={ref}>
+          <button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2 rounded-full bg-black/30"><i className="fas fa-ellipsis-v"></i></button>
           {open&&(
             <div className="dropdown-menu">
               <div onClick={()=>{setEditProfile(true); setOpen(false);}} className="dropdown-item"><i className="fas fa-user-edit"></i> Редактировать профиль</div>
@@ -753,7 +795,7 @@
     };
 
     const mentionUsers = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0,5);
-    const orderedPosts = getRecommendationOrder(posts);
+    const orderedPosts = [...posts].sort((a,b)=>new Date(b.created_at) - new Date(a.created_at));
 
     if(loading) return <div className="min-h-screen flex items-center justify-center text-white"><i className="fas fa-spinner fa-spin mr-2"></i> Загрузка...</div>;
     if(commentsPagePost) return <CommentsPage post={commentsPagePost} currentUser={user} onClose={()=>setCommentsPagePost(null)} onAddComment={addComment} onDeleteComment={deleteComment} />;
@@ -767,9 +809,7 @@
         <div className="min-h-screen p-4" style={{background: '#0a0a0a'}}>
           <button onClick={() => { setViewProfile(null); setShowSubs(false); setShowFollows(false); }} className="text-gray-400 mb-4 hover:text-white transition"><i className="fas fa-arrow-left"></i> Назад</button>
           <div className="card p-6 text-center mb-6 relative">
-            {profileUser.id === user.id && (
-              <div className="absolute top-4 right-4"><ProfileMenu /></div>
-            )}
+            {profileUser.id === user.id && <ProfileMenu />}
             <img src={profileUser.avatar || DEFAULT_AVATAR} className="w-24 h-24 rounded-full mx-auto border-2 border-blue-500" />
             <h2 className="text-xl font-bold text-white mt-3">{profileUser.full_name || profileUser.username}</h2>
             <p className="text-gray-400 text-sm">@{profileUser.username}</p>
@@ -817,6 +857,7 @@
               <div key={p.id} className="card p-4">
                 <div className="text-white text-sm whitespace-pre-wrap">{renderText(p.content)}</div>
                 <MediaCollage media={p.media} onFullscreen={(m)=>setFullscreen(m)} />
+                {p.poll && <PollComponent poll={p.poll} postId={p.id} userId={user.id} onVote={handlePollVote} />}
                 <div className="flex gap-4 mt-3 text-gray-400 text-sm">
                   <span><i className="fas fa-heart text-red-500"></i> {formatLikes(p.likes || 0)}</span>
                   <span><i className="far fa-comment"></i> {(p.comments || []).length}</span>
@@ -834,7 +875,7 @@
         {fullscreen && <div className="fullscreen-media" onClick={()=>setFullscreen(null)}>{fullscreen.type==='video'?<video src={fullscreen.url} controls autoPlay />:<img src={fullscreen.url} />}</div>}
         {delPostId && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setDelPostId(null)}><div className="card p-5 max-w-sm w-full text-center"><p className="text-white mb-4">Удалить этот пост?</p><div className="flex gap-2"><button onClick={()=>delPost(delPostId)} className="flex-1 bg-red-600 py-2 rounded-xl">Да</button><button onClick={()=>setDelPostId(null)} className="flex-1 bg-gray-700 py-2 rounded-xl">Нет</button></div></div></div>}
         {editPost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setEditPost(null)}><div className="card p-5 max-w-sm w-full"><textarea value={editPostContent} onChange={e=>setEditPostContent(e.target.value)} rows="3" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-3" /><div className="flex gap-2"><button onClick={async()=>{setPosts(prev=>prev.map(p=>p.id===editPost.id?{...p,content:editPostContent,edited:true}:p)); await supabase.from('posts').update({content:editPostContent,edited:true}).eq('id',editPost.id); setEditPost(null); showToast('Пост обновлён');}} className="flex-1 bg-blue-600 py-2 rounded-xl text-white">Сохранить</button><button onClick={()=>setEditPost(null)} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
-        {sharePost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>{setSharePost(null); setShareSel([]);}}><div className="card p-5 max-w-sm w-full"><p className="text-white mb-2">Поделиться в чате</p><div className="max-h-48 overflow-auto">{chatList.map(cu=><div key={cu.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded" onClick={()=>{sharePostToChat(sharePost, cu.id); setSharePost(null);}}><img src={cu.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white text-sm">@{cu.username}</span></div>)}</div><button onClick={()=>setSharePost(null)} className="w-full mt-2 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div>}
+        {sharePost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>{setSharePost(null);}}><div className="card p-5 max-w-sm w-full"><p className="text-white mb-2">Поделиться в чате</p><div className="max-h-48 overflow-auto">{chatList.map(cu=><div key={cu.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded" onClick={()=>{sharePostToChat(sharePost, cu.id); setSharePost(null);}}><img src={cu.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white text-sm">@{cu.username}</span></div>)}</div><button onClick={()=>setSharePost(null)} className="w-full mt-2 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div>}
         {switchDialog && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>{setSwitchDialog(false); setSwitchErr(''); setSwitchUser(''); setSwitchPass('');}}><div className="card p-5 max-w-sm w-full"><p className="text-white mb-3 text-center">Сменить аккаунт</p><input type="text" placeholder="Логин" value={switchUser} onChange={e=>setSwitchUser(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-2" /><input type="password" placeholder="Пароль" value={switchPass} onChange={e=>setSwitchPass(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-2" />{switchErr&&<div className="text-red-400 text-sm mb-2">{switchErr}</div>}<div className="flex gap-2"><button onClick={async()=>{const{data:acc}=await supabase.from('users').select('*').eq('username',switchUser).single(); if(!acc||acc.password_hash!==switchPass){setSwitchErr('Неверный логин или пароль');return;} localStorage.setItem('wave_user',JSON.stringify(acc)); window.location.reload();}} className="flex-1 bg-blue-600 py-2 rounded-xl text-white">Войти</button><button onClick={()=>{setSwitchDialog(false); setSwitchErr(''); setSwitchUser(''); setSwitchPass('');}} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
         {showDeleteAccount && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setShowDeleteAccount(false)}><div className="card p-5 max-w-sm w-full text-center"><p className="text-white mb-4 text-lg">Удалить аккаунт?</p><p className="text-gray-400 text-sm mb-4">Это действие нельзя отменить. Все ваши посты и данные будут удалены.</p><div className="flex gap-2"><button onClick={deleteAccount} className="flex-1 bg-red-600 py-2 rounded-xl hover:bg-red-700">Да, удалить</button><button onClick={()=>setShowDeleteAccount(false)} className="flex-1 bg-gray-700 py-2 rounded-xl hover:bg-gray-600">Отмена</button></div></div></div>}
         {showPollModal && <PollCreatorModal onClose={()=>setShowPollModal(false)} onSave={(poll)=>{setTempPoll(poll); showToast('Опрос добавлен');}} />}
@@ -846,10 +887,11 @@
           {tab==='feed' && (<>
             <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm resize-none" value={newPost} onChange={handlePostChange} />{showMentions && mentionUsers.length>0 && (<div className="absolute bottom-full left-0 bg-[#1a1a1a] border border-gray-700 rounded-xl max-h-36 overflow-auto z-10 mb-1 w-44">{mentionUsers.map(u=><div key={u.id} className="p-1.5 hover:bg-[#2a2a2a] cursor-pointer flex gap-2" onClick={()=>insertMention(u.username)}><img src={u.avatar||DEFAULT_AVATAR} className="w-5 h-5 rounded-full" /><span className="text-white text-xs">@{u.username}</span></div>)}</div>)}<div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreen({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2"><label className={`icon-btn text-sm ${uploading?'opacity-50':''}`}><i className="fas fa-paperclip"></i><input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');return;} setUploading(true); const up=await uploadMedia(files); setMedia([...media,...up]); setUploading(false); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="icon-btn text-sm"><i className="fas fa-chart-simple"></i></button><button onClick={()=>setShowHideModal(true)} className="icon-btn text-sm"><i className="fas fa-eye-slash"></i></button><button onClick={createPost} className="white-glow-btn text-sm">Опубликовать</button></div></div></div></div>
             {orderedPosts.map(p=>{
-              const comments=p.comments||[];
+              const hasPoll = !!p.poll;
+              const alreadyVoted = p.poll?.voted_by?.includes(user.id);
               return (
                 <div key={p.id} ref={el => postRefs.current[p.id] = el} className="card p-3 mb-3">
-                  <div className="flex justify-between"><div className="flex gap-2 cursor-pointer" onClick={()=>p.user_id!==user.id&&setViewProfile(users.find(u=>u.id===p.user_id))}><img src={p.user_avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">@{p.username}</div><div className="text-xs text-gray-500">{formatDate(p.created_at)}{p.edited&&<span className="ml-1 text-gray-600">(ред)</span>}</div></div></div><PostMenu onEdit={p.user_id===user.id?()=>{setEditPost(p); setEditPostContent(p.content);}:null} onDel={p.user_id===user.id?()=>setDelPostId(p.id):null} onShare={()=>{setSharePost(p); setShareSel([]);}} /></div>
+                  <div className="flex justify-between"><div className="flex gap-2 cursor-pointer" onClick={()=>p.user_id!==user.id&&setViewProfile(users.find(u=>u.id===p.user_id))}><img src={p.user_avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">@{p.username}</div><div className="text-xs text-gray-500">{formatDate(p.created_at)}{p.edited&&<span className="ml-1 text-gray-600">(ред)</span>}</div></div></div><PostMenu onEdit={p.user_id===user.id?()=>{setEditPost(p); setEditPostContent(p.content);}:null} onDel={p.user_id===user.id?()=>setDelPostId(p.id):null} onShare={()=>{setSharePost(p);}} onChangeVote={hasPoll && alreadyVoted ? () => changeMyVote(p) : null} hasPoll={hasPoll && alreadyVoted} /></div>
                   <div className="text-white text-sm whitespace-pre-wrap">{renderText(p.content)}</div>
                   <MediaCollage media={p.media} onFullscreen={(m)=>setFullscreen(m)} />
                   {p.poll && <PollComponent poll={p.poll} postId={p.id} userId={user.id} onVote={handlePollVote} />}
@@ -859,7 +901,10 @@
             })}
           </>)}
 
-          {tab==='search' && (<div><div className="card p-3 mb-4"><div className="flex gap-2 mb-2"><button onClick={()=>setSType('users')} className={`text-xs px-2 py-1 rounded-full ${sType==='users'?'bg-blue-600':'bg-gray-800'}`}><i className="fas fa-users mr-1"></i> Пользователи</button><button onClick={()=>setSType('posts')} className={`text-xs px-2 py-1 rounded-full ${sType==='posts'?'bg-blue-600':'bg-gray-800'}`}><i className="fas fa-hashtag mr-1"></i> Хештеги</button></div><input type="text" placeholder="Поиск..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" /></div>{sType==='users'&&searchUsers.map(u=><div key={u.id} className="card p-3 mb-2 flex justify-between items-center"><div className="flex gap-2 cursor-pointer" onClick={()=>setViewProfile(u)}><img src={u.avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">{u.full_name||u.username}</div><div className="text-gray-400 text-xs">@{u.username}</div></div></div><button onClick={()=>{setChatUser(u); setTab('chat');}} className="bg-green-600 text-white px-2 py-0.5 rounded-full text-xs">Чат</button></div>)}</div>)}
+          {tab==='search' && (<div><div className="card p-3 mb-4"><div className="flex gap-2 mb-2"><button onClick={()=>setSType('users')} className={`text-xs px-2 py-1 rounded-full ${sType==='users'?'bg-blue-600':'bg-gray-800'}`}><i className="fas fa-users mr-1"></i> Пользователи</button><button onClick={()=>setSType('posts')} className={`text-xs px-2 py-1 rounded-full ${sType==='posts'?'bg-blue-600':'bg-gray-800'}`}><i className="fas fa-hashtag mr-1"></i> Хештеги</button></div><input type="text" placeholder="Поиск..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" /></div>{sType==='users'&&searchUsers.map(u=><div key={u.id} className="card p-3 mb-2 flex justify-between items-center"><div className="flex gap-2 cursor-pointer" onClick={()=>setViewProfile(u)}><img src={u.avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">{u.full_name||u.username}</div><div className="text-gray-400 text-xs">@{u.username}</div></div></div><button onClick={()=>{setChatUser(u); setTab('chat');}} className="bg-green-600 text-white px-2 py-0.5 rounded-full text-xs">Чат</button></div>)}
+            {sType==='posts'&&searchPosts.map(p=><div key={p.id} className="card p-3 mb-2 cursor-pointer" onClick={()=>{setTab('feed'); setScrollingToPost(p.id);}}><div className="text-white text-sm">{p.content?.substring(0,100)}</div><div className="text-gray-500 text-xs mt-1">@{p.username} • {formatDate(p.created_at)}</div></div>)}
+            {sType==='posts' && searchPosts.length===0 && search && <div className="text-gray-500 text-center py-8">Ничего не найдено по хештегу</div>}
+          </div>)}
 
           {tab==='chat' && (<div className="flex flex-col h-[80vh]">
             <div className="chat-user-list">
@@ -888,6 +933,11 @@
                           const sharedPost = posts.find(p => p.id === msg.shared_post_id);
                           return sharedPost && <SharedPostCard post={sharedPost} onGoToPost={(pid)=>{setTab('feed'); setScrollingToPost(pid); setChatUser(null);}} />;
                         })()}
+                        {msg.voice_url && (
+                          <div className="voice-message">
+                            <audio controls src={msg.voice_url} className="h-8" />
+                          </div>
+                        )}
                         {msg.content && <p className="break-words">{msg.content}</p>}
                         <div className="text-[10px] opacity-70 mt-1 text-right">{new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
                       </div>
@@ -895,8 +945,10 @@
                   ))}
                 </div>
                 <div className="p-3 border-t border-gray-800 flex gap-2 bg-[#1a1a1a]">
-                  <input type="text" placeholder="Сообщение..." value={msgText} onChange={e=>setMsgText(e.target.value)} onKeyPress={e=>e.key==='Enter'&&sendMsg()} className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" />
-                  <button onClick={sendMsg} className="bg-blue-600 text-white px-4 rounded-xl">→</button>
+                  <input type="text" placeholder="Сообщение..." value={msgText} onChange={e=>setMsgText(e.target.value)} onKeyPress={e=>e.key==='Enter'&&sendMsg(msgText)} className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" />
+                  <button onClick={() => sendMsg(msgText)} className="bg-blue-600 text-white px-4 rounded-xl">→</button>
+                  <button onMouseDown={startRecording} onMouseUp={stopRecording} onTouchStart={startRecording} onTouchEnd={stopRecording} className={`${recording ? 'bg-red-600 animate-pulse' : 'bg-gray-700'} text-white px-3 rounded-xl`}><i className="fas fa-microphone"></i></button>
+                  {uploadingVoice && <div className="text-white text-xs">⏳</div>}
                 </div>
               </div>
             )}
