@@ -56,6 +56,8 @@
     .media-carousel > * { scroll-snap-align: start; flex: 0 0 100%; }
     .close-fullscreen { position: fixed; top: 20px; right: 20px; background: rgba(50,50,60,0.8); backdrop-filter: blur(8px); border-radius: 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2001; color: white; font-size: 20px; transition: 0.2s; border: 1px solid rgba(255,255,255,0.2); }
     .close-fullscreen:hover { background: rgba(80,80,100,0.9); transform: scale(1.05); }
+    .shared-post-quote { background: #252525; border-radius: 16px; padding: 10px; margin-top: 6px; border-left: 3px solid #3b82f6; cursor: pointer; transition: 0.2s; }
+    .shared-post-quote:hover { background: #2a2a2a; transform: translateX(2px); }
     @media (max-width: 640px) {
       .message-bubble { max-width: 90%; }
       .chat-user-item { padding: 10px; }
@@ -163,6 +165,49 @@
     return uploaded;
   }
 
+  // Компонент для показа медиа в чате (миниатюра)
+  function ChatMediaPreview({ media, onFullscreen }) {
+    if (!media || media.length === 0) return null;
+    const firstMedia = media[0];
+    return (
+      <div className="mt-2 cursor-pointer" onClick={() => onFullscreen(firstMedia)}>
+        {firstMedia.type === 'video' ? 
+          <video src={firstMedia.url} className="w-32 h-32 rounded-lg object-cover" /> :
+          <img src={firstMedia.url} className="w-32 h-32 rounded-lg object-cover" />
+        }
+        {media.length > 1 && (
+          <span className="text-xs text-gray-400 ml-1">+{media.length-1}</span>
+        )}
+      </div>
+    );
+  }
+
+  // КРАСИВАЯ ЦИТАТА ПОСТА В ЧАТЕ
+  function SharedPostQuote({ post, onGoToPost, onFullscreenMedia }) {
+    return (
+      <div className="shared-post-quote" onClick={() => onGoToPost(post.id)}>
+        <div className="flex items-center gap-2 mb-2">
+          <img src={post.user_avatar || DEFAULT_AVATAR} className="w-5 h-5 rounded-full" />
+          <span className="text-xs font-medium text-white">@{post.username}</span>
+          <span className="text-[10px] text-gray-500">{formatDate(post.created_at)}</span>
+        </div>
+        <p className="text-sm text-gray-300 line-clamp-2">{post.content?.substring(0, 100)}{post.content?.length > 100 ? '...' : ''}</p>
+        {post.media && post.media.length > 0 && (
+          <div className="mt-2">
+            {post.media[0].type === 'video' ? 
+              <video src={post.media[0].url} className="w-full max-h-32 rounded-lg object-cover" /> :
+              <img src={post.media[0].url} className="w-full max-h-32 rounded-lg object-cover" />
+            }
+          </div>
+        )}
+        <div className="flex gap-3 mt-2 text-gray-500 text-xs">
+          <span><i className="fas fa-heart text-red-500"></i> {formatLikes(post.likes || 0)}</span>
+          <span><i className="far fa-comment"></i> {(post.comments || []).length}</span>
+        </div>
+      </div>
+    );
+  }
+
   function MediaCarousel({ media, onFullscreen }) {
     const [currentIndex, setCurrentIndex] = React.useState(0);
     if (!media || media.length === 0) return null;
@@ -209,16 +254,6 @@
       );
     }
     return <MediaCarousel media={media} onFullscreen={onFullscreen} />;
-  }
-
-  function SharedPostCard({ post, onGoToPost }) {
-    return (
-      <div className="bg-[#252525] rounded-2xl p-3 mt-2 cursor-pointer hover:bg-[#2a2a2a] transition border border-gray-800" onClick={(e) => { e.stopPropagation(); onGoToPost(post.id); }}>
-        <div className="flex items-center gap-2 mb-2"><img src={post.user_avatar || DEFAULT_AVATAR} className="w-5 h-5 rounded-full" /><span className="text-white text-xs font-medium">@{post.username}</span></div>
-        <p className="text-gray-300 text-sm line-clamp-2">{post.content?.substring(0, 100)}{post.content?.length > 100 ? '...' : ''}</p>
-        <div className="flex gap-3 mt-2 text-gray-500 text-xs"><span><i className="fas fa-heart text-red-500"></i> {formatLikes(post.likes || 0)}</span><span><i className="far fa-comment"></i> {(post.comments || []).length}</span></div>
-      </div>
-    );
   }
 
   function ReadMore({ text, maxLength = 200 }) {
@@ -437,6 +472,8 @@
     const [uploading, setUploading] = React.useState(false);
     const [commentTexts, setCommentTexts] = React.useState({});
     const [msgText, setMsgText] = React.useState('');
+    const [msgMedia, setMsgMedia] = React.useState([]);
+    const [uploadingMsg, setUploadingMsg] = React.useState(false);
     const [search, setSearch] = React.useState('');
     const [searchUsers, setSearchUsers] = React.useState([]);
     const [searchPosts, setSearchPosts] = React.useState([]);
@@ -593,6 +630,19 @@
       return uploaded;
     };
 
+    const uploadMsgMediaFiles = async (files) => {
+      setUploadingMsg(true);
+      const uploaded = [];
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const result = await uploadToFreeHosting(f);
+        if (result) uploaded.push(result);
+      }
+      setMsgMedia([...msgMedia, ...uploaded]);
+      setUploadingMsg(false);
+      return uploaded;
+    };
+
     const upAvatar = async (file) => { 
       if(!file) return; 
       setAvatarUp(true); 
@@ -707,24 +757,33 @@
       await loadAll(); 
     };
     
-    const sendMsg = async (content) => {
-      if(!content || !content.trim()) return;
-      const msgObj = { from_user:user.id, to_user:chatUser.id, content:content, read:false, created_at:new Date() };
+    const sendMsg = async (content, msgMediaList = []) => {
+      if((!content || !content.trim()) && msgMediaList.length === 0) return;
+      const msgObj = { 
+        from_user: user.id, 
+        to_user: chatUser.id, 
+        content: content || '', 
+        media: msgMediaList,
+        read: false, 
+        created_at: new Date() 
+      };
       const {data:ins} = await supabase.from('messages').insert(msgObj).select().single();
       if(ins) setMessages(prev => [...prev, ins]);
       setMsgText('');
+      setMsgMedia([]);
     };
 
     const sharePostToChat = async (post, chatUserId) => {
-      // Отправляем только текст, без shared_post_id
-      const postLink = `🔗 Поделился(ась) постом\n\n"${post.content?.substring(0, 200)}"${post.content?.length > 200 ? '...' : ''}\n\n❤️ ${formatLikes(post.likes || 0)} лайков | 💬 ${(post.comments || []).length} комментариев`;
-      const { error } = await supabase.from('messages').insert({ 
+      // Отправляем пост как объект с типом "shared_post"
+      const msgObj = { 
         from_user: user.id, 
         to_user: chatUserId, 
-        content: postLink,
+        content: '',
+        shared_post: post,
         read: false, 
         created_at: new Date() 
-      });
+      };
+      const { error } = await supabase.from('messages').insert(msgObj).select().single();
       if (!error) {
         setChatUser(users.find(u => u.id === chatUserId));
         setTab('chat');
@@ -922,7 +981,7 @@
       <div className="min-h-screen pb-20" style={{background:'#0a0a0a'}}>
         {delPostId && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setDelPostId(null)}><div className="card p-5 max-w-sm w-full text-center"><p className="text-white mb-4">Удалить этот пост?</p><div className="flex gap-2"><button onClick={()=>delPost(delPostId)} className="flex-1 bg-red-600 py-2 rounded-xl">Да</button><button onClick={()=>setDelPostId(null)} className="flex-1 bg-gray-700 py-2 rounded-xl">Нет</button></div></div></div>}
         {editPost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setEditPost(null)}><div className="card p-5 max-w-sm w-full"><textarea value={editPostContent} onChange={e=>setEditPostContent(e.target.value)} rows="3" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-3" /><div className="flex gap-2"><button onClick={async()=>{setPosts(prev=>prev.map(p=>p.id===editPost.id?{...p,content:editPostContent,edited:true}:p)); await supabase.from('posts').update({content:editPostContent,edited:true}).eq('id',editPost.id); setEditPost(null); showToast('Пост обновлён');}} className="flex-1 bg-blue-600 py-2 rounded-xl text-white">Сохранить</button><button onClick={()=>setEditPost(null)} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
-        {sharePost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>{setSharePost(null);}}><div className="card p-5 max-w-sm w-full"><p className="text-white mb-2">Поделиться в чате</p><div className="max-h-48 overflow-auto">{chatList.map(cu=><div key={cu.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded" onClick={()=>{sharePostToChat(sharePost, cu.id);}}><img src={cu.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white text-sm">@{cu.username}</span></div>)}</div><button onClick={()=>setSharePost(null)} className="w-full mt-2 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div>}
+        {sharePost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>{setSharePost(null);}}><div className="card p-5 max-w-sm w-full"><p className="text-white mb-2">Поделиться в чате</p><div className="max-h-48 overflow-auto">{chatList.filter(cu => cu.id !== user.id).map(cu=><div key={cu.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded" onClick={()=>{sharePostToChat(sharePost, cu.id);}}><img src={cu.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white text-sm">@{cu.username}</span></div>)}</div><button onClick={()=>setSharePost(null)} className="w-full mt-2 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div>}
         {switchDialog && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>{setSwitchDialog(false); setSwitchErr(''); setSwitchUser(''); setSwitchPass('');}}><div className="card p-5 max-w-sm w-full"><p className="text-white mb-3 text-center">Сменить аккаунт</p><input type="text" placeholder="Логин" value={switchUser} onChange={e=>setSwitchUser(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-2" /><input type="password" placeholder="Пароль" value={switchPass} onChange={e=>setSwitchPass(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-2" />{switchErr&&<div className="text-red-400 text-sm mb-2">{switchErr}</div>}<div className="flex gap-2"><button onClick={async()=>{const{data:acc}=await supabase.from('users').select('*').eq('username',switchUser).single(); if(!acc||acc.password_hash!==switchPass){setSwitchErr('Неверный логин или пароль');return;} localStorage.setItem('wave_user',JSON.stringify(acc)); window.location.reload();}} className="flex-1 bg-blue-600 py-2 rounded-xl text-white">Войти</button><button onClick={()=>{setSwitchDialog(false); setSwitchErr(''); setSwitchUser(''); setSwitchPass('');}} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
         {showDeleteAccount && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setShowDeleteAccount(false)}><div className="card p-5 max-w-sm w-full text-center"><p className="text-white mb-4 text-lg">Удалить аккаунт?</p><p className="text-gray-400 text-sm mb-4">Это действие нельзя отменить. Все ваши посты и данные будут удалены.</p><div className="flex gap-2"><button onClick={deleteAccount} className="flex-1 bg-red-600 py-2 rounded-xl hover:bg-red-700">Да, удалить</button><button onClick={()=>setShowDeleteAccount(false)} className="flex-1 bg-gray-700 py-2 rounded-xl hover:bg-gray-600">Отмена</button></div></div></div>}
         {showPollModal && <PollCreatorModal onClose={()=>setShowPollModal(false)} onSave={(poll)=>{setTempPoll(poll); showToast('Опрос добавлен');}} />}
@@ -971,16 +1030,16 @@
           {tab==='chat' && (<div className="flex flex-col h-[80vh]">
             <div className="chat-user-list">
               <h3 className="text-white font-bold mb-3"><i className="fas fa-users mr-2"></i> Контакты</h3>
-              {chatList.map(cu=>(
+              {chatList.filter(cu => cu.id !== user.id).map(cu=>(
                 <div key={cu.id} className="chat-user-item" onClick={()=>setChatUser(cu)}>
                   <img src={cu.avatar||DEFAULT_AVATAR} className="w-10 h-10 rounded-full" />
                   <div className="flex-1"><div className="font-bold text-white">@{cu.username}</div><div className="text-gray-400 text-xs">{cu.full_name||cu.username}</div></div>
                   {unread[cu.id]>0 && <div className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">{unread[cu.id]}</div>}
                 </div>
               ))}
-              {chatList.length===0 && <div className="text-center text-gray-500 py-8">Нет чатов. Начните общение!</div>}
+              {chatList.filter(cu => cu.id !== user.id).length === 0 && <div className="text-center text-gray-500 py-8">Нет чатов. Начните общение!</div>}
             </div>
-            {chatUser && (
+            {chatUser && chatUser.id !== user.id && (
               <div className="fixed inset-x-0 bottom-0 top-0 z-50 bg-[#0a0a0a] flex flex-col" style={{marginTop:'55px'}}>
                 <div className="sticky top-0 bg-[#1a1a1a] p-3 flex items-center gap-3 border-b border-gray-800">
                   <button onClick={()=>setChatUser(null)} className="text-white text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-800">←</button>
@@ -988,20 +1047,49 @@
                   <div><div className="font-bold text-white">@{chatUser.username}</div><div className="text-gray-400 text-xs">{chatUser.full_name||chatUser.username}</div></div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-3 space-y-2 chat-messages" ref={chatContainerRef}>
-                  {messages.map(msg=>(
-                    <div key={msg.id} className={`flex ${msg.from_user===user.id?'justify-end':'justify-start'}`}>
-                      <div className={`message-bubble ${msg.from_user===user.id?'message-mine':'message-theirs'}`}>
-                        {msg.content && <p className="break-words">{msg.content}</p>}
-                        <div className="text-[10px] opacity-70 mt-1 text-right">{new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+                  {messages.map(msg=>{
+                    const isMine = msg.from_user === user.id;
+                    return (
+                      <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`message-bubble ${isMine ? 'message-mine' : 'message-theirs'}`}>
+                          {msg.shared_post && (
+                            <SharedPostQuote 
+                              post={msg.shared_post} 
+                              onGoToPost={(pid) => { setTab('feed'); setScrollingToPost(pid); setChatUser(null); }}
+                              onFullscreenMedia={setFullscreenMedia}
+                            />
+                          )}
+                          {msg.media && msg.media.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {msg.media.map((m, idx) => (
+                                <div key={idx} className="cursor-pointer" onClick={() => setFullscreenMedia(m)}>
+                                  {m.type === 'video' ? 
+                                    <video src={m.url} className="w-20 h-20 rounded-lg object-cover" /> :
+                                    <img src={m.url} className="w-20 h-20 rounded-lg object-cover" />
+                                  }
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {msg.content && <p className="break-words">{msg.content}</p>}
+                          <div className="text-[10px] opacity-70 mt-1 text-right">{new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="p-3 border-t border-gray-800 flex gap-2 bg-[#1a1a1a]">
-                  <input type="text" placeholder="Сообщение..." value={msgText} onChange={e=>setMsgText(e.target.value)} onKeyPress={e=>e.key==='Enter'&&sendMsg(msgText)} className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" />
-                  <button onClick={() => sendMsg(msgText)} className="bg-blue-600 text-white px-4 rounded-xl">→</button>
+                  <input type="text" placeholder="Сообщение..." value={msgText} onChange={e=>setMsgText(e.target.value)} onKeyPress={e=>e.key==='Enter'&&sendMsg(msgText, msgMedia)} className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" />
+                  <label className={`bg-gray-700 text-white px-3 rounded-xl flex items-center cursor-pointer ${uploadingMsg ? 'opacity-50' : ''}`}>
+                    {uploadingMsg ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paperclip"></i>}
+                    <input type="file" accept="image/*,video/*" multiple className="hidden" onChange={async(e)=>{const files=Array.from(e.target.files); await uploadMsgMediaFiles(files); e.target.value='';}} disabled={uploadingMsg} />
+                  </label>
+                  <button onClick={() => sendMsg(msgText, msgMedia)} className="bg-blue-600 text-white px-4 rounded-xl">→</button>
                 </div>
               </div>
+            )}
+            {chatUser && chatUser.id === user.id && (
+              <div className="text-center text-gray-500 py-8">Нельзя отправить сообщение самому себе</div>
             )}
           </div>)}
 
