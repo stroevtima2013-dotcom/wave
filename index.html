@@ -56,7 +56,13 @@
     .media-carousel > * { scroll-snap-align: start; flex: 0 0 100%; }
     .close-fullscreen { position: fixed; top: 20px; right: 20px; background: rgba(50,50,60,0.8); backdrop-filter: blur(8px); border-radius: 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2001; color: white; font-size: 20px; transition: 0.2s; border: 1px solid rgba(255,255,255,0.2); }
     .close-fullscreen:hover { background: rgba(80,80,100,0.9); transform: scale(1.05); }
-    /* Мобильная адаптация панели создания поста */
+    /* Стили для затемнённого медиа с кнопкой */
+    .media-blur-container { position: relative; cursor: pointer; overflow: hidden; border-radius: 16px; }
+    .media-blur-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 2; transition: 0.2s; }
+    .media-blur-overlay:hover { background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); }
+    .media-show-btn { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 40px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; box-shadow: 0 0 15px rgba(59,130,246,0.5); }
+    .media-show-btn:hover { transform: scale(1.05); background: #2563eb; }
+    .media-full { border-radius: 16px; cursor: pointer; }
     @media (max-width: 640px) {
       .message-bubble { max-width: 90%; }
       .chat-user-item { padding: 10px; }
@@ -67,6 +73,7 @@
       .close-fullscreen { top: 10px; right: 10px; width: 36px; height: 36px; font-size: 16px; }
       .post-actions { flex-wrap: wrap !important; gap: 6px !important; }
       .post-actions .icon-btn, .post-actions .white-glow-btn { flex: 0 0 auto; }
+      .media-show-btn { padding: 6px 14px; font-size: 11px; }
     }
   </style>
 </head>
@@ -164,8 +171,40 @@
     return uploaded;
   }
 
+  // Компонент медиа с затемнением и кнопкой "показать полностью"
+  function MediaWithBlur({ media, onFullscreen }) {
+    const [expanded, setExpanded] = React.useState(false);
+    if (!media) return null;
+    
+    if (!expanded) {
+      return (
+        <div className="mt-3 media-blur-container" onClick={() => setExpanded(true)}>
+          {media.type === 'video' ? 
+            <video src={media.url} className="w-full rounded-xl max-h-[350px] object-cover" style={{ filter: 'blur(8px)' }} /> :
+            <img src={media.url} className="w-full rounded-xl max-h-[350px] object-cover" style={{ filter: 'blur(8px)' }} />
+          }
+          <div className="media-blur-overlay">
+            <button className="media-show-btn" onClick={(e) => { e.stopPropagation(); setExpanded(true); }}>
+              <i className="fas fa-expand mr-2"></i> Показать полностью
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="mt-3">
+        {media.type === 'video' ? 
+          <video src={media.url} className="w-full rounded-xl max-h-[550px] object-contain cursor-pointer media-full" onClick={() => onFullscreen(media)} /> :
+          <img src={media.url} className="w-full rounded-xl max-h-[550px] object-contain cursor-pointer media-full" onClick={() => onFullscreen(media)} />
+        }
+      </div>
+    );
+  }
+
   function MediaCarousel({ media, onFullscreen }) {
     const [currentIndex, setCurrentIndex] = React.useState(0);
+    const [expandedIndex, setExpandedIndex] = React.useState(null);
     if (!media || media.length === 0) return null;
     
     const handleScroll = (e) => {
@@ -175,23 +214,39 @@
       if (newIndex !== currentIndex) setCurrentIndex(newIndex);
     };
     
+    const currentMedia = media[currentIndex];
+    
+    if (expandedIndex !== null) {
+      const m = media[expandedIndex];
+      return (
+        <div className="mt-3">
+          {m.type === 'video' ? 
+            <video src={m.url} className="w-full rounded-xl max-h-[550px] object-contain cursor-pointer" onClick={() => onFullscreen(m)} /> :
+            <img src={m.url} className="w-full rounded-xl max-h-[550px] object-contain cursor-pointer" onClick={() => onFullscreen(m)} />
+          }
+          <button onClick={() => setExpandedIndex(null)} className="text-blue-400 text-xs mt-2">← Свернуть</button>
+        </div>
+      );
+    }
+    
     return (
       <div className="mt-3 relative">
         <div className="media-carousel" onScroll={handleScroll}>
           {media.map((m, idx) => (
-            <div key={idx} className="cursor-pointer" onClick={() => onFullscreen(m)}>
+            <div key={idx} className="relative cursor-pointer" onClick={() => setExpandedIndex(idx)}>
               {m.type === 'video' ? 
-                <video src={m.url} className="w-full rounded-xl h-64 object-cover" /> :
-                <img src={m.url} className="w-full rounded-xl h-64 object-cover" />
+                <video src={m.url} className="w-full rounded-xl h-64 object-cover" style={{ filter: 'blur(6px)' }} /> :
+                <img src={m.url} className="w-full rounded-xl h-64 object-cover" style={{ filter: 'blur(6px)' }} />
               }
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <button className="media-show-btn">
+                  <i className="fas fa-expand mr-2"></i> Показать
+                </button>
+              </div>
+              <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">{idx+1}/{media.length}</div>
             </div>
           ))}
         </div>
-        {media.length > 1 && (
-          <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
-            {currentIndex+1}/{media.length}
-          </div>
-        )}
       </div>
     );
   }
@@ -199,17 +254,65 @@
   function MediaCollage({ media, onFullscreen }) {
     if (!media || media.length === 0) return null;
     if (media.length === 1) {
-      const m = media[0];
-      return (
-        <div className="mt-3">
-          {m.type === 'video' ? 
-            <video src={m.url} className="w-full rounded-xl max-h-[450px] object-cover cursor-pointer" onClick={() => onFullscreen(m)} /> :
-            <img src={m.url} className="w-full rounded-xl max-h-[450px] object-cover cursor-pointer" onClick={() => onFullscreen(m)} />
-          }
-        </div>
-      );
+      return <MediaWithBlur media={media[0]} onFullscreen={onFullscreen} />;
     }
     return <MediaCarousel media={media} onFullscreen={onFullscreen} />;
+  }
+
+  // Компонент опроса с правильным сбросом голоса
+  function PollComponent({ poll, postId, userId, onVote }) {
+    const userVoteIndex = (() => {
+      if (!poll?.voted_by) return -1;
+      const userVotedFor = poll.voted_by.find(v => v.userId === userId);
+      if (userVotedFor) return userVotedFor.optionIndex;
+      return -1;
+    })();
+    const totalVotes = poll?.options?.reduce((sum, opt) => sum + (opt.votes || 0), 0) || 0;
+    
+    const handleVote = async (optionIndex) => {
+      let newPoll = JSON.parse(JSON.stringify(poll));
+      
+      // Если пользователь уже голосовал
+      if (userVoteIndex !== -1) {
+        // Удаляем старый голос
+        const oldOptionIndex = userVoteIndex;
+        newPoll.options[oldOptionIndex].votes = Math.max(0, (newPoll.options[oldOptionIndex].votes || 0) - 1);
+        newPoll.voted_by = newPoll.voted_by.filter(v => v.userId !== userId);
+      }
+      
+      // Если голосуют за тот же вариант — просто сбрасываем (уже сброшено выше)
+      if (optionIndex === userVoteIndex) {
+        onVote(postId, newPoll);
+        return;
+      }
+      
+      // Добавляем новый голос
+      newPoll.options[optionIndex].votes = (newPoll.options[optionIndex].votes || 0) + 1;
+      newPoll.voted_by = [...(newPoll.voted_by || []), { userId: userId, optionIndex: optionIndex }];
+      onVote(postId, newPoll);
+    };
+    
+    return (
+      <div className="mt-3 p-3 bg-[#252525] rounded-xl">
+        <p className="text-white text-sm font-medium mb-2">{poll?.question || 'Опрос'}</p>
+        {poll?.options?.map((opt, idx) => {
+          const percent = totalVotes > 0 ? ((opt.votes || 0) / totalVotes) * 100 : 0;
+          const isUserVote = userVoteIndex === idx;
+          return (
+            <div key={idx} className="poll-option" onClick={() => handleVote(idx)}>
+              <div className="relative p-2">
+                <div className="poll-bar absolute left-0 top-0 h-full rounded-xl" style={{ width: `${percent}%`, opacity: 0.3 }}></div>
+                <div className="relative flex justify-between items-center z-10">
+                  <span className="text-white text-sm">{opt.text} {isUserVote && <span className="text-blue-400 text-xs ml-1">(ваш голос)</span>}</span>
+                  <span className="text-gray-300 text-xs">{percent.toFixed(1)}% ({opt.votes || 0})</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <p className="text-gray-500 text-xs mt-2 text-center">📊 Всего голосов: {totalVotes}</p>
+      </div>
+    );
   }
 
   function SharedPostCard({ post, onGoToPost }) {
@@ -235,39 +338,6 @@
         </div>
         {!expanded && <div className="read-more-overlay"></div>}
         <button onClick={() => setExpanded(!expanded)} className="read-more-btn">{expanded ? 'Свернуть ↑' : 'Читать далее ↓'}</button>
-      </div>
-    );
-  }
-
-  function PollComponent({ poll, postId, userId, onVote }) {
-    const [voted, setVoted] = React.useState(poll?.voted_by?.includes(userId) || false);
-    const totalVotes = poll?.options?.reduce((sum, opt) => sum + (opt.votes || 0), 0) || 0;
-    const handleVote = async (optionIndex) => {
-      if (voted) return;
-      const newPoll = { ...poll };
-      newPoll.options[optionIndex].votes = (newPoll.options[optionIndex].votes || 0) + 1;
-      newPoll.voted_by = [...(poll.voted_by || []), userId];
-      onVote(postId, newPoll);
-      setVoted(true);
-    };
-    return (
-      <div className="mt-3 p-3 bg-[#252525] rounded-xl">
-        <p className="text-white text-sm font-medium mb-2">{poll?.question || 'Опрос'}</p>
-        {poll?.options?.map((opt, idx) => {
-          const percent = totalVotes > 0 ? ((opt.votes || 0) / totalVotes) * 100 : 0;
-          return (
-            <div key={idx} className="poll-option" onClick={() => handleVote(idx)}>
-              <div className="relative p-2">
-                <div className="poll-bar absolute left-0 top-0 h-full rounded-xl" style={{ width: `${percent}%`, opacity: 0.3 }}></div>
-                <div className="relative flex justify-between items-center z-10">
-                  <span className="text-white text-sm">{opt.text}</span>
-                  {voted && <span className="text-gray-300 text-xs">{percent.toFixed(1)}% ({opt.votes || 0})</span>}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        <p className="text-gray-500 text-xs mt-2 text-center">{voted ? `✅ Всего голосов: ${totalVotes}` : '📊 Нажмите на вариант, чтобы проголосовать'}</p>
       </div>
     );
   }
@@ -725,12 +795,23 @@
     };
 
     const sharePostToChat = async (post, chatUserId) => {
-      const postLink = `🔗 Поделился(ась) постом: ${window.location.origin}/post/${post.id}\n\n"${post.content?.substring(0, 150)}"${post.content?.length > 150 ? '...' : ''}\n\n❤️ ${formatLikes(post.likes || 0)} лайков | 💬 ${(post.comments || []).length} комментариев`;
-      await supabase.from('messages').insert({ from_user:user.id, to_user:chatUserId, content:postLink, shared_post_id:post.id, read:false, created_at:new Date() });
-      setChatUser(users.find(u => u.id === chatUserId));
-      setTab('chat');
-      setSharePost(null);
-      showToast('Пост отправлен в чат');
+      const postLink = `🔗 Поделился(ась) постом\n\n"${post.content?.substring(0, 200)}"${post.content?.length > 200 ? '...' : ''}\n\n❤️ ${formatLikes(post.likes || 0)} лайков | 💬 ${(post.comments || []).length} комментариев`;
+      const { error } = await supabase.from('messages').insert({ 
+        from_user: user.id, 
+        to_user: chatUserId, 
+        content: postLink, 
+        shared_post_id: post.id, 
+        read: false, 
+        created_at: new Date() 
+      });
+      if (!error) {
+        setChatUser(users.find(u => u.id === chatUserId));
+        setTab('chat');
+        setSharePost(null);
+        showToast('Пост отправлен в чат');
+      } else {
+        showToast('Ошибка при отправке');
+      }
     };
     
     const saveProfile = async () => { 
@@ -753,14 +834,6 @@
     const handlePollVote = async (pid, newPoll) => { 
       setPosts(prev=>prev.map(p=>p.id===pid?{...p,poll:newPoll}:p)); 
       await supabase.from('posts').update({poll:newPoll}).eq('id',pid); 
-    };
-
-    const changeMyVote = async (post) => {
-      if (!post.poll) return;
-      const newPoll = { ...post.poll, voted_by: post.poll.voted_by.filter(id => id !== user.id) };
-      setPosts(prev=>prev.map(p=>p.id===post.id?{...p,poll:newPoll}:p));
-      await supabase.from('posts').update({poll:newPoll}).eq('id',post.id);
-      showToast('Ваш голос сброшен, можете проголосовать снова');
     };
 
     const renderText = (text) => {
@@ -963,10 +1036,16 @@
             </div>
             {orderedPosts.map(p=>{
               const hasPoll = !!p.poll;
-              const alreadyVoted = p.poll?.voted_by?.includes(user.id);
               return (
                 <div key={p.id} ref={el => postRefs.current[p.id] = el} className="card p-3 mb-3">
-                  <div className="flex justify-between"><div className="flex gap-2 cursor-pointer" onClick={()=>p.user_id!==user.id&&setViewProfile(users.find(u=>u.id===p.user_id))}><img src={p.user_avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">@{p.username}</div><div className="text-xs text-gray-500">{formatDate(p.created_at)}{p.edited&&<span className="ml-1 text-gray-600">(ред)</span>}</div></div></div><PostMenu onEdit={p.user_id===user.id?()=>{setEditPost(p); setEditPostContent(p.content);}:null} onDel={p.user_id===user.id?()=>setDelPostId(p.id):null} onShare={()=>{setSharePost(p);}} onChangeVote={hasPoll && alreadyVoted ? () => changeMyVote(p) : null} hasPoll={hasPoll && alreadyVoted} /></div>
+                  <div className="flex justify-between"><div className="flex gap-2 cursor-pointer" onClick={()=>p.user_id!==user.id&&setViewProfile(users.find(u=>u.id===p.user_id))}><img src={p.user_avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">@{p.username}</div><div className="text-xs text-gray-500">{formatDate(p.created_at)}{p.edited&&<span className="ml-1 text-gray-600">(ред)</span>}</div></div></div><PostMenu onEdit={p.user_id===user.id?()=>{setEditPost(p); setEditPostContent(p.content);}:null} onDel={p.user_id===user.id?()=>setDelPostId(p.id):null} onShare={()=>{setSharePost(p);}} onChangeVote={hasPoll ? () => {
+                    // Сброс голоса через отдельную функцию
+                    if (p.poll) {
+                      const newPoll = { ...p.poll, voted_by: (p.poll.voted_by || []).filter(v => v.userId !== user.id) };
+                      handlePollVote(p.id, newPoll);
+                      showToast('Ваш голос сброшен');
+                    }
+                  } : null} hasPoll={hasPoll} /></div>
                   <div className="text-white text-sm whitespace-pre-wrap">{renderText(p.content)}</div>
                   <MediaCollage media={p.media} onFullscreen={(m)=>setFullscreenMedia(m)} />
                   {p.poll && <PollComponent poll={p.poll} postId={p.id} userId={user.id} onVote={handlePollVote} />}
