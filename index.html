@@ -97,14 +97,17 @@
     const d = new Date(iso);
     const now = new Date();
     const diff = Math.floor((now - d) / 1000);
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const mskOffset = 3 * 60 * 60 * 1000;
+    const dMsk = new Date(d.getTime() + mskOffset);
+    const nowMsk = new Date(now.getTime() + mskOffset);
+    const todayStart = new Date(nowMsk.getFullYear(), nowMsk.getMonth(), nowMsk.getDate());
     const yesterdayStart = new Date(todayStart - 86400000);
     
     if (diff < 60) return 'только что';
     if (diff < 3600) return `${Math.floor(diff/60)} мин назад`;
-    if (d >= todayStart) return `сегодня в ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-    if (d >= yesterdayStart) return `вчера в ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-    return `${d.getDate()}.${d.getMonth()+1}.${d.getFullYear()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    if (dMsk >= todayStart) return `сегодня в ${dMsk.getHours().toString().padStart(2,'0')}:${dMsk.getMinutes().toString().padStart(2,'0')}`;
+    if (dMsk >= yesterdayStart) return `вчера в ${dMsk.getHours().toString().padStart(2,'0')}:${dMsk.getMinutes().toString().padStart(2,'0')}`;
+    return `${dMsk.getDate()}.${dMsk.getMonth()+1}.${dMsk.getFullYear()} ${dMsk.getHours().toString().padStart(2,'0')}:${dMsk.getMinutes().toString().padStart(2,'0')}`;
   }
   
   function formatLikes(n) { 
@@ -423,6 +426,7 @@
     const [showProfileSubs, setShowProfileSubs] = React.useState(false);
     const [showProfileFollows, setShowProfileFollows] = React.useState(false);
     const [showDeleteAccount, setShowDeleteAccount] = React.useState(false);
+    const [showProfileMenu, setShowProfileMenu] = React.useState(false);
     const msgEndRef = React.useRef(null);
     const textareaRef = React.useRef(null);
     const messageIdsSet = React.useRef(new Set());
@@ -542,6 +546,7 @@
       return uploaded;
     };
 
+    // Моментальная загрузка аватара
     const upAvatar = async (file) => { 
       if(!file) return; 
       setAvatarUp(true); 
@@ -716,17 +721,16 @@
     };
 
     const ProfileMenu = () => {
-      const [open,setOpen]=React.useState(false);
-      const ref=React.useRef(null);
-      React.useEffect(()=>{const fn=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);}; document.addEventListener('click',fn); return()=>document.removeEventListener('click',fn);},[]);
       return (
-        <div className="relative" ref={ref}>
-          <button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2"><i className="fas fa-ellipsis-v"></i></button>
-          {open&&(
-            <div className="dropdown-menu">
-              <div onClick={()=>{setEditProfile(true); setOpen(false);}} className="dropdown-item"><i className="fas fa-user-edit"></i> Редактировать профиль</div>
-              <div onClick={()=>{setSwitchDialog(true); setOpen(false);}} className="dropdown-item"><i className="fas fa-exchange-alt"></i> Сменить аккаунт</div>
-              <div onClick={()=>{setShowDeleteAccount(true); setOpen(false);}} className="dropdown-item"><i className="fas fa-trash-alt"></i> Удалить аккаунт</div>
+        <div className="relative">
+          <button onClick={()=>setShowProfileMenu(!showProfileMenu)} className="text-gray-400 hover:text-white p-2">
+            <i className="fas fa-ellipsis-v"></i>
+          </button>
+          {showProfileMenu && (
+            <div className="absolute right-0 mt-2 w-48 bg-[#1a1a1a] border border-gray-700 rounded-xl z-50 overflow-hidden">
+              <button onClick={()=>{setEditProfile(true); setShowProfileMenu(false);}} className="w-full text-left px-4 py-3 hover:bg-[#2a2a2a] text-white text-sm flex items-center gap-2"><i className="fas fa-user-edit"></i> Редактировать профиль</button>
+              <button onClick={()=>{setSwitchDialog(true); setShowProfileMenu(false);}} className="w-full text-left px-4 py-3 hover:bg-[#2a2a2a] text-white text-sm flex items-center gap-2"><i className="fas fa-exchange-alt"></i> Сменить аккаунт</button>
+              <button onClick={()=>{setShowDeleteAccount(true); setShowProfileMenu(false);}} className="w-full text-left px-4 py-3 hover:bg-[#2a2a2a] text-red-400 text-sm flex items-center gap-2"><i className="fas fa-trash-alt"></i> Удалить аккаунт</button>
             </div>
           )}
         </div>
