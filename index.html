@@ -14,7 +14,7 @@
     #root { min-height: 100vh; background: #0f0f0f; }
     .card { background: #1a1a1a; border: 1px solid #2c2c2c; border-radius: 24px; transition: 0.2s; box-shadow: 0 0 5px rgba(255,255,255,0.05); }
     .card:hover { transform: translateY(-3px); border-color: #4a4a4a; box-shadow: 0 0 20px rgba(255,255,255,0.1); }
-    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e1e1e; border: 1px solid #333; color: white; padding: 8px 18px; border-radius: 40px; z-index: 1000; font-size: 14px; animation: fadeInUp 0.3s ease; }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e1e1e; border: 1px solid #333; color: white; padding: 8px 18px; border-radius: 40px; z-index: 1000; font-size: 14px; animation: fadeInUp 0.3s ease; z-index: 3000; }
     @keyframes fadeInUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
     .media-preview { position: relative; display: inline-block; margin: 4px; border-radius: 14px; overflow: hidden; border: 1px solid #3a3a3a; width: 80px; height: 80px; cursor: pointer; }
     .media-preview img, .media-preview video { width: 100%; height: 100%; object-fit: cover; }
@@ -29,8 +29,8 @@
     .white-glow-btn:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(255,255,255,0.5); background: #f0f0f0; }
     .icon-btn { background: white; color: #111; border-radius: 40px; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; border: none; transition: 0.2s; }
     .icon-btn:hover { transform: scale(1.02); background: #f5f5f5; }
-    .modal-media { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-    .modal-media-content { max-width: 90vw; max-height: 85vh; border-radius: 28px; box-shadow: 0 0 40px rgba(0,0,0,0.5); cursor: default; }
+    .modal-media { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .modal-media-content { max-width: 90vw; max-height: 85vh; border-radius: 20px; object-fit: contain; }
     .fullscreen-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(12px); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .fullscreen-modal-content { background: #1a1a1a; border-radius: 32px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 24px; border: 1px solid #3a3a3a; animation: slideUp 0.2s ease; }
@@ -45,8 +45,6 @@
     .message-bubble { max-width: 80%; padding: 10px 14px; border-radius: 20px; word-break: break-word; }
     .message-mine { background: #3b82f6; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
     .message-theirs { background: #2a2a2a; color: white; align-self: flex-start; border-bottom-left-radius: 4px; }
-    .voice-message { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 30px; cursor: pointer; }
-    .voice-message audio { height: 32px; }
     .read-more-container { position: relative; }
     .read-more-content { overflow: hidden; transition: max-height 0.3s ease; }
     .read-more-content.collapsed { max-height: 150px; }
@@ -54,9 +52,11 @@
     .read-more-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, #1a1a1a); pointer-events: none; }
     .read-more-btn { background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 20px; font-size: 12px; cursor: pointer; margin-top: 8px; transition: 0.2s; display: inline-block; width: auto; }
     .read-more-btn:hover { background: #2563eb; }
-    /* Карусель */
     .media-carousel { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 8px; scrollbar-width: thin; border-radius: 16px; }
     .media-carousel > * { scroll-snap-align: start; flex: 0 0 100%; }
+    .media-tip { background: rgba(30,30,40,0.7); backdrop-filter: blur(8px); border-radius: 20px; padding: 4px 12px; font-size: 10px; color: #aaa; display: inline-block; margin-top: 6px; }
+    .close-fullscreen { position: fixed; top: 20px; right: 20px; background: rgba(50,50,60,0.8); backdrop-filter: blur(8px); border-radius: 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2001; color: white; font-size: 20px; transition: 0.2s; border: 1px solid rgba(255,255,255,0.2); }
+    .close-fullscreen:hover { background: rgba(80,80,100,0.9); transform: scale(1.05); }
     @media (max-width: 640px) {
       .message-bubble { max-width: 90%; }
       .chat-user-item { padding: 10px; }
@@ -64,6 +64,8 @@
       .icon-btn { padding: 6px 12px; font-size: 12px; }
       .white-glow-btn { padding: 6px 14px; font-size: 12px; }
       .modal-media-content { max-width: 95vw; max-height: 80vh; }
+      .close-fullscreen { top: 10px; right: 10px; width: 36px; height: 36px; font-size: 16px; }
+      .media-tip { font-size: 8px; padding: 3px 8px; }
     }
   </style>
 </head>
@@ -87,7 +89,7 @@
     t.className = 'toast'; 
     t.innerHTML = msg; 
     document.body.appendChild(t); 
-    setTimeout(() => t.remove(), 2500); 
+    setTimeout(() => t.remove(), 2800); 
   }
   
   function formatDate(iso) { 
@@ -123,7 +125,6 @@
     return n; 
   }
 
-  // Бесплатный хостинг для медиа
   async function uploadToFreeHosting(file) {
     const formData = new FormData();
     formData.append('file', file);
@@ -138,7 +139,7 @@
       if (url && url.startsWith('https://files.catbox.moe/')) {
         return { url: url.trim(), type: file.type.startsWith('image/') ? 'image' : 'video' };
       }
-    } catch(e) { console.error('Free upload error:', e); }
+    } catch(e) { console.error('Upload error:', e); }
     return null;
   }
 
@@ -162,28 +163,13 @@
     return uploaded;
   }
 
-  // Карусель для медиа (свайп вправо)
   function MediaCarousel({ media, onFullscreen }) {
-    const [currentIndex, setCurrentIndex] = React.useState(0);
     if (!media || media.length === 0) return null;
-    if (media.length === 1) {
-      const m = media[0];
-      return (
-        <div className="mt-3">
-          {m.type === 'video' ? 
-            <video src={m.url} className="w-full rounded-xl max-h-[450px] object-cover cursor-pointer" onClick={() => onFullscreen(m)} /> :
-            <img src={m.url} className="w-full rounded-xl max-h-[450px] object-cover cursor-pointer" onClick={() => onFullscreen(m)} />
-          }
-        </div>
-      );
-    }
-    
-    // Для 2+ файлов — карусель со свайпом
     return (
-      <div className="mt-3 relative">
+      <div className="mt-3">
         <div className="media-carousel">
           {media.map((m, idx) => (
-            <div key={idx} className="relative cursor-pointer" onClick={() => onFullscreen(m)}>
+            <div key={idx} className="cursor-pointer" onClick={() => onFullscreen(m)}>
               {m.type === 'video' ? 
                 <video src={m.url} className="w-full rounded-xl h-64 object-cover" /> :
                 <img src={m.url} className="w-full rounded-xl h-64 object-cover" />
@@ -192,13 +178,15 @@
             </div>
           ))}
         </div>
+        <div className="media-tip mt-1 text-center w-full">
+          <i className="fas fa-hand-pointer mr-1 text-xs"></i> нажмите на медиа, чтобы открыть на весь экран
+        </div>
       </div>
     );
   }
 
   function MediaCollage({ media, onFullscreen }) {
     if (!media || media.length === 0) return null;
-    // Для 1 файла — обычный показ
     if (media.length === 1) {
       const m = media[0];
       return (
@@ -207,10 +195,12 @@
             <video src={m.url} className="w-full rounded-xl max-h-[450px] object-cover cursor-pointer" onClick={() => onFullscreen(m)} /> :
             <img src={m.url} className="w-full rounded-xl max-h-[450px] object-cover cursor-pointer" onClick={() => onFullscreen(m)} />
           }
+          <div className="media-tip mt-1 text-center w-full">
+            <i className="fas fa-hand-pointer mr-1 text-xs"></i> нажмите на медиа, чтобы открыть на весь экран
+          </div>
         </div>
       );
     }
-    // Для 2+ файлов — карусель
     return <MediaCarousel media={media} onFullscreen={onFullscreen} />;
   }
 
@@ -470,9 +460,6 @@
     const [showSubs, setShowSubs] = React.useState(false);
     const [showFollows, setShowFollows] = React.useState(false);
     const [showDeleteAccount, setShowDeleteAccount] = React.useState(false);
-    const [recording, setRecording] = React.useState(false);
-    const [mediaRecorder, setMediaRecorder] = React.useState(null);
-    const [uploadingVoice, setUploadingVoice] = React.useState(false);
     const [profileMyPosts, setProfileMyPosts] = React.useState(false);
     const [uploadProgress, setUploadProgress] = React.useState(null);
     const msgEndRef = React.useRef(null);
@@ -550,10 +537,15 @@
       return () => { pSub.unsubscribe(); mSub.unsubscribe(); };
     }, [chatUser, user.id]);
 
+    // ПОИСК ПО ХЕШТЕГАМ - ИСПРАВЛЕНА РЕГУЛЯРКА
     React.useEffect(() => {
       if(!search.trim()){ setSearchUsers([]); setSearchPosts([]); return; }
       if(sType === 'users') setSearchUsers(users.filter(u=>u.id!==user.id && u.username.toLowerCase().includes(search.toLowerCase())));
-      else setSearchPosts(posts.filter(p=>p.content?.toLowerCase().includes(search.toLowerCase())));
+      else {
+        const hashtagPattern = new RegExp(`#${search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+        const filtered = posts.filter(p => p.content && hashtagPattern.test(p.content));
+        setSearchPosts(filtered);
+      }
     }, [search, sType, users, posts]);
 
     const handlePostChange = (e) => {
@@ -584,17 +576,16 @@
 
     const uploadMediaFiles = async (files) => {
       setUploading(true);
-      setUploadProgress(0);
       const uploaded = [];
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
         if (media.length + uploaded.length >= 5) { showToast('Максимум 5 файлов'); break; }
-        setUploadProgress(Math.round((i / files.length) * 100));
         const result = await uploadToFreeHosting(f);
         if (result) uploaded.push(result);
+        else showToast(`Ошибка загрузки: ${f.name}`);
       }
+      setMedia([...media, ...uploaded]);
       setUploading(false);
-      setUploadProgress(null);
       return uploaded;
     };
 
@@ -629,7 +620,7 @@
         if(!data){ showToast(`Пользователь @${m} не существует`); return; }
       }
       
-      const hashtags = [...newPost.matchAll(/#[\wа-яё]+/gi)].map(m=>m[0]);
+      const hashtags = [...newPost.matchAll(/#([\wа-яё]+)/gi)].map(m=>m[0]);
       const hidden = hideSel.length ? hideSel : null;
       
       const newPostObj = { 
@@ -718,56 +709,17 @@
       await loadAll(); 
     };
     
-    const sendMsg = async (textOrVoice) => {
-      const content = typeof textOrVoice === 'string' ? textOrVoice : msgText;
-      if((!content || !content.trim()) && !textOrVoice?.url) return;
-      const msgObj = { from_user:user.id, to_user:chatUser.id, read:false, created_at:new Date() };
-      if (typeof textOrVoice === 'string' || content.trim()) {
-        msgObj.content = content;
-      }
-      if (textOrVoice?.url) {
-        msgObj.voice_url = textOrVoice.url;
-      }
+    const sendMsg = async (content) => {
+      if(!content || !content.trim()) return;
+      const msgObj = { from_user:user.id, to_user:chatUser.id, content:content, read:false, created_at:new Date() };
       const {data:ins} = await supabase.from('messages').insert(msgObj).select().single();
       if(ins) setMessages(prev => [...prev, ins]);
       setMsgText('');
     };
 
-    const startRecording = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const recorder = new MediaRecorder(stream);
-        const chunks = [];
-        recorder.ondataavailable = (e) => chunks.push(e.data);
-        recorder.onstop = async () => {
-          const blob = new Blob(chunks, { type: 'audio/webm' });
-          const file = new File([blob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
-          setUploadingVoice(true);
-          const result = await uploadToFreeHosting(file);
-          if(result) {
-            await sendMsg({ url: result.url });
-          }
-          setUploadingVoice(false);
-          stream.getTracks().forEach(track => track.stop());
-        };
-        recorder.start();
-        setMediaRecorder(recorder);
-        setRecording(true);
-        setTimeout(() => { if(recorder.state === 'recording') recorder.stop(); setRecording(false); }, 60000);
-      } catch(e) { showToast('Нет доступа к микрофону'); }
-    };
-
-    const stopRecording = () => {
-      if (mediaRecorder && mediaRecorder.state === 'recording') {
-        mediaRecorder.stop();
-        setRecording(false);
-      }
-    };
-
     const sharePostToChat = async (post, chatUserId) => {
       const postLink = `🔗 Поделился(ась) постом: ${window.location.origin}/post/${post.id}\n\n"${post.content?.substring(0, 150)}"${post.content?.length > 150 ? '...' : ''}\n\n❤️ ${formatLikes(post.likes || 0)} лайков | 💬 ${(post.comments || []).length} комментариев`;
       await supabase.from('messages').insert({ from_user:user.id, to_user:chatUserId, content:postLink, shared_post_id:post.id, read:false, created_at:new Date() });
-      // Переключаемся в чат с этим пользователем
       setChatUser(users.find(u => u.id === chatUserId));
       setTab('chat');
       setSharePost(null);
@@ -808,8 +760,8 @@
       if(!text) return null;
       const parts = text.split(/(@\w+|#[\wа-яё]+)/gi);
       return parts.map((p,i) => {
-        if(p.startsWith('@')){ const un=p.slice(1); return <span key={i} className="mention" onClick={()=>{const u=users.find(x=>x.username===un); if(u) setViewProfile(u);}}>{p}</span>; }
-        if(p.startsWith('#')) return <span key={i} className="hashtag" onClick={()=>{setSearch(p.slice(1)); setSType('posts'); setTab('search');}}>{p}</span>;
+        if(p && p.startsWith('@')){ const un=p.slice(1); return <span key={i} className="mention" onClick={()=>{const u=users.find(x=>x.username===un); if(u) setViewProfile(u);}}>{p}</span>; }
+        if(p && p.startsWith('#')) return <span key={i} className="hashtag" onClick={()=>{setSearch(p.slice(1)); setSType('posts'); setTab('search');}}>{p}</span>;
         return <span key={i}>{p}</span>;
       });
     };
@@ -879,6 +831,9 @@
     if(fullscreenMedia) {
       return (
         <div className="modal-media" onClick={() => setFullscreenMedia(null)}>
+          <div className="close-fullscreen" onClick={() => setFullscreenMedia(null)}>
+            <i className="fas fa-times"></i>
+          </div>
           {fullscreenMedia.type === 'video' ? 
             <video src={fullscreenMedia.url} controls autoPlay className="modal-media-content" onClick={(e) => e.stopPropagation()} /> :
             <img src={fullscreenMedia.url} className="modal-media-content" onClick={(e) => e.stopPropagation()} />
@@ -969,7 +924,7 @@
     }
 
     return (
-      <div className="min-h-screen pb-16" style={{background:'#0a0a0a'}}>
+      <div className="min-h-screen pb-20" style={{background:'#0a0a0a'}}>
         {delPostId && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setDelPostId(null)}><div className="card p-5 max-w-sm w-full text-center"><p className="text-white mb-4">Удалить этот пост?</p><div className="flex gap-2"><button onClick={()=>delPost(delPostId)} className="flex-1 bg-red-600 py-2 rounded-xl">Да</button><button onClick={()=>setDelPostId(null)} className="flex-1 bg-gray-700 py-2 rounded-xl">Нет</button></div></div></div>}
         {editPost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setEditPost(null)}><div className="card p-5 max-w-sm w-full"><textarea value={editPostContent} onChange={e=>setEditPostContent(e.target.value)} rows="3" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-3" /><div className="flex gap-2"><button onClick={async()=>{setPosts(prev=>prev.map(p=>p.id===editPost.id?{...p,content:editPostContent,edited:true}:p)); await supabase.from('posts').update({content:editPostContent,edited:true}).eq('id',editPost.id); setEditPost(null); showToast('Пост обновлён');}} className="flex-1 bg-blue-600 py-2 rounded-xl text-white">Сохранить</button><button onClick={()=>setEditPost(null)} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
         {sharePost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>{setSharePost(null);}}><div className="card p-5 max-w-sm w-full"><p className="text-white mb-2">Поделиться в чате</p><div className="max-h-48 overflow-auto">{chatList.map(cu=><div key={cu.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded" onClick={()=>{sharePostToChat(sharePost, cu.id);}}><img src={cu.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white text-sm">@{cu.username}</span></div>)}</div><button onClick={()=>setSharePost(null)} className="w-full mt-2 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div>}
@@ -982,7 +937,7 @@
 
         <main className="max-w-2xl mx-auto p-3">
           {tab==='feed' && (<>
-            <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm resize-none" value={newPost} onChange={handlePostChange} />{showMentions && mentionUsers.length>0 && (<div className="absolute bottom-full left-0 bg-[#1a1a1a] border border-gray-700 rounded-xl max-h-36 overflow-auto z-10 mb-1 w-44">{mentionUsers.map(u=><div key={u.id} className="p-1.5 hover:bg-[#2a2a2a] cursor-pointer flex gap-2" onClick={()=>insertMention(u.username)}><img src={u.avatar||DEFAULT_AVATAR} className="w-5 h-5 rounded-full" /><span className="text-white text-xs">@{u.username}</span></div>)}</div>)}<div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreenMedia({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2"><label className={`icon-btn text-sm ${uploading ? 'opacity-50 cursor-wait' : ''} flex items-center gap-2`}>{uploading ? <><i className="fas fa-spinner fa-spin"></i> <span className="text-xs">Загрузка...</span></> : <><i className="fas fa-paperclip"></i> Медиа</>}<input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');return;} const up=await uploadMediaFiles(files); setMedia([...media,...up]); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="icon-btn text-sm"><i className="fas fa-chart-bar"></i></button><button onClick={()=>setShowHideModal(true)} className="icon-btn text-sm"><i className="fas fa-eye-slash"></i></button><button onClick={createPost} className="white-glow-btn text-sm">Опубликовать</button></div></div></div></div>
+            <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm resize-none" value={newPost} onChange={handlePostChange} />{showMentions && mentionUsers.length>0 && (<div className="absolute bottom-full left-0 bg-[#1a1a1a] border border-gray-700 rounded-xl max-h-36 overflow-auto z-10 mb-1 w-44">{mentionUsers.map(u=><div key={u.id} className="p-1.5 hover:bg-[#2a2a2a] cursor-pointer flex gap-2" onClick={()=>insertMention(u.username)}><img src={u.avatar||DEFAULT_AVATAR} className="w-5 h-5 rounded-full" /><span className="text-white text-xs">@{u.username}</span></div>)}</div>)}<div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreenMedia({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2"><label className={`icon-btn text-sm ${uploading ? 'opacity-50 cursor-wait' : ''} flex items-center gap-2`}>{uploading ? <><i className="fas fa-spinner fa-spin"></i> <span className="text-xs">Загрузка...</span></> : <><i className="fas fa-paperclip"></i> Медиа</>}<input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');e.target.value='';return;} await uploadMediaFiles(files); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="icon-btn text-sm"><i className="fas fa-chart-bar"></i></button><button onClick={()=>setShowHideModal(true)} className="icon-btn text-sm"><i className="fas fa-eye-slash"></i></button><button onClick={createPost} className="white-glow-btn text-sm">Опубликовать</button></div></div></div></div>
             {orderedPosts.map(p=>{
               const hasPoll = !!p.poll;
               const alreadyVoted = p.poll?.voted_by?.includes(user.id);
@@ -998,7 +953,10 @@
             })}
           </>)}
 
-          {tab==='search' && (<div><div className="card p-3 mb-4"><div className="flex gap-2 mb-2"><button onClick={()=>setSType('users')} className={`text-xs px-2 py-1 rounded-full ${sType==='users'?'bg-blue-600':'bg-gray-800'}`}><i className="fas fa-users mr-1"></i> Пользователи</button><button onClick={()=>setSType('posts')} className={`text-xs px-2 py-1 rounded-full ${sType==='posts'?'bg-blue-600':'bg-gray-800'}`}><i className="fas fa-hashtag mr-1"></i> Хештеги</button></div><input type="text" placeholder="Поиск..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" /></div>{sType==='users'&&searchUsers.map(u=><div key={u.id} className="card p-3 mb-2 flex justify-between items-center"><div className="flex gap-2 cursor-pointer" onClick={()=>setViewProfile(u)}><img src={u.avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">{u.full_name||u.username}</div><div className="text-gray-400 text-xs">@{u.username}</div></div></div><button onClick={()=>{setChatUser(u); setTab('chat');}} className="bg-green-600 text-white px-2 py-0.5 rounded-full text-xs">Чат</button></div>)}</div>)}
+          {tab==='search' && (<div><div className="card p-3 mb-4"><div className="flex gap-2 mb-2"><button onClick={()=>setSType('users')} className={`text-xs px-2 py-1 rounded-full ${sType==='users'?'bg-blue-600':'bg-gray-800'}`}><i className="fas fa-users mr-1"></i> Пользователи</button><button onClick={()=>setSType('posts')} className={`text-xs px-2 py-1 rounded-full ${sType==='posts'?'bg-blue-600':'bg-gray-800'}`}><i className="fas fa-hashtag mr-1"></i> Хештеги</button></div><input type="text" placeholder="Поиск..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" /></div>{sType==='users'&&searchUsers.map(u=><div key={u.id} className="card p-3 mb-2 flex justify-between items-center"><div className="flex gap-2 cursor-pointer" onClick={()=>setViewProfile(u)}><img src={u.avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">{u.full_name||u.username}</div><div className="text-gray-400 text-xs">@{u.username}</div></div></div><button onClick={()=>{setChatUser(u); setTab('chat');}} className="bg-green-600 text-white px-2 py-0.5 rounded-full text-xs">Чат</button></div>)}
+            {sType==='posts'&&searchPosts.map(p=><div key={p.id} className="card p-3 mb-2 cursor-pointer" onClick={()=>{setTab('feed'); setScrollingToPost(p.id);}}><div className="text-white text-sm">{p.content?.substring(0,100)}</div><div className="text-gray-500 text-xs mt-1">@{p.username} • {formatDate(p.created_at)}</div></div>)}
+            {sType==='posts' && searchPosts.length===0 && search && <div className="text-gray-500 text-center py-8">Ничего не найдено по хештегу</div>}
+          </div>)}
 
           {tab==='chat' && (<div className="flex flex-col h-[80vh]">
             <div className="chat-user-list">
@@ -1027,11 +985,6 @@
                           const sharedPost = posts.find(p => p.id === msg.shared_post_id);
                           return sharedPost && <SharedPostCard post={sharedPost} onGoToPost={(pid)=>{setTab('feed'); setScrollingToPost(pid); setChatUser(null);}} />;
                         })()}
-                        {msg.voice_url && (
-                          <div className="voice-message">
-                            <audio controls src={msg.voice_url} className="h-8" />
-                          </div>
-                        )}
                         {msg.content && <p className="break-words">{msg.content}</p>}
                         <div className="text-[10px] opacity-70 mt-1 text-right">{new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
                       </div>
@@ -1041,8 +994,6 @@
                 <div className="p-3 border-t border-gray-800 flex gap-2 bg-[#1a1a1a]">
                   <input type="text" placeholder="Сообщение..." value={msgText} onChange={e=>setMsgText(e.target.value)} onKeyPress={e=>e.key==='Enter'&&sendMsg(msgText)} className="flex-1 p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" />
                   <button onClick={() => sendMsg(msgText)} className="bg-blue-600 text-white px-4 rounded-xl">→</button>
-                  <button onMouseDown={startRecording} onMouseUp={stopRecording} onTouchStart={startRecording} onTouchEnd={stopRecording} className={`${recording ? 'bg-red-600 animate-pulse' : 'bg-gray-700'} text-white px-3 rounded-xl`}><i className="fas fa-microphone"></i></button>
-                  {uploadingVoice && <div className="text-white text-xs">⏳</div>}
                 </div>
               </div>
             )}
