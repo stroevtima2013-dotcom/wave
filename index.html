@@ -23,12 +23,12 @@
     .dropdown-item { padding: 10px 16px; display: flex; align-items: center; gap: 10px; color: #e0e0e0; transition: 0.15s; cursor: pointer; }
     .dropdown-item:hover { background: #2a2a2a; }
     .reply-quote { background: #1a1a1a; padding: 6px 10px; border-radius: 12px; border-left: 3px solid #3b82f6; font-size: 11px; color: #aaa; margin-bottom: 6px; display: flex; flex-direction: column; gap: 2px; }
-    .mention { color: #3b82f6; font-weight: 500; cursor: pointer; }
-    .hashtag { color: #eab308; font-weight: 500; cursor: pointer; }
-    .white-glow-btn { background: white; color: #111; box-shadow: 0 0 8px rgba(255,255,255,0.3); transition: 0.2s; font-weight: 500; cursor: pointer; border: none; }
+    .mention { color: #3b82f6; font-weight: 600; cursor: pointer; background: rgba(59,130,246,0.15); padding: 2px 6px; border-radius: 12px; display: inline-block; }
+    .hashtag { color: #eab308; font-weight: 600; cursor: pointer; background: rgba(234,179,8,0.15); padding: 2px 6px; border-radius: 12px; display: inline-block; }
+    .white-glow-btn { background: white; color: #111; box-shadow: 0 0 8px rgba(255,255,255,0.3); transition: 0.2s; font-weight: 500; cursor: pointer; border: none; border-radius: 40px; padding: 8px 20px; }
     .white-glow-btn:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(255,255,255,0.5); background: #f0f0f0; }
-    .white-icon-btn { background: white; color: #111; border-radius: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; border: none; transition: 0.2s; }
-    .white-icon-btn:hover { transform: scale(1.02); background: #f5f5f5; }
+    .icon-btn { background: white; color: #111; border-radius: 40px; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; border: none; transition: 0.2s; }
+    .icon-btn:hover { transform: scale(1.02); background: #f5f5f5; }
     .fullscreen-media { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .fullscreen-media img, .fullscreen-media video { max-width: 95vw; max-height: 95vh; border-radius: 28px; }
     .uploading-indicator { font-size: 12px; color: #aaa; margin-left: 8px; }
@@ -52,16 +52,18 @@
     .message-theirs { background: #2a2a2a; color: white; align-self: flex-start; border-bottom-left-radius: 4px; }
     .post-media-large { width: 100%; border-radius: 16px; margin-top: 12px; cursor: pointer; max-height: 400px; object-fit: cover; }
     .read-more-container { position: relative; }
-    .read-more-content.collapsed { max-height: 150px; overflow: hidden; }
+    .read-more-content { overflow: hidden; transition: max-height 0.3s ease; }
+    .read-more-content.collapsed { max-height: 150px; }
+    .read-more-content.expanded { max-height: 2000px; }
     .read-more-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, #1a1a1a); pointer-events: none; }
-    .read-more-btn { background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 20px; font-size: 12px; cursor: pointer; margin-top: 8px; transition: 0.2s; }
+    .read-more-btn { background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 20px; font-size: 12px; cursor: pointer; margin-top: 8px; transition: 0.2s; display: inline-block; width: auto; }
     .read-more-btn:hover { background: #2563eb; }
     @media (max-width: 640px) {
       .message-bubble { max-width: 90%; }
       .chat-user-item { padding: 10px; }
       .card { border-radius: 16px; }
-      .white-icon-btn { padding: 5px 10px; font-size: 12px; }
-      .white-glow-btn { padding: 6px 12px; font-size: 12px; }
+      .icon-btn { padding: 6px 12px; font-size: 12px; }
+      .white-glow-btn { padding: 6px 14px; font-size: 12px; }
       .post-media-large { max-height: 300px; }
     }
   </style>
@@ -190,8 +192,8 @@
     const displayText = expanded ? text : (needTruncate ? text.slice(0, maxLength) + '...' : text);
     if (!needTruncate) return <p className="text-white text-sm whitespace-pre-wrap">{text}</p>;
     return (
-      <div className="read-more-container relative">
-        <div className={`read-more-content ${!expanded ? 'collapsed' : ''}`}>
+      <div className="read-more-container">
+        <div className={`read-more-content ${expanded ? 'expanded' : 'collapsed'}`}>
           <p className="text-white text-sm whitespace-pre-wrap">{displayText}</p>
         </div>
         {!expanded && <div className="read-more-overlay"></div>}
@@ -265,7 +267,7 @@
       <div className="fullscreen-modal" onClick={onClose}>
         <div className="fullscreen-modal-content" onClick={e=>e.stopPropagation()}>
           <div className="flex justify-between items-center mb-4"><h2 className="text-white text-xl font-bold">Скрыть пост</h2><button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">&times;</button></div>
-          <p className="text-gray-400 text-sm mb-4">Выберите пользователей, которые не увидят этот пост:</p>
+          <p className="text-gray-400 text-sm mb-4">Выберите пользователей:</p>
           <div className="max-h-96 overflow-y-auto mb-4 space-y-2">
             {users.filter(u=>u.id!==currentUserId).map(u=>(
               <div key={u.id} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition ${selectedUsers.includes(u.id)?'bg-[#2a2a2a] border border-blue-500':'bg-[#1a1a1a] hover:bg-[#252525]'}`} onClick={()=>onToggleUser(u.id)}>
@@ -421,6 +423,7 @@
     const [scrollingToPost, setScrollingToPost] = React.useState(null);
     const [showSubs, setShowSubs] = React.useState(false);
     const [showFollows, setShowFollows] = React.useState(false);
+    const [showDeleteAccount, setShowDeleteAccount] = React.useState(false);
     const msgEndRef = React.useRef(null);
     const textareaRef = React.useRef(null);
     const messageIdsSet = React.useRef(new Set());
@@ -540,12 +543,9 @@
       return uploaded;
     };
 
-    // Моментальная загрузка аватара
     const upAvatar = async (file) => { 
       if(!file) return; 
       setAvatarUp(true); 
-      
-      // Показываем локально сразу
       const reader = new FileReader();
       reader.onloadend = () => {
         user.avatar = reader.result;
@@ -553,8 +553,6 @@
         setAvatarUp(false);
       };
       reader.readAsDataURL(file);
-      
-      // Загружаем в Supabase фоном
       try {
         const name = `avatar_${user.id}_${Date.now()}.jpg`;
         const {error} = await supabase.storage.from(STORAGE_BUCKET).upload(name, file);
@@ -691,6 +689,14 @@
       showToast('Профиль обновлён'); 
     };
     
+    const deleteAccount = async () => {
+      await supabase.from('users').delete().eq('id', user.id);
+      showToast('Аккаунт удалён');
+      localStorage.removeItem('wave_user');
+      localStorage.removeItem('wave_access');
+      window.location.reload();
+    };
+    
     const handlePollVote = async (pid, newPoll) => { 
       setPosts(prev=>prev.map(p=>p.id===pid?{...p,poll:newPoll}:p)); 
       await supabase.from('posts').update({poll:newPoll}).eq('id',pid); 
@@ -713,15 +719,30 @@
       return (<div className="relative" ref={ref}><button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2"><i className="fas fa-ellipsis-h"></i></button>{open&&(<div className="dropdown-menu">{onEdit&&<div onClick={()=>{onEdit();setOpen(false);}} className="dropdown-item"><i className="fas fa-pen"></i> Редактировать</div>}{onShare&&<div onClick={()=>{onShare();setOpen(false);}} className="dropdown-item"><i className="fas fa-share-alt"></i> Поделиться</div>}{onDel&&<div onClick={()=>{onDel();setOpen(false);}} className="dropdown-item"><i className="fas fa-trash-alt"></i> Удалить</div>}</div>)}</div>);
     };
 
-    // ВСЕ ХУКИ ВЫЗВАНЫ ДО ЭТОЙ ТОЧКИ
+    const ProfileMenu = () => {
+      const [open,setOpen]=React.useState(false);
+      const ref=React.useRef(null);
+      React.useEffect(()=>{const fn=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);}; document.addEventListener('click',fn); return()=>document.removeEventListener('click',fn);},[]);
+      return (
+        <div className="relative" ref={ref}>
+          <button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2"><i className="fas fa-ellipsis-v"></i></button>
+          {open&&(
+            <div className="dropdown-menu">
+              <div onClick={()=>{setEditProfile(true); setOpen(false);}} className="dropdown-item"><i className="fas fa-user-edit"></i> Редактировать профиль</div>
+              <div onClick={()=>{setSwitchDialog(true); setOpen(false);}} className="dropdown-item"><i className="fas fa-exchange-alt"></i> Сменить аккаунт</div>
+              <div onClick={()=>{setShowDeleteAccount(true); setOpen(false);}} className="dropdown-item"><i className="fas fa-trash-alt"></i> Удалить аккаунт</div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
     const mentionUsers = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0,5);
     const orderedPosts = getRecommendationOrder(posts);
 
-    // Ранние возвраты (условия) — ПОСЛЕ ВСЕХ ХУКОВ
     if(loading) return <div className="min-h-screen flex items-center justify-center text-white"><i className="fas fa-spinner fa-spin mr-2"></i> Загрузка...</div>;
     if(commentsPagePost) return <CommentsPage post={commentsPagePost} currentUser={user} onClose={()=>setCommentsPagePost(null)} onAddComment={addComment} onDeleteComment={deleteComment} />;
     
-    // ПРОФИЛЬ — теперь здесь вся логика без дополнительных useState
     if(viewProfile) {
       const profileUser = viewProfile;
       const profilePosts = posts.filter(p => p.user_id === profileUser.id);
@@ -730,56 +751,65 @@
       return (
         <div className="min-h-screen p-4" style={{background: '#0a0a0a'}}>
           <button onClick={() => { setViewProfile(null); setShowSubs(false); setShowFollows(false); }} className="text-gray-400 mb-4 hover:text-white transition"><i className="fas fa-arrow-left"></i> Назад</button>
-          <div className="card p-6 text-center mb-6">
-            <img src={profileUser.avatar || DEFAULT_AVATAR} className="w-20 h-20 rounded-full mx-auto" />
-            <h2 className="text-lg font-bold text-white mt-2">{profileUser.full_name || profileUser.username}</h2>
+          <div className="card p-6 text-center mb-6 relative">
+            {profileUser.id === user.id && (
+              <div className="absolute top-4 right-4"><ProfileMenu /></div>
+            )}
+            <img src={profileUser.avatar || DEFAULT_AVATAR} className="w-24 h-24 rounded-full mx-auto border-2 border-blue-500" />
+            <h2 className="text-xl font-bold text-white mt-3">{profileUser.full_name || profileUser.username}</h2>
             <p className="text-gray-400 text-sm">@{profileUser.username}</p>
-            <p className="text-gray-500 text-sm mt-2">{profileUser.bio || ''}</p>
-            <div className="flex gap-2 justify-center mt-3">
-              <button onClick={() => { setChatUser(profileUser); setViewProfile(null); setTab('chat'); }} className="bg-green-600 text-white px-3 py-1 rounded-full text-xs hover:bg-green-700">Чат</button>
-              <button onClick={() => follow(profileUser.id)} className={`px-3 py-1 rounded-full text-xs transition ${isFollowing ? 'bg-gray-600' : 'bg-blue-600'}`}>{isFollowing ? 'Отписаться' : 'Подписаться'}</button>
+            <p className="text-gray-400 text-sm mt-2">{profileUser.bio || ''}</p>
+            <div className="flex gap-2 justify-center mt-4">
+              <button onClick={() => { setChatUser(profileUser); setViewProfile(null); setTab('chat'); }} className="bg-green-600 text-white px-4 py-1.5 rounded-full text-sm hover:bg-green-700">Чат</button>
+              {profileUser.id !== user.id && (
+                <button onClick={() => follow(profileUser.id)} className={`px-4 py-1.5 rounded-full text-sm transition ${isFollowing ? 'bg-gray-600' : 'bg-blue-600'}`}>{isFollowing ? 'Отписаться' : 'Подписаться'}</button>
+              )}
             </div>
-            <div className="flex gap-4 justify-center mt-3 text-sm">
-              <button onClick={() => { setShowSubs(!showSubs); setShowFollows(false); }} className="hover:text-blue-400">
-                <span className="font-bold text-white">{profileUser.followers?.length || 0}</span> подписчиков
+            <div className="flex gap-5 justify-center mt-4 text-sm">
+              <button onClick={() => { setShowSubs(!showSubs); setShowFollows(false); }} className="hover:text-blue-400 transition">
+                <span className="font-bold text-white text-lg">{profileUser.followers?.length || 0}</span> <span className="text-gray-400">подписчиков</span>
               </button>
-              <button onClick={() => { setShowFollows(!showFollows); setShowSubs(false); }} className="hover:text-blue-400">
-                <span className="font-bold text-white">{profileUser.following?.length || 0}</span> подписок
+              <button onClick={() => { setShowFollows(!showFollows); setShowSubs(false); }} className="hover:text-blue-400 transition">
+                <span className="font-bold text-white text-lg">{profileUser.following?.length || 0}</span> <span className="text-gray-400">подписок</span>
               </button>
             </div>
             {showSubs && (
-              <div className="mt-3 p-2 bg-[#2a2a2a] rounded-xl max-h-48 overflow-y-auto">
+              <div className="mt-4 p-2 bg-[#2a2a2a] rounded-xl max-h-48 overflow-y-auto">
                 {users.filter(u => profileUser.followers?.includes(u.id)).map(u => (
                   <div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#3a3a3a] rounded" onClick={() => setViewProfile(u)}>
-                    <img src={u.avatar || DEFAULT_AVATAR} className="w-6 h-6 rounded-full" />
-                    <span className="text-white text-sm">@{u.username}</span>
+                    <img src={u.avatar || DEFAULT_AVATAR} className="w-8 h-8 rounded-full" />
+                    <div className="text-left"><div className="text-white font-medium">@{u.username}</div><div className="text-gray-500 text-xs">{u.full_name || u.username}</div></div>
                   </div>
                 ))}
-                {(!profileUser.followers || profileUser.followers.length === 0) && <div className="text-gray-500 text-sm text-center py-2">Нет подписчиков</div>}
+                {(!profileUser.followers || profileUser.followers.length === 0) && <div className="text-gray-500 text-sm text-center py-4">Нет подписчиков</div>}
               </div>
             )}
             {showFollows && (
-              <div className="mt-3 p-2 bg-[#2a2a2a] rounded-xl max-h-48 overflow-y-auto">
+              <div className="mt-4 p-2 bg-[#2a2a2a] rounded-xl max-h-48 overflow-y-auto">
                 {users.filter(u => profileUser.following?.includes(u.id)).map(u => (
                   <div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#3a3a3a] rounded" onClick={() => setViewProfile(u)}>
-                    <img src={u.avatar || DEFAULT_AVATAR} className="w-6 h-6 rounded-full" />
-                    <span className="text-white text-sm">@{u.username}</span>
+                    <img src={u.avatar || DEFAULT_AVATAR} className="w-8 h-8 rounded-full" />
+                    <div className="text-left"><div className="text-white font-medium">@{u.username}</div><div className="text-gray-500 text-xs">{u.full_name || u.username}</div></div>
                   </div>
                 ))}
-                {(!profileUser.following || profileUser.following.length === 0) && <div className="text-gray-500 text-sm text-center py-2">Нет подписок</div>}
+                {(!profileUser.following || profileUser.following.length === 0) && <div className="text-gray-500 text-sm text-center py-4">Нет подписок</div>}
               </div>
             )}
           </div>
-          {profilePosts.map(p => (
-            <div key={p.id} className="card p-3 mb-3">
-              <ReadMore text={p.content} maxLength={200} />
-              <div className="flex gap-3 mt-2 text-gray-500 text-xs">
-                <span><i className="fas fa-heart text-red-500"></i> {formatLikes(p.likes || 0)}</span>
-                <span><i className="far fa-comment"></i> {(p.comments || []).length}</span>
+          <div className="space-y-3">
+            <h3 className="text-white font-bold text-lg px-1">Посты</h3>
+            {profilePosts.map(p => (
+              <div key={p.id} className="card p-4">
+                <ReadMore text={p.content} maxLength={200} />
+                <MediaCollage media={p.media} onFullscreen={(m)=>setFullscreen(m)} />
+                <div className="flex gap-4 mt-3 text-gray-400 text-sm">
+                  <span><i className="fas fa-heart text-red-500"></i> {formatLikes(p.likes || 0)}</span>
+                  <span><i className="far fa-comment"></i> {(p.comments || []).length}</span>
+                </div>
               </div>
-            </div>
-          ))}
-          {profilePosts.length === 0 && <div className="text-center text-gray-500 py-4">Нет постов</div>}
+            ))}
+            {profilePosts.length === 0 && <div className="text-center text-gray-500 py-8">Нет постов</div>}
+          </div>
         </div>
       );
     }
@@ -791,6 +821,7 @@
         {editPost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setEditPost(null)}><div className="card p-5 max-w-sm w-full"><textarea value={editPostContent} onChange={e=>setEditPostContent(e.target.value)} rows="3" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-3" /><div className="flex gap-2"><button onClick={async()=>{setPosts(prev=>prev.map(p=>p.id===editPost.id?{...p,content:editPostContent,edited:true}:p)); await supabase.from('posts').update({content:editPostContent,edited:true}).eq('id',editPost.id); setEditPost(null); showToast('Пост обновлён');}} className="flex-1 bg-blue-600 py-2 rounded-xl text-white">Сохранить</button><button onClick={()=>setEditPost(null)} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
         {sharePost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>{setSharePost(null); setShareSel([]);}}><div className="card p-5 max-w-sm w-full"><p className="text-white mb-2">Поделиться в чате</p><div className="max-h-48 overflow-auto">{chatList.map(cu=><div key={cu.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded" onClick={()=>{sharePostToChat(sharePost, cu.id); setSharePost(null);}}><img src={cu.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white text-sm">@{cu.username}</span></div>)}</div><button onClick={()=>setSharePost(null)} className="w-full mt-2 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div>}
         {switchDialog && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>{setSwitchDialog(false); setSwitchErr(''); setSwitchUser(''); setSwitchPass('');}}><div className="card p-5 max-w-sm w-full"><p className="text-white mb-3 text-center">Сменить аккаунт</p><input type="text" placeholder="Логин" value={switchUser} onChange={e=>setSwitchUser(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-2" /><input type="password" placeholder="Пароль" value={switchPass} onChange={e=>setSwitchPass(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white mb-2" />{switchErr&&<div className="text-red-400 text-sm mb-2">{switchErr}</div>}<div className="flex gap-2"><button onClick={async()=>{const{data:acc}=await supabase.from('users').select('*').eq('username',switchUser).single(); if(!acc||acc.password_hash!==switchPass){setSwitchErr('Неверный логин или пароль');return;} localStorage.setItem('wave_user',JSON.stringify(acc)); window.location.reload();}} className="flex-1 bg-blue-600 py-2 rounded-xl text-white">Войти</button><button onClick={()=>{setSwitchDialog(false); setSwitchErr(''); setSwitchUser(''); setSwitchPass('');}} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
+        {showDeleteAccount && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setShowDeleteAccount(false)}><div className="card p-5 max-w-sm w-full text-center"><p className="text-white mb-4 text-lg">Удалить аккаунт?</p><p className="text-gray-400 text-sm mb-4">Это действие нельзя отменить. Все ваши посты и данные будут удалены.</p><div className="flex gap-2"><button onClick={deleteAccount} className="flex-1 bg-red-600 py-2 rounded-xl hover:bg-red-700">Да, удалить</button><button onClick={()=>setShowDeleteAccount(false)} className="flex-1 bg-gray-700 py-2 rounded-xl hover:bg-gray-600">Отмена</button></div></div></div>}
         {showPollModal && <PollCreatorModal onClose={()=>setShowPollModal(false)} onSave={(poll)=>{setTempPoll(poll); showToast('Опрос добавлен');}} />}
         {showHideModal && <HideSettingsModal users={users} currentUserId={user.id} selectedUsers={hideSel} onToggleUser={(id)=>setHideSel(prev=>prev.includes(id)?prev.filter(i=>i!==id):[...prev,id])} onApply={()=>{setShowHideModal(false); showToast(`Скрыто от ${hideSel.length} пользователей`);}} onClose={()=>setShowHideModal(false)} />}
 
@@ -798,7 +829,7 @@
 
         <main className="max-w-2xl mx-auto p-3">
           {tab==='feed' && (<>
-            <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm resize-none" value={newPost} onChange={handlePostChange} />{showMentions && mentionUsers.length>0 && (<div className="absolute bottom-full left-0 bg-[#1a1a1a] border border-gray-700 rounded-xl max-h-36 overflow-auto z-10 mb-1 w-44">{mentionUsers.map(u=><div key={u.id} className="p-1.5 hover:bg-[#2a2a2a] cursor-pointer flex gap-2" onClick={()=>insertMention(u.username)}><img src={u.avatar||DEFAULT_AVATAR} className="w-5 h-5 rounded-full" /><span className="text-white text-xs">@{u.username}</span></div>)}</div>)}<div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreen({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2"><label className={`white-icon-btn text-sm ${uploading?'opacity-50':''}`}><i className="fas fa-paperclip"></i> Файлы<input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');return;} setUploading(true); const up=await uploadMedia(files); setMedia([...media,...up]); setUploading(false); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="white-icon-btn text-sm"><i className="fas fa-chart-simple"></i> Опрос</button><button onClick={()=>setShowHideModal(true)} className="white-icon-btn text-sm"><i className="fas fa-eye-slash"></i> Скрыть</button><button onClick={createPost} className="white-glow-btn px-4 py-1.5 rounded-full text-sm">Опубликовать</button></div></div></div></div>
+            <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm resize-none" value={newPost} onChange={handlePostChange} />{showMentions && mentionUsers.length>0 && (<div className="absolute bottom-full left-0 bg-[#1a1a1a] border border-gray-700 rounded-xl max-h-36 overflow-auto z-10 mb-1 w-44">{mentionUsers.map(u=><div key={u.id} className="p-1.5 hover:bg-[#2a2a2a] cursor-pointer flex gap-2" onClick={()=>insertMention(u.username)}><img src={u.avatar||DEFAULT_AVATAR} className="w-5 h-5 rounded-full" /><span className="text-white text-xs">@{u.username}</span></div>)}</div>)}<div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreen({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2"><label className={`icon-btn text-sm ${uploading?'opacity-50':''}`}><i className="fas fa-paperclip"></i><input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');return;} setUploading(true); const up=await uploadMedia(files); setMedia([...media,...up]); setUploading(false); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="icon-btn text-sm"><i className="fas fa-chart-simple"></i></button><button onClick={()=>setShowHideModal(true)} className="icon-btn text-sm"><i className="fas fa-eye-slash"></i></button><button onClick={createPost} className="white-glow-btn text-sm">Опубликовать</button></div></div></div></div>
             {orderedPosts.map(p=>{
               const comments=p.comments||[];
               const firstThree=comments.filter(c=>!c.reply_to_id).slice(0,3);
@@ -809,7 +840,7 @@
                   <ReadMore text={p.content} maxLength={200} />
                   <MediaCollage media={p.media} onFullscreen={(m)=>setFullscreen(m)} />
                   {p.poll && <PollComponent poll={p.poll} postId={p.id} userId={user.id} onVote={handlePollVote} />}
-                  <div className="flex gap-3 mt-2 text-gray-400 text-xs"><button onClick={()=>likePost(p.id,p.likes||0)} className="flex gap-1 hover:text-red-400"><i className="fas fa-heart"></i> {formatLikes(p.likes||0)}</button><button onClick={()=>{const d=document.getElementById(`c-${p.id}`); if(d)d.classList.toggle('hidden');}} className="flex gap-1 hover:text-blue-400"><i className="far fa-comment"></i> {(p.comments||[]).length}</button></div>
+                  <div className="flex gap-3 mt-2 text-gray-400 text-sm"><button onClick={()=>likePost(p.id,p.likes||0)} className="flex gap-1 hover:text-red-400"><i className="fas fa-heart"></i> {formatLikes(p.likes||0)}</button><button onClick={()=>setCommentsPagePost(p)} className="flex gap-1 hover:text-blue-400"><i className="far fa-comment"></i> {(p.comments||[]).length}</button></div>
                   <div id={`c-${p.id}`} className="hidden mt-2 pt-2 border-t border-gray-800">
                     {firstThree.map(c=>(
                       <div key={c.id} className="mb-2 fade-comment"><div className="flex items-start gap-2 p-2 hover:bg-[#2a2a2a] rounded-xl cursor-pointer" onClick={()=>setCommentsPagePost(p)}><img src={c.user_avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full mt-0.5" /><div className="flex-1"><div className="flex items-center gap-2"><span className="font-bold text-sm text-white">@{c.username}</span><span className="text-xs text-gray-500">{formatDate(c.created_at)}</span></div>{c.reply_to_username&&<div className="reply-quote mt-1"><span>@{c.reply_to_username}</span></div>}<p className="text-gray-300 text-sm mt-1">{c.text.length>80?c.text.substring(0,80)+'...':c.text}</p></div></div></div>
@@ -822,7 +853,7 @@
             })}
           </>)}
 
-          {tab==='search' && (<div><div className="card p-3 mb-4"><div className="flex gap-2 mb-2"><button onClick={()=>setSType('users')} className={`text-xs px-2 py-1 rounded-full ${sType==='users'?'bg-blue-600':'bg-gray-800'}`}>👥 Пользователи</button><button onClick={()=>setSType('posts')} className={`text-xs px-2 py-1 rounded-full ${sType==='posts'?'bg-blue-600':'bg-gray-800'}`}>📄 Посты</button></div><input type="text" placeholder="Поиск..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" /></div>{sType==='users'&&searchUsers.map(u=><div key={u.id} className="card p-3 mb-2 flex justify-between items-center"><div className="flex gap-2 cursor-pointer" onClick={()=>setViewProfile(u)}><img src={u.avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">{u.full_name||u.username}</div><div className="text-gray-400 text-xs">@{u.username}</div></div></div><button onClick={()=>{setChatUser(u); setTab('chat');}} className="bg-green-600 text-white px-2 py-0.5 rounded-full text-xs">Чат</button></div>)}</div>)}
+          {tab==='search' && (<div><div className="card p-3 mb-4"><div className="flex gap-2 mb-2"><button onClick={()=>setSType('users')} className={`text-xs px-2 py-1 rounded-full ${sType==='users'?'bg-blue-600':'bg-gray-800'}`}><i className="fas fa-users mr-1"></i> Пользователи</button><button onClick={()=>setSType('posts')} className={`text-xs px-2 py-1 rounded-full ${sType==='posts'?'bg-blue-600':'bg-gray-800'}`}><i className="fas fa-hashtag mr-1"></i> Хештеги</button></div><input type="text" placeholder="Поиск..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full p-2 bg-[#2a2a2a] rounded-xl text-white text-sm" /></div>{sType==='users'&&searchUsers.map(u=><div key={u.id} className="card p-3 mb-2 flex justify-between items-center"><div className="flex gap-2 cursor-pointer" onClick={()=>setViewProfile(u)}><img src={u.avatar||DEFAULT_AVATAR} className="w-7 h-7 rounded-full" /><div><div className="font-bold text-white text-sm">{u.full_name||u.username}</div><div className="text-gray-400 text-xs">@{u.username}</div></div></div><button onClick={()=>{setChatUser(u); setTab('chat');}} className="bg-green-600 text-white px-2 py-0.5 rounded-full text-xs">Чат</button></div>)}</div>)}
 
           {tab==='chat' && (<div className="flex flex-col h-[80vh]">
             <div className="chat-user-list">
@@ -867,7 +898,7 @@
 
           {tab==='notify' && (<div><div className="flex justify-between items-center mb-2"><h2 className="text-lg font-bold text-white">Уведомления</h2><button onClick={async()=>{const unreadIds=notifs.filter(n=>!n.read).map(n=>n.id); if(unreadIds.length===0)return; await supabase.from('notifications').update({read:true}).in('id',unreadIds); setNotifs(prev=>prev.map(n=>({...n,read:true}))); showToast('Все прочитаны');}} className="text-xs bg-gray-700 px-2 py-0.5 rounded-full">Прочитать все</button></div>{notifs.length===0&&<div className="card p-6 text-center text-gray-500">Нет уведомлений</div>}{notifs.map(n=><div key={n.id} className={`card p-2 mb-2 cursor-pointer ${!n.read?'border-l-4 border-green-500':''}`} onClick={async()=>{await supabase.from('notifications').update({read:true}).eq('id',n.id); setNotifs(prev=>prev.map(not=>not.id===n.id?{...not,read:true}:not)); if(n.type==='message'){const from=users.find(u=>u.id===n.from_user_id); if(from){setChatUser(from); setTab('chat');}} else setTab('feed');}}><p className="text-white text-sm">{n.text}</p><p className="text-gray-500 text-xs">{formatDate(n.created_at)}</p></div>)}</div>)}
 
-          {tab==='profile' && (<div className="card p-4 text-center"><div className="flex justify-end"><button onClick={()=>setSwitchDialog(true)} className="text-gray-400 hover:text-white p-1"><i className="fas fa-exchange-alt"></i></button></div><div className="avatar-upload w-20 h-20 mx-auto relative cursor-pointer"><img src={user.avatar||DEFAULT_AVATAR} className="w-20 h-20 rounded-full object-cover" /><input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer rounded-full" onChange={(e)=>upAvatar(e.target.files[0])} disabled={avatarUp} /></div>{editProfile?(<div className="mt-3"><input type="text" value={editName} onChange={e=>setEditName(e.target.value)} className="w-full p-1.5 bg-[#2a2a2a] rounded-xl text-white text-sm" placeholder="Имя" /><textarea value={editBio} onChange={e=>setEditBio(e.target.value)} className="w-full p-1.5 bg-[#2a2a2a] rounded-xl text-white text-sm mt-1" rows="2" placeholder="О себе"></textarea><div className="flex gap-2 mt-2"><button onClick={saveProfile} className="flex-1 bg-green-600 text-white py-1 rounded-xl text-sm">Сохранить</button><button onClick={()=>setEditProfile(false)} className="flex-1 bg-gray-700 text-white py-1 rounded-xl text-sm">Отмена</button></div></div>):(<><h2 className="text-lg font-bold text-white mt-1">{user.full_name||user.username}</h2><p className="text-gray-400 text-sm">@{user.username}</p><p className="text-gray-500 text-xs mt-1">{user.bio||''}</p><div className="flex gap-4 justify-center mt-3 text-sm"><div><span className="font-bold text-white">{posts.filter(p=>p.user_id===user.id).length}</span><span className="text-gray-500 ml-1">постов</span></div><div><span className="font-bold text-white">{user.followers?.length||0}</span><span className="text-gray-500 ml-1">подписчиков</span></div><div><span className="font-bold text-white">{user.following?.length||0}</span><span className="text-gray-500 ml-1">подписок</span></div></div></>)}</div>)}
+          {tab==='profile' && (<div className="card p-4 text-center relative"><ProfileMenu /><div className="avatar-upload w-20 h-20 mx-auto relative cursor-pointer"><img src={user.avatar||DEFAULT_AVATAR} className="w-20 h-20 rounded-full object-cover" /><input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer rounded-full" onChange={(e)=>upAvatar(e.target.files[0])} disabled={avatarUp} /></div>{editProfile?(<div className="mt-3"><input type="text" value={editName} onChange={e=>setEditName(e.target.value)} className="w-full p-1.5 bg-[#2a2a2a] rounded-xl text-white text-sm" placeholder="Имя" /><textarea value={editBio} onChange={e=>setEditBio(e.target.value)} className="w-full p-1.5 bg-[#2a2a2a] rounded-xl text-white text-sm mt-1" rows="2" placeholder="О себе"></textarea><div className="flex gap-2 mt-2"><button onClick={saveProfile} className="flex-1 bg-green-600 text-white py-1 rounded-xl text-sm">Сохранить</button><button onClick={()=>setEditProfile(false)} className="flex-1 bg-gray-700 text-white py-1 rounded-xl text-sm">Отмена</button></div></div>):(<><h2 className="text-lg font-bold text-white mt-1">{user.full_name||user.username}</h2><p className="text-gray-400 text-sm">@{user.username}</p><p className="text-gray-500 text-xs mt-1">{user.bio||''}</p><div className="flex gap-4 justify-center mt-3 text-sm"><div><span className="font-bold text-white">{posts.filter(p=>p.user_id===user.id).length}</span><span className="text-gray-500 ml-1">постов</span></div><div><span className="font-bold text-white">{user.followers?.length||0}</span><span className="text-gray-500 ml-1">подписчиков</span></div><div><span className="font-bold text-white">{user.following?.length||0}</span><span className="text-gray-500 ml-1">подписок</span></div></div></>)}</div>)}
         </main>
       </div>
     );
