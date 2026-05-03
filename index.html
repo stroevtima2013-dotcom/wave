@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
   <title>Wave Social</title>
   <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
@@ -39,7 +39,9 @@
     .message-mine { background: #3b82f6; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
     .message-theirs { background: #2a2a2a; color: white; align-self: flex-start; border-bottom-left-radius: 4px; }
     .message-media { max-width: 200px; max-height: 200px; border-radius: 12px; margin-top: 6px; cursor: pointer; }
-    .post-media-large { width: 100%; border-radius: 16px; margin-top: 12px; cursor: pointer; max-height: 450px; object-fit: cover; }
+    .post-media-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; }
+    .post-media-grid .full-width { grid-column: span 2; }
+    .post-media-grid img, .post-media-grid video { width: 100%; border-radius: 14px; cursor: pointer; max-height: 300px; object-fit: cover; }
     .read-more-container { position: relative; }
     .read-more-content.collapsed { max-height: 120px; overflow: hidden; }
     .read-more-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, #1a1a1a); pointer-events: none; }
@@ -55,21 +57,18 @@
     .mention-suggestions { position: absolute; bottom: 100%; left: 0; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 16px; max-height: 200px; overflow-y: auto; z-index: 50; width: 220px; margin-bottom: 5px; }
     .mention-suggestion-item { padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.1s; }
     .mention-suggestion-item:hover { background: #2a2a2a; }
-    .banner-upload { width: 100%; height: 150px; background: linear-gradient(135deg, #2a2a2a, #1a1a1a); border-radius: 16px; position: relative; cursor: pointer; overflow: hidden; background-size: cover; background-position: center; }
-    .banner-upload:hover .banner-overlay { opacity: 1; }
-    .banner-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; }
-    .post-text { font-size: 15px; line-height: 1.5; }
-    .action-btn { font-size: 15px; gap: 8px; }
-    
+    .action-btn { font-size: 15px; gap: 8px; padding: 6px 12px; border-radius: 30px; transition: 0.2s; }
+    .action-btn:hover { background: rgba(255,255,255,0.05); }
+    .shared-post-card { background: #252525; border-radius: 16px; padding: 12px; margin-top: 8px; cursor: pointer; transition: 0.2s; border: 1px solid #3a3a3a; }
+    .shared-post-card:hover { background: #2a2a2a; border-color: #3b82f6; }
     @media (max-width: 640px) {
       .message-bubble { max-width: 90%; }
       .chat-user-item { padding: 10px; }
       .card { border-radius: 16px; }
       .white-icon-btn { padding: 5px 10px; font-size: 12px; }
       .white-glow-btn { padding: 6px 12px; font-size: 12px; }
-      .post-media-large { max-height: 300px; }
-      .post-text { font-size: 14px; }
-      .action-btn { font-size: 14px; }
+      .post-media-grid { gap: 4px; }
+      .action-btn { font-size: 13px; padding: 4px 10px; }
     }
   </style>
 </head>
@@ -81,12 +80,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 
 <script type="text/babel">
-  // ========== ВАШИ ДАННЫЕ SUPABASE ==========
   const SUPABASE_URL = "https://udjyttttghwtylzjavmw.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_U_lF6X0ZakHsq6I_f8byHA_91hFjf3y";
   const STORAGE_BUCKET = "wave-media";
   const DEFAULT_AVATAR = "https://ui-avatars.com/api/?background=3b82f6&color=fff&rounded=true&size=96&bold=true&length=2&name=?";
-  const DEFAULT_BANNER = "https://images.unsplash.com/photo-1614853316476-de00d14cb1fc?w=800&h=200&fit=crop";
   
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -100,16 +97,17 @@
   
   function formatDate(iso) { 
     if(!iso) return 'только что';
-    const d = new Date(iso), n = new Date(), diff = Math.floor((n - d) / 1000); 
-    if (diff < 60) return 'только что'; 
-    if (diff < 3600) return `${Math.floor(diff/60)} мин назад`; 
-    if (diff < 86400) { 
-      const h = d.getHours().toString().padStart(2,'0'), m = d.getMinutes().toString().padStart(2,'0'); 
-      return `сегодня в ${h}:${m}`; 
-    } 
-    if (diff < 172800) return 'вчера'; 
-    if (diff < 604800) return `${Math.floor(diff/86400)} дн назад`; 
-    return `${Math.floor(diff/604800)} нед назад`; 
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = Math.floor((now - d) / 1000);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterdayStart = new Date(todayStart - 86400000);
+    
+    if (diff < 60) return 'только что';
+    if (diff < 3600) return `${Math.floor(diff/60)} мин назад`;
+    if (d >= todayStart) return `сегодня в ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    if (d >= yesterdayStart) return `вчера в ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    return `${d.getDate()}.${d.getMonth()+1}.${d.getFullYear()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
   }
   
   function formatLikes(n) { 
@@ -117,16 +115,93 @@
     return n; 
   }
 
+  function getRecommendationOrder(posts) {
+    const popular = posts.filter(p => (p.likes || 0) + (p.comments?.length || 0) > 3);
+    const normal = posts.filter(p => (p.likes || 0) + (p.comments?.length || 0) <= 3);
+    const mixed = [];
+    const maxLen = Math.max(popular.length, normal.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (i < popular.length) mixed.push(popular[i]);
+      if (i < normal.length) mixed.push(normal[i]);
+    }
+    return mixed;
+  }
+
+  function MediaCollage({ media, onFullscreen }) {
+    if (!media || media.length === 0) return null;
+    if (media.length === 1) {
+      const m = media[0];
+      return (
+        <div className="mt-3">
+          {m.type === 'video' ? 
+            <video src={m.url} className="w-full rounded-xl max-h-[450px] object-cover cursor-pointer" onClick={() => onFullscreen(m)} /> :
+            <img src={m.url} className="w-full rounded-xl max-h-[450px] object-cover cursor-pointer" onClick={() => onFullscreen(m)} />
+          }
+        </div>
+      );
+    }
+    if (media.length === 2) {
+      return (
+        <div className="post-media-grid mt-3">
+          {media.map((m, i) => (
+            <div key={i}>
+              {m.type === 'video' ? 
+                <video src={m.url} className="w-full rounded-xl h-48 object-cover cursor-pointer" onClick={() => onFullscreen(m)} /> :
+                <img src={m.url} className="w-full rounded-xl h-48 object-cover cursor-pointer" onClick={() => onFullscreen(m)} />
+              }
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <div className="grid grid-cols-3 gap-1 mt-3">
+        {media.slice(0, 3).map((m, i) => (
+          <div key={i}>
+            {m.type === 'video' ? 
+              <video src={m.url} className="w-full rounded-xl aspect-square object-cover cursor-pointer" onClick={() => onFullscreen(m)} /> :
+              <img src={m.url} className="w-full rounded-xl aspect-square object-cover cursor-pointer" onClick={() => onFullscreen(m)} />
+            }
+          </div>
+        ))}
+        {media.length > 3 && (
+          <div className="relative cursor-pointer" onClick={() => onFullscreen(media[0])}>
+            <img src={media[3]?.url} className="w-full rounded-xl aspect-square object-cover opacity-70" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl">
+              <span className="text-white font-bold text-xl">+{media.length - 3}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function SharedPostCard({ post, onGoToPost }) {
+    return (
+      <div className="shared-post-card" onClick={(e) => { e.stopPropagation(); onGoToPost(post.id); }}>
+        <div className="flex items-center gap-2 mb-2">
+          <img src={post.user_avatar || DEFAULT_AVATAR} className="w-5 h-5 rounded-full" />
+          <span className="text-white text-xs font-medium">@{post.username}</span>
+        </div>
+        <p className="text-gray-300 text-sm line-clamp-2">{post.content?.substring(0, 100)}{post.content?.length > 100 ? '...' : ''}</p>
+        <div className="flex gap-3 mt-2 text-gray-500 text-xs">
+          <span><i className="fas fa-heart text-red-500"></i> {formatLikes(post.likes || 0)}</span>
+          <span><i className="far fa-comment"></i> {(post.comments || []).length}</span>
+        </div>
+      </div>
+    );
+  }
+
   function ReadMore({ text, maxLength = 180 }) {
     const [expanded, setExpanded] = React.useState(false);
     if(!text) return null;
     const needTruncate = text.length > maxLength;
     const displayText = expanded ? text : (needTruncate ? text.slice(0, maxLength) + '...' : text);
-    if (!needTruncate) return <p className="text-white post-text whitespace-pre-wrap leading-relaxed">{text}</p>;
+    if (!needTruncate) return <p className="text-white text-sm whitespace-pre-wrap leading-relaxed">{text}</p>;
     return (
       <div className="read-more-container relative">
         <div className={`read-more-content ${!expanded ? 'collapsed' : ''}`}>
-          <p className="text-white post-text whitespace-pre-wrap leading-relaxed">{displayText}</p>
+          <p className="text-white text-sm whitespace-pre-wrap leading-relaxed">{displayText}</p>
         </div>
         {!expanded && <div className="read-more-overlay"></div>}
         <button onClick={() => setExpanded(!expanded)} className="read-more-btn">{expanded ? 'Свернуть ↑' : 'Читать далее ↓'}</button>
@@ -223,9 +298,10 @@
       const replies = comments.filter(rc => rc.reply_to_id === c.id);
       return (
         <div key={c.id} className="mb-3" style={{marginLeft: depth*16}}>
-          <div className="flex gap-2 p-2 hover:bg-[#2a2a2a] rounded-xl">
+          <div className="flex gap-2 p-2 hover:bg-[#2a2a2a] rounded-xl group">
             <img src={c.user_avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full mt-0.5" />
-            <div className="flex-1"><div className="flex gap-2 flex-wrap"><span className="font-bold text-white text-sm">@{c.username}</span><span className="text-gray-500 text-xs">{formatDate(c.created_at)}</span></div>{c.reply_to_username && <div className="reply-quote mt-1 text-xs">→ @{c.reply_to_username}</div>}<p className="text-gray-300 text-sm mt-1">{c.text}</p><button onClick={()=>{setReplyTo(c); setText(`@${c.username} `);}} className="text-blue-400 text-xs mt-1">Ответить</button>{c.user_id===currentUser.id && <button onClick={()=>onDeleteComment(post.id, c.id)} className="text-red-400 text-xs ml-2">Удалить</button>}</div>
+            <div className="flex-1"><div className="flex gap-2 flex-wrap"><span className="font-bold text-white text-sm">@{c.username}</span><span className="text-gray-500 text-xs">{formatDate(c.created_at)}</span></div>{c.reply_to_username && <div className="reply-quote mt-1 text-xs">→ @{c.reply_to_username}</div>}<p className="text-gray-300 text-sm mt-1">{c.text}</p><button onClick={()=>{setReplyTo(c); setText(`@${c.username} `);}} className="text-blue-400 text-xs mt-1 opacity-0 group-hover:opacity-100 transition">Ответить</button></div>
+            {c.user_id === currentUser.id && <button onClick={() => onDeleteComment(post.id, c.id)} className="text-red-400 text-xs opacity-0 group-hover:opacity-100 transition"><i className="fas fa-trash-alt"></i></button>}
           </div>
           {replies.map(r => renderComment(r, depth+1))}
         </div>
@@ -280,7 +356,7 @@
         if (pass.length < 4) { setErr('Пароль минимум 4 символа'); setLoad(false); return; } 
         const { data: exist } = await supabase.from('users').select('username').eq('username', user).single(); 
         if (exist) { setErr('Имя пользователя занято'); setLoad(false); return; } 
-        const { data: nu } = await supabase.from('users').insert({ username: user, full_name: name || user, password_hash: pass, avatar: DEFAULT_AVATAR, banner: DEFAULT_BANNER, following: [], followers: [] }).select().single(); 
+        const { data: nu } = await supabase.from('users').insert({ username: user, full_name: name || user, password_hash: pass, avatar: DEFAULT_AVATAR, following: [], followers: [] }).select().single(); 
         if (nu) onLogin(nu); else setErr('Ошибка регистрации'); 
       } 
       setLoad(false); 
@@ -319,14 +395,11 @@
     const [uploading, setUploading] = React.useState(false);
     const [commentTexts, setCommentTexts] = React.useState({});
     const [msgText, setMsgText] = React.useState('');
-    const [msgMedia, setMsgMedia] = React.useState(null);
-    const [msgUploading, setMsgUploading] = React.useState(false);
     const [search, setSearch] = React.useState('');
     const [searchUsers, setSearchUsers] = React.useState([]);
     const [searchPosts, setSearchPosts] = React.useState([]);
     const [sType, setSType] = React.useState('users');
     const [avatarUp, setAvatarUp] = React.useState(false);
-    const [bannerUp, setBannerUp] = React.useState(false);
     const [editProfile, setEditProfile] = React.useState(false);
     const [editName, setEditName] = React.useState(user.full_name||'');
     const [editBio, setEditBio] = React.useState(user.bio||'');
@@ -349,17 +422,25 @@
     const [showMentions, setShowMentions] = React.useState(false);
     const [mentionQuery, setMentionQuery] = React.useState('');
     const [mentionPos, setMentionPos] = React.useState(0);
+    const [scrollingToPost, setScrollingToPost] = React.useState(null);
     const msgEndRef = React.useRef(null);
     const textareaRef = React.useRef(null);
     const messageIdsSet = React.useRef(new Set());
     const chatContainerRef = React.useRef(null);
+    const postRefs = React.useRef({});
 
-    // Автоскролл чата вниз
     React.useEffect(() => {
       if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
       }
     }, [messages]);
+
+    React.useEffect(() => {
+      if (scrollingToPost && postRefs.current[scrollingToPost]) {
+        postRefs.current[scrollingToPost].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setScrollingToPost(null);
+      }
+    }, [scrollingToPost, posts]);
 
     const loadAll = async () => {
       try {
@@ -393,7 +474,6 @@
     React.useEffect(() => { loadAll(); }, []);
     React.useEffect(() => { if(chatUser) loadAll(); }, [chatUser]);
 
-    // Real-time подписки
     React.useEffect(() => {
       const pSub = supabase.channel('posts').on('postgres_changes', {event:'*',schema:'public',table:'posts'}, () => loadAll()).subscribe();
       const mSub = supabase.channel('messages').on('postgres_changes', {event:'INSERT',schema:'public',table:'messages'}, (payload) => {
@@ -418,14 +498,12 @@
       return () => { pSub.unsubscribe(); mSub.unsubscribe(); };
     }, [chatUser, user.id]);
 
-    // Поиск
     React.useEffect(() => {
       if(!search.trim()){ setSearchUsers([]); setSearchPosts([]); return; }
       if(sType === 'users') setSearchUsers(users.filter(u=>u.id!==user.id && u.username.toLowerCase().includes(search.toLowerCase())));
       else setSearchPosts(posts.filter(p=>p.content?.toLowerCase().includes(search.toLowerCase())));
     }, [search, sType, users, posts]);
 
-    // Обработка упоминаний
     const handlePostChange = (e) => {
       const val = e.target.value;
       setNewPost(val);
@@ -462,14 +540,6 @@
         uploaded.push({url:url.publicUrl, type:f.type.startsWith('image/')?'image':'video'});
       }
       return uploaded;
-    };
-
-    const uploadChatMedia = async (file) => {
-      const name = `${Date.now()}_${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
-      const {error} = await supabase.storage.from(STORAGE_BUCKET).upload(name, file);
-      if(error) return null;
-      const {data:url} = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(name);
-      return {url:url.publicUrl, type:file.type.startsWith('image/')?'image':'video'};
     };
 
     const createPost = async () => {
@@ -572,31 +642,21 @@
     };
     
     const sendMsg = async () => {
-      if((!msgText.trim() && !msgMedia) || !chatUser) return;
-      let mediaData = null;
-      if(msgMedia) {
-        mediaData = msgMedia;
-      }
-      const {data:ins} = await supabase.from('messages').insert({ from_user:user.id, to_user:chatUser.id, content:msgText, media:mediaData, read:false, created_at:new Date() }).select().single();
-      if(ins) {
-        setMessages(prev => [...prev, ins]);
-      }
+      if(!msgText.trim() || !chatUser) return;
+      const {data:ins} = await supabase.from('messages').insert({ from_user:user.id, to_user:chatUser.id, content:msgText, read:false, created_at:new Date() }).select().single();
+      if(ins) setMessages(prev => [...prev, ins]);
       setMsgText('');
-      setMsgMedia(null);
       await supabase.from('notifications').insert({ user_id:chatUser.id, type:'message', from_user_id:user.id, from_username:user.username, text:`${user.username} написал вам`, read:false, created_at:new Date() });
     };
     
-    const handleChatMedia = async (e) => {
-      const file = e.target.files[0];
-      if(!file) return;
-      setMsgUploading(true);
-      const uploaded = await uploadChatMedia(file);
-      if(uploaded) {
-        setMsgMedia(uploaded);
-        showToast('Медиа добавлено');
+    const sharePostToChat = async (post) => {
+      if(!chatUser) { showToast('Выберите чат'); return; }
+      const sharedContent = `📌 Поделился постом:\n\n"${post.content?.substring(0, 200)}"${post.content?.length > 200 ? '...' : ''}\n\n❤️ ${formatLikes(post.likes || 0)} лайков | 💬 ${(post.comments || []).length} комментариев`;
+      const {data:ins} = await supabase.from('messages').insert({ from_user:user.id, to_user:chatUser.id, content:sharedContent, shared_post_id:post.id, read:false, created_at:new Date() }).select().single();
+      if(ins) {
+        setMessages(prev => [...prev, ins]);
+        showToast('Пост отправлен в чат');
       }
-      setMsgUploading(false);
-      e.target.value = '';
     };
     
     const upAvatar = async (file) => { 
@@ -611,20 +671,6 @@
       await loadAll(); 
       setAvatarUp(false); 
       showToast('Аватар обновлён'); 
-    };
-    
-    const upBanner = async (file) => { 
-      if(!file) return; 
-      setBannerUp(true); 
-      const name=`banner_${user.id}_${Date.now()}.jpg`; 
-      const {error}=await supabase.storage.from(STORAGE_BUCKET).upload(name,file); 
-      if(error){showToast('Ошибка'); setBannerUp(false); return;} 
-      const {data:url}=supabase.storage.from(STORAGE_BUCKET).getPublicUrl(name); 
-      await supabase.from('users').update({banner:url.publicUrl}).eq('id',user.id); 
-      user.banner=url.publicUrl; 
-      await loadAll(); 
-      setBannerUp(false); 
-      showToast('Баннер обновлён'); 
     };
     
     const saveProfile = async () => { 
@@ -666,76 +712,52 @@
       
       return (
         <div className="min-h-screen" style={{background:'#0a0a0a'}}>
-          <div className="relative">
-            <div className="banner-upload" style={{backgroundImage: prof.banner ? `url(${prof.banner})` : `linear-gradient(135deg, #2a2a2a, #1a1a1a)`}}>
-              {prof.id === user.id && (
-                <>
-                  <input type="file" accept="image/*" id="bannerInput" className="hidden" onChange={(e)=>upBanner(e.target.files[0])} />
-                  <label htmlFor="bannerInput" className="banner-overlay cursor-pointer">
-                    <i className="fas fa-camera text-white text-2xl"></i>
-                  </label>
-                </>
-              )}
-            </div>
-            <button onClick={()=>setViewProfile(null)} className="absolute top-3 left-3 text-white bg-black/50 p-2 rounded-full hover:bg-black/70 z-10"><i className="fas fa-arrow-left"></i></button>
-          </div>
-          <div className="px-4 pb-4">
-            <div className="relative -mt-12 mb-4 flex justify-between items-end">
-              <div className="relative">
-                <img src={prof.avatar||DEFAULT_AVATAR} className="w-24 h-24 rounded-full border-4 border-[#0a0a0a]" />
-                {prof.id === user.id && (
-                  <>
-                    <input type="file" accept="image/*" id="avatarInput" className="hidden" onChange={(e)=>upAvatar(e.target.files[0])} />
-                    <label htmlFor="avatarInput" className="absolute bottom-1 right-1 bg-blue-600 p-1.5 rounded-full cursor-pointer hover:bg-blue-700">
-                      <i className="fas fa-camera text-white text-xs"></i>
-                    </label>
-                  </>
-                )}
-              </div>
+          <button onClick={()=>setViewProfile(null)} className="fixed top-4 left-4 z-10 text-white bg-black/50 p-2 rounded-full hover:bg-black/70"><i className="fas fa-arrow-left"></i></button>
+          <div className="pt-12 px-4 pb-4">
+            <div className="flex flex-col items-center">
+              <img src={prof.avatar||DEFAULT_AVATAR} className="w-24 h-24 rounded-full border-4 border-blue-500" />
+              <h2 className="text-xl font-bold text-white mt-3">{prof.full_name||prof.username}</h2>
+              <p className="text-gray-400 text-sm">@{prof.username}</p>
+              <p className="text-gray-500 text-sm mt-2 text-center">{prof.bio||''}</p>
               {prof.id !== user.id && (
-                <button onClick={()=>follow(prof.id)} className={`px-4 py-1.5 rounded-full text-sm transition ${isFollowing?'bg-gray-600':'bg-blue-600'}`}>{isFollowing?'Отписаться':'Подписаться'}</button>
+                <button onClick={()=>follow(prof.id)} className={`mt-3 px-6 py-1.5 rounded-full text-sm transition ${isFollowing?'bg-gray-600':'bg-blue-600'}`}>{isFollowing?'Отписаться':'Подписаться'}</button>
               )}
-            </div>
-            <h2 className="text-xl font-bold text-white">{prof.full_name||prof.username}</h2>
-            <p className="text-gray-400 text-sm mb-3">@{prof.username}</p>
-            <p className="text-gray-400 text-sm mb-4">{prof.bio||''}</p>
-            <div className="flex gap-4 text-sm mb-4">
-              <button onClick={()=>{setShowSubs(!showSubs); setShowFollows(false);}} className="hover:text-blue-400 transition">
-                <span className="font-bold text-white">{prof.followers?.length||0}</span> подписчиков
-              </button>
-              <button onClick={()=>{setShowFollows(!showFollows); setShowSubs(false);}} className="hover:text-blue-400 transition">
-                <span className="font-bold text-white">{prof.following?.length||0}</span> подписок
-              </button>
-            </div>
-            {showSubs && (
-              <div className="mb-4 p-2 bg-[#1a1a1a] rounded-xl max-h-48 overflow-y-auto border border-gray-800">
-                {users.filter(u=>prof.followers?.includes(u.id)).map(u=>(
-                  <div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded transition" onClick={()=>setViewProfile(u)}>
-                    <img src={u.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" />
-                    <div><div className="text-white text-sm font-medium">@{u.username}</div><div className="text-gray-500 text-xs">{u.full_name||u.username}</div></div>
-                  </div>
-                ))}
-                {prof.followers?.length===0 && <div className="text-gray-500 text-sm text-center py-2">Нет подписчиков</div>}
+              <div className="flex gap-6 mt-4 text-sm">
+                <button onClick={()=>{setShowSubs(!showSubs); setShowFollows(false);}} className="hover:text-blue-400 transition">
+                  <span className="font-bold text-white text-lg">{prof.followers?.length||0}</span> подписчиков
+                </button>
+                <button onClick={()=>{setShowFollows(!showFollows); setShowSubs(false);}} className="hover:text-blue-400 transition">
+                  <span className="font-bold text-white text-lg">{prof.following?.length||0}</span> подписок
+                </button>
               </div>
-            )}
-            {showFollows && (
-              <div className="mb-4 p-2 bg-[#1a1a1a] rounded-xl max-h-48 overflow-y-auto border border-gray-800">
-                {users.filter(u=>prof.following?.includes(u.id)).map(u=>(
-                  <div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded transition" onClick={()=>setViewProfile(u)}>
-                    <img src={u.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" />
-                    <div><div className="text-white text-sm font-medium">@{u.username}</div><div className="text-gray-500 text-xs">{u.full_name||u.username}</div></div>
-                  </div>
-                ))}
-                {prof.following?.length===0 && <div className="text-gray-500 text-sm text-center py-2">Нет подписок</div>}
-              </div>
-            )}
-            <div className="space-y-3">
-              {profPosts.map(p=>(
-                <div key={p.id} className="card p-3">
-                  <ReadMore text={p.content} maxLength={180} />
-                  <div className="flex gap-4 mt-2 text-gray-400 text-sm"><span><i className="fas fa-heart text-red-500"></i> {formatLikes(p.likes||0)}</span><span><i className="far fa-comment"></i> {(p.comments||[]).length}</span></div>
+              {showSubs && (
+                <div className="mt-3 w-full max-h-48 overflow-y-auto bg-[#1a1a1a] rounded-xl p-2">
+                  {users.filter(u=>prof.followers?.includes(u.id)).map(u=>(
+                    <div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded" onClick={()=>setViewProfile(u)}>
+                      <img src={u.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" />
+                      <div><div className="text-white font-medium">@{u.username}</div><div className="text-gray-500 text-xs">{u.full_name||u.username}</div></div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+              {showFollows && (
+                <div className="mt-3 w-full max-h-48 overflow-y-auto bg-[#1a1a1a] rounded-xl p-2">
+                  {users.filter(u=>prof.following?.includes(u.id)).map(u=>(
+                    <div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded" onClick={()=>setViewProfile(u)}>
+                      <img src={u.avatar||DEFAULT_AVATAR} className="w-8 h-8 rounded-full" />
+                      <div><div className="text-white font-medium">@{u.username}</div><div className="text-gray-500 text-xs">{u.full_name||u.username}</div></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="w-full mt-6 space-y-3">
+                {profPosts.map(p=>(
+                  <div key={p.id} ref={el => postRefs.current[p.id] = el} className="card p-3">
+                    <ReadMore text={p.content} maxLength={180} />
+                    <div className="flex gap-4 mt-2 text-gray-400 text-sm"><span><i className="fas fa-heart text-red-500"></i> {formatLikes(p.likes||0)}</span><span><i className="far fa-comment"></i> {(p.comments||[]).length}</span></div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -747,13 +769,14 @@
     if(viewProfile) return renderProfilePage(viewProfile);
 
     const mentionUsers = users.filter(u => u.id !== user.id && u.username.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0,5);
+    const orderedPosts = getRecommendationOrder(posts);
 
     return (
       <div className="min-h-screen pb-16" style={{background:'#0a0a0a'}}>
         {fullscreen && <div className="fullscreen-media" onClick={()=>setFullscreen(null)}>{fullscreen.type==='video'?<video src={fullscreen.url} controls autoPlay />:<img src={fullscreen.url} />}</div>}
         {delPostId && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setDelPostId(null)}><div className="card p-5 max-w-sm w-full text-center"><p className="text-white mb-4">Удалить этот пост?</p><div className="flex gap-2"><button onClick={()=>delPost(delPostId)} className="flex-1 bg-red-600 py-2 rounded-xl">Да</button><button onClick={()=>setDelPostId(null)} className="flex-1 bg-gray-700 py-2 rounded-xl">Нет</button></div></div></div>}
         {editPost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>setEditPost(null)}><div className="card p-5 max-w-sm w-full"><textarea value={editPostContent} onChange={e=>setEditPostContent(e.target.value)} rows="3" className="w-full p-2 input-field text-white mb-3" /><div className="flex gap-2"><button onClick={async()=>{setPosts(prev=>prev.map(p=>p.id===editPost.id?{...p,content:editPostContent,edited:true}:p)); await supabase.from('posts').update({content:editPostContent,edited:true}).eq('id',editPost.id); setEditPost(null); showToast('Пост обновлён');}} className="flex-1 bg-blue-600 py-2 rounded-xl text-white">Сохранить</button><button onClick={()=>setEditPost(null)} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
-        {sharePost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>{setSharePost(null); setShareSel([]);}}><div className="card p-5 max-w-sm w-full"><p className="text-white mb-2">Поделиться</p><div className="max-h-48 overflow-auto">{users.filter(u=>u.id!==user.id).map(u=><div key={u.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded" onClick={()=>setShareSel(prev=>prev.includes(u.id)?prev.filter(id=>id!==u.id):[...prev,u.id])}><input type="checkbox" checked={shareSel.includes(u.id)} onChange={()=>{}} className="w-4 h-4" /><img src={u.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white text-sm">@{u.username}</span></div>)}</div><div className="flex gap-2 mt-3"><button onClick={async()=>{for(let tid of shareSel){await supabase.from('messages').insert({from_user:user.id,to_user:tid,content:`Поделился постом @${sharePost.username}: "${sharePost.content?.substring(0,100)}"`,read:false,created_at:new Date()});} showToast(`Поделились с ${shareSel.length} пользователями`); setSharePost(null); setShareSel([]);}} className="flex-1 bg-green-600 py-2 rounded-xl text-white">Отправить</button><button onClick={()=>{setSharePost(null); setShareSel([]);}} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
+        {sharePost && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>{setSharePost(null); setShareSel([]);}}><div className="card p-5 max-w-sm w-full"><p className="text-white mb-2">Поделиться в чате</p><div className="max-h-48 overflow-auto">{chatList.map(cu=><div key={cu.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2a2a2a] rounded" onClick={()=>{sharePostToChat(sharePost, cu.id); setSharePost(null);}}><img src={cu.avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full" /><span className="text-white">@{cu.username}</span></div>)}</div><button onClick={()=>setSharePost(null)} className="w-full mt-2 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div>}
         {switchDialog && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={()=>{setSwitchDialog(false); setSwitchErr(''); setSwitchUser(''); setSwitchPass('');}}><div className="card p-5 max-w-sm w-full"><p className="text-white mb-3 text-center">Сменить аккаунт</p><input type="text" placeholder="Логин" value={switchUser} onChange={e=>setSwitchUser(e.target.value)} className="w-full p-2 input-field text-white mb-2" /><input type="password" placeholder="Пароль" value={switchPass} onChange={e=>setSwitchPass(e.target.value)} className="w-full p-2 input-field text-white mb-2" />{switchErr&&<div className="text-red-400 text-sm mb-2">{switchErr}</div>}<div className="flex gap-2"><button onClick={async()=>{const{data:acc}=await supabase.from('users').select('*').eq('username',switchUser).single(); if(!acc||acc.password_hash!==switchPass){setSwitchErr('Неверный логин или пароль');return;} localStorage.setItem('wave_user',JSON.stringify(acc)); window.location.reload();}} className="flex-1 bg-blue-600 py-2 rounded-xl text-white">Войти</button><button onClick={()=>{setSwitchDialog(false); setSwitchErr(''); setSwitchUser(''); setSwitchPass('');}} className="flex-1 bg-gray-700 py-2 rounded-xl">Отмена</button></div></div></div>}
         {showPollModal && <PollCreatorModal onClose={()=>setShowPollModal(false)} onSave={(poll)=>{setTempPoll(poll); showToast('Опрос добавлен');}} />}
         {showHideModal && <HideSettingsModal users={users} currentUserId={user.id} selectedUsers={hideSel} onToggleUser={(id)=>setHideSel(prev=>prev.includes(id)?prev.filter(i=>i!==id):[...prev,id])} onApply={()=>{setShowHideModal(false); showToast(`Скрыто от ${hideSel.length} пользователей`);}} onClose={()=>setShowHideModal(false)} />}
@@ -764,17 +787,15 @@
           {tab==='feed' && (
             <div>
               <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 sm:p-3 input-field text-white text-sm resize-none" value={newPost} onChange={handlePostChange} />{showMentions && mentionUsers.length>0 && (<div className="mention-suggestions">{mentionUsers.map(u=><div key={u.id} className="mention-suggestion-item" onClick={()=>insertMention(u.username)}><img src={u.avatar||DEFAULT_AVATAR} className="w-5 h-5 rounded-full" /><span className="text-white text-sm">@{u.username}</span></div>)}</div>)}<div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreen({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2 flex-wrap"><label className={`white-icon-btn text-sm ${uploading?'opacity-50':''}`}><i className="fas fa-paperclip"></i> Файлы<input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');return;} setUploading(true); const up=await uploadMedia(files); setMedia([...media,...up]); setUploading(false); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="white-icon-btn text-sm"><i className="fas fa-chart-simple"></i> Опрос</button><button onClick={()=>setShowHideModal(true)} className="white-icon-btn text-sm"><i className="fas fa-eye-slash"></i> Скрыть</button><button onClick={createPost} className="white-glow-btn px-3 sm:px-4 py-1.5 rounded-full text-sm"><i className="fas fa-paper-plane mr-1"></i> Опубликовать</button></div></div></div></div>
-              {posts.map(p=>{
+              {orderedPosts.map(p=>{
                 const comments=p.comments||[];
                 const firstThree=comments.filter(c=>!c.reply_to_id).slice(0,3);
                 const hasMore=comments.length>3;
                 return (
-                  <div key={p.id} className="card p-3 mb-3">
+                  <div key={p.id} ref={el => postRefs.current[p.id] = el} className="card p-3 mb-3">
                     <div className="flex justify-between items-start"><div className="flex gap-2 cursor-pointer" onClick={()=>p.user_id!==user.id&&setViewProfile(users.find(u=>u.id===p.user_id))}><img src={p.user_avatar||DEFAULT_AVATAR} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full" /><div><div className="font-bold text-white text-xs sm:text-sm">@{p.username}</div><div className="text-xs text-gray-500">{formatDate(p.created_at)}{p.edited&&<span className="ml-1 text-gray-600">(ред)</span>}</div></div></div><PostMenu onEdit={p.user_id===user.id?()=>{setEditPost(p); setEditPostContent(p.content);}:null} onDel={p.user_id===user.id?()=>setDelPostId(p.id):null} onShare={()=>{setSharePost(p); setShareSel([]);}} /></div>
                     <ReadMore text={p.content} maxLength={180} />
-                    {p.media?.length>0 && p.media.map((m,i)=>(
-                      <div key={i}>{m.type==='video'?<video src={m.url} className="post-media-large rounded-xl" onClick={()=>setFullscreen({url:m.url,type:'video'})} />:<img src={m.url} className="post-media-large rounded-xl" onClick={()=>setFullscreen({url:m.url,type:'image'})} />}</div>
-                    ))}
+                    <MediaCollage media={p.media} onFullscreen={(m)=>setFullscreen(m)} />
                     {p.poll && <PollComponent poll={p.poll} postId={p.id} userId={user.id} onVote={handlePollVote} />}
                     <div className="flex gap-4 mt-3 text-gray-400 text-sm"><button onClick={()=>likePost(p.id,p.likes||0)} className="flex gap-1.5 action-btn hover:text-red-400 transition"><i className="fas fa-heart"></i> {formatLikes(p.likes||0)}</button><button onClick={()=>{const d=document.getElementById(`c-${p.id}`); if(d)d.classList.toggle('hidden');}} className="flex gap-1.5 action-btn hover:text-blue-400 transition"><i className="far fa-comment"></i> {(p.comments||[]).length}</button></div>
                     <div id={`c-${p.id}`} className="hidden mt-2 pt-2 border-t border-gray-800">
@@ -787,7 +808,7 @@
                   </div>
                 );
               })}
-              {posts.length===0 && <div className="card p-8 text-center text-gray-500"><i className="fas fa-newspaper text-4xl mb-2 opacity-50"></i><p>Нет постов. Напишите что-нибудь!</p></div>}
+              {orderedPosts.length===0 && <div className="card p-8 text-center text-gray-500"><i className="fas fa-newspaper text-4xl mb-2 opacity-50"></i><p>Нет постов. Напишите что-нибудь!</p></div>}
             </div>
           )}
 
@@ -817,15 +838,11 @@
                   {messages.map(msg=>(
                     <div key={msg.id} className={`flex ${msg.from_user===user.id?'justify-end':'justify-start'}`}>
                       <div className={`message-bubble text-sm ${msg.from_user===user.id?'message-mine':'message-theirs'}`}>
-                        {msg.media && (
-                          <div className="mb-1">
-                            {msg.media.type === 'video' ? 
-                              <video src={msg.media.url} className="message-media" controls /> : 
-                              <img src={msg.media.url} className="message-media" onClick={()=>setFullscreen({url:msg.media.url,type:msg.media.type})} />
-                            }
-                          </div>
-                        )}
-                        {msg.content && <p className="break-words">{msg.content}</p>}
+                        {msg.shared_post_id && (()=>{
+                          const sharedPost = posts.find(p => p.id === msg.shared_post_id);
+                          return sharedPost && <SharedPostCard post={sharedPost} onGoToPost={(pid)=>{setTab('feed'); setScrollingToPost(pid); setChatUser(null);}} />;
+                        })()}
+                        {msg.content && <p className="break-words whitespace-pre-wrap">{msg.content}</p>}
                         <div className="text-[10px] opacity-70 mt-1 text-right">{new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
                       </div>
                     </div>
@@ -833,25 +850,8 @@
                 </div>
                 <div className="p-3 border-t border-gray-800 flex gap-2 bg-[#1a1a1a]">
                   <input type="text" placeholder="Сообщение..." value={msgText} onChange={e=>setMsgText(e.target.value)} onKeyPress={e=>e.key==='Enter'&&sendMsg()} className="flex-1 p-2 input-field rounded-xl text-white text-sm" />
-                  <label className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-xl cursor-pointer transition">
-                    <i className="fas fa-paperclip"></i>
-                    <input type="file" accept="image/*,video/*" onChange={handleChatMedia} className="hidden" />
-                  </label>
-                  {msgUploading && <div className="bg-gray-700 px-3 py-2 rounded-xl"><i className="fas fa-spinner fa-spin"></i></div>}
                   <button onClick={sendMsg} className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition"><i className="fas fa-paper-plane"></i></button>
                 </div>
-                {msgMedia && (
-                  <div className="p-2 bg-[#1a1a1a] border-t border-gray-800 flex items-center gap-2">
-                    <div className="relative">
-                      {msgMedia.type === 'video' ? 
-                        <video src={msgMedia.url} className="h-12 w-12 rounded object-cover" /> : 
-                        <img src={msgMedia.url} className="h-12 w-12 rounded object-cover" />
-                      }
-                      <button onClick={()=>setMsgMedia(null)} className="absolute -top-2 -right-2 bg-red-500 rounded-full w-5 h-5 flex items-center justify-center text-xs">✖</button>
-                    </div>
-                    <span className="text-white text-xs">Медиа готово к отправке</span>
-                  </div>
-                )}
               </div>
             )}
           </div>)}
