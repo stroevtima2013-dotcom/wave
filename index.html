@@ -23,10 +23,10 @@
     .reply-quote { background: #1a1a1a; padding: 6px 10px; border-radius: 12px; border-left: 3px solid #3b82f6; font-size: 11px; color: #aaa; margin-bottom: 6px; }
     .mention { color: #3b82f6; font-weight: 600; cursor: pointer; background: rgba(59,130,246,0.15); padding: 2px 4px; border-radius: 8px; display: inline-block; }
     .hashtag { color: #eab308; font-weight: 600; cursor: pointer; background: rgba(234,179,8,0.15); padding: 2px 4px; border-radius: 8px; display: inline-block; }
-    .white-glow-btn { background: white; color: #111; box-shadow: 0 0 8px rgba(255,255,255,0.3); transition: 0.2s; font-weight: 500; cursor: pointer; border: none; }
-    .white-glow-btn:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(255,255,255,0.5); }
-    .white-icon-btn { background: white; color: #111; border-radius: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; border: none; }
-    .white-icon-btn:hover { transform: scale(1.02); background: #f5f5f5; }
+    .white-glow-btn { background: linear-gradient(135deg, #ffffff, #f0f0f0); color: #111; box-shadow: 0 0 8px rgba(255,255,255,0.3); transition: 0.2s; font-weight: 500; cursor: pointer; border: none; border-radius: 40px; padding: 8px 20px; }
+    .white-glow-btn:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(255,255,255,0.5); background: linear-gradient(135deg, #f5f5f5, #e8e8e8); }
+    .white-icon-btn { background: linear-gradient(135deg, #ffffff, #f0f0f0); color: #111; border-radius: 40px; padding: 8px 16px; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer; border: none; transition: 0.2s; }
+    .white-icon-btn:hover { transform: scale(1.02); background: linear-gradient(135deg, #f5f5f5, #e8e8e8); box-shadow: 0 2px 10px rgba(255,255,255,0.2); }
     .fullscreen-media { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .fullscreen-media img, .fullscreen-media video { max-width: 95vw; max-height: 95vh; border-radius: 28px; }
     .fullscreen-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(12px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
@@ -48,31 +48,34 @@
     .read-more-btn { background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 20px; font-size: 12px; cursor: pointer; margin-top: 8px; }
     .fade-comment { opacity: 0.6; transition: 0.2s; }
     .fade-comment:hover { opacity: 1; }
-    .active-tab { color: white !important; }
+    .active-tab { background: #3b82f6 !important; color: white !important; border-radius: 40px; }
     .poll-option { background: #2a2a2a; border-radius: 12px; margin: 8px 0; overflow: hidden; cursor: pointer; }
     .poll-option:hover { background: #333; }
     .poll-bar { background: #3b82f6; height: 100%; transition: width 0.3s ease; }
-    .input-field { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 14px; padding: 12px; }
+    .input-field { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 40px; padding: 12px 16px; }
     .input-field:focus { border-color: #3b82f6; outline: none; }
     .mention-suggestions { position: absolute; bottom: 100%; left: 0; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 16px; max-height: 200px; overflow-y: auto; z-index: 50; width: 220px; margin-bottom: 5px; }
     .mention-suggestion-item { padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.1s; }
     .mention-suggestion-item:hover { background: #2a2a2a; }
-    .action-btn { font-size: 15px; gap: 8px; padding: 6px 12px; border-radius: 30px; transition: 0.2s; }
-    .action-btn:hover { background: rgba(255,255,255,0.05); }
+    .action-btn { font-size: 15px; gap: 8px; padding: 8px 16px; border-radius: 40px; transition: 0.2s; background: #2a2a2a; }
+    .action-btn:hover { background: #3b82f6; color: white; }
     .shared-post-card { background: #252525; border-radius: 16px; padding: 12px; margin-top: 8px; cursor: pointer; transition: 0.2s; border: 1px solid #3a3a3a; }
     .shared-post-card:hover { background: #2a2a2a; border-color: #3b82f6; }
     .avatar-with-status { position: relative; display: inline-block; }
-    .online-status { position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; background-color: #22c55e; border-radius: 50%; border: 2px solid #1a1a1a; }
+    .online-status { position: absolute; bottom: 4px; right: 4px; width: 14px; height: 14px; background-color: #22c55e; border-radius: 50%; border: 2px solid #1a1a1a; }
     .online-status.offline { background-color: #6b7280; }
+    .tab-btn { padding: 8px 16px; border-radius: 40px; transition: 0.2s; cursor: pointer; background: #2a2a2a; color: #9ca3af; }
+    .tab-btn:hover { background: #3a3a3a; color: white; }
     @media (max-width: 640px) {
       .message-bubble { max-width: 90%; }
       .chat-user-item { padding: 10px; }
       .card { border-radius: 16px; }
-      .white-icon-btn { padding: 5px 10px; font-size: 12px; }
-      .white-glow-btn { padding: 6px 12px; font-size: 12px; }
+      .white-icon-btn { padding: 6px 12px; font-size: 12px; }
+      .white-glow-btn { padding: 6px 14px; font-size: 12px; }
       .post-media-grid { gap: 4px; }
-      .action-btn { font-size: 13px; padding: 4px 10px; }
+      .action-btn { font-size: 13px; padding: 6px 12px; }
       .online-status { width: 10px; height: 10px; }
+      .tab-btn { padding: 6px 12px; font-size: 14px; }
     }
   </style>
 </head>
@@ -89,10 +92,11 @@
   const STORAGE_BUCKET = "wave-media";
   const DEFAULT_AVATAR = "https://ui-avatars.com/api/?background=3b82f6&color=fff&rounded=true&size=96&bold=true&length=2&name=?";
   
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    realtime: { enabled: false }
+  });
 
   let onlineUsers = new Set();
-  let presenceChannel = null;
 
   function showToast(msg) { 
     const t = document.createElement('div'); 
@@ -440,29 +444,33 @@
     const chatContainerRef = React.useRef(null);
     const postRefs = React.useRef({});
 
-    // Онлайн-статусы
+    // Простой онлайн-статус через last_seen
     React.useEffect(() => {
-      if (!supabase) return;
-      presenceChannel = supabase.channel('online-users', {
-        config: { presence: { key: user.id.toString() } }
-      });
-      presenceChannel.on('presence', { event: 'sync' }, () => {
-        const newState = presenceChannel.presenceState();
-        const online = new Set();
-        Object.keys(newState).forEach(id => online.add(parseInt(id)));
-        onlineUsers = online;
-        setUsers(prev => [...prev]);
-      });
-      presenceChannel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await presenceChannel.track({ user_id: user.id, online_at: new Date().toISOString() });
+      const updateLastSeen = async () => {
+        await supabase.from('users').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
+      };
+      updateLastSeen();
+      const interval = setInterval(updateLastSeen, 60000);
+      
+      const loadOnlineUsers = async () => {
+        const { data } = await supabase.from('users').select('id, last_seen');
+        if (data) {
+          const online = new Set();
+          data.forEach(u => {
+            if (u.last_seen && (new Date() - new Date(u.last_seen)) < 120000) {
+              online.add(u.id);
+            }
+          });
+          onlineUsers = online;
+          setUsers(prev => [...prev]);
         }
-      });
+      };
+      loadOnlineUsers();
+      const onlineInterval = setInterval(loadOnlineUsers, 30000);
+      
       return () => {
-        if (presenceChannel) {
-          presenceChannel.untrack();
-          presenceChannel.unsubscribe();
-        }
+        clearInterval(interval);
+        clearInterval(onlineInterval);
       };
     }, [user.id]);
 
@@ -737,13 +745,15 @@
       return (<div className="relative" ref={ref}><button onClick={()=>setOpen(!open)} className="text-gray-400 hover:text-white p-2"><i className="fas fa-ellipsis-h"></i></button>{open&&(<div className="dropdown-menu">{onEdit&&<div onClick={()=>{onEdit();setOpen(false);}} className="dropdown-item"><i className="fas fa-pen"></i> Редактировать</div>}{onShare&&<div onClick={()=>{onShare();setOpen(false);}} className="dropdown-item"><i className="fas fa-share-alt"></i> Поделиться</div>}{onDel&&<div onClick={()=>{onDel();setOpen(false);}} className="dropdown-item"><i className="fas fa-trash-alt"></i> Удалить</div>}</div>)}</div>);
     };
 
-    // ВАЖНО: Функция показа профиля — исправлена!
+    // Исправленная функция показа профиля
     const renderProfilePage = (profileUser) => {
       const [showSubs, setShowSubs] = React.useState(false);
       const [showFollows, setShowFollows] = React.useState(false);
       const profilePosts = posts.filter(p => p.user_id === profileUser.id);
       const isFollowing = (user.following || []).includes(profileUser.id);
       const isOnline = isUserOnline(profileUser.id);
+      
+      if (!profileUser) return <div className="flex items-center justify-center min-h-screen text-white">Пользователь не найден</div>;
       
       return (
         <div className="min-h-screen" style={{background: '#0a0a0a'}}>
@@ -831,12 +841,12 @@
         {showPollModal && <PollCreatorModal onClose={()=>setShowPollModal(false)} onSave={(poll)=>{setTempPoll(poll); showToast('Опрос добавлен');}} />}
         {showHideModal && <HideSettingsModal users={users} currentUserId={user.id} selectedUsers={hideSel} onToggleUser={(id)=>setHideSel(prev=>prev.includes(id)?prev.filter(i=>i!==id):[...prev,id])} onApply={()=>{setShowHideModal(false); showToast(`Скрыто от ${hideSel.length} пользователей`);}} onClose={()=>setShowHideModal(false)} />}
 
-        <header className="sticky top-0 z-20 border-b border-gray-800 bg-[#0a0a0a]/90 backdrop-blur-md p-3"><div className="max-w-2xl mx-auto flex justify-between items-center"><div className="flex items-center gap-2"><i className="fas fa-water text-white text-xl"></i><span className="text-white font-bold text-lg">Wave</span></div><div className="flex gap-2 sm:gap-3 text-gray-400"><button onClick={()=>{setTab('feed'); setViewProfile(null);}} className={`text-lg sm:text-xl p-2 rounded-xl transition ${tab==='feed'?'active-tab text-white':'hover:text-white'}`}><i className="fas fa-home"></i></button><button onClick={()=>{setTab('search'); setViewProfile(null);}} className={`text-lg sm:text-xl p-2 rounded-xl transition ${tab==='search'?'active-tab text-white':'hover:text-white'}`}><i className="fas fa-search"></i></button><button onClick={()=>{setTab('chat'); setViewProfile(null);}} className={`text-lg sm:text-xl p-2 rounded-xl relative transition ${tab==='chat'?'active-tab text-white':'hover:text-white'}`}><i className="fas fa-comments"></i>{Object.values(unread).reduce((a,b)=>a+b,0)>0&&<span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{Object.values(unread).reduce((a,b)=>a+b,0)}</span>}</button><button onClick={()=>{setTab('notify'); setViewProfile(null);}} className={`text-lg sm:text-xl p-2 rounded-xl relative transition ${tab==='notify'?'active-tab text-white':'hover:text-white'}`}><i className="fas fa-bell"></i>{notifs.filter(n=>!n.read).length>0&&<span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{notifs.filter(n=>!n.read).length}</span>}</button><button onClick={()=>{setTab('profile'); setViewProfile(null);}} className={`text-lg sm:text-xl p-2 rounded-xl transition ${tab==='profile'?'active-tab text-white':'hover:text-white'}`}><i className="fas fa-user"></i></button><button onClick={onLogout} className="text-xs sm:text-sm bg-gray-800 px-2 sm:px-3 py-1.5 rounded-full hover:bg-gray-700 transition"><i className="fas fa-sign-out-alt mr-1"></i> <span className="hidden sm:inline">Выйти</span></button></div></div></header>
+        <header className="sticky top-0 z-20 border-b border-gray-800 bg-[#0a0a0a]/90 backdrop-blur-md p-3"><div className="max-w-2xl mx-auto flex justify-between items-center"><div className="flex items-center gap-2"><i className="fas fa-water text-white text-xl"></i><span className="text-white font-bold text-lg">Wave</span></div><div className="flex gap-2 sm:gap-3"><button onClick={()=>{setTab('feed'); setViewProfile(null);}} className={`tab-btn ${tab==='feed'?'active-tab':''}`}><i className="fas fa-home mr-1"></i> Лента</button><button onClick={()=>{setTab('search'); setViewProfile(null);}} className={`tab-btn ${tab==='search'?'active-tab':''}`}><i className="fas fa-search mr-1"></i> Поиск</button><button onClick={()=>{setTab('chat'); setViewProfile(null);}} className={`tab-btn relative ${tab==='chat'?'active-tab':''}`}><i className="fas fa-comments mr-1"></i> Чаты{Object.values(unread).reduce((a,b)=>a+b,0)>0&&<span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{Object.values(unread).reduce((a,b)=>a+b,0)}</span>}</button><button onClick={()=>{setTab('notify'); setViewProfile(null);}} className={`tab-btn ${tab==='notify'?'active-tab':''}`}><i className="fas fa-bell mr-1"></i> Уведомления{notifs.filter(n=>!n.read).length>0&&<span className="ml-1 bg-red-500 text-white text-[10px] rounded-full px-1">{notifs.filter(n=>!n.read).length}</span>}</button><button onClick={()=>{setTab('profile'); setViewProfile(null);}} className={`tab-btn ${tab==='profile'?'active-tab':''}`}><i className="fas fa-user mr-1"></i> Профиль</button><button onClick={onLogout} className="tab-btn bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white"><i className="fas fa-sign-out-alt mr-1"></i> Выйти</button></div></div></header>
 
         <main className="max-w-2xl mx-auto p-3">
           {tab==='feed' && (
             <div>
-              <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 sm:p-3 input-field text-white text-sm resize-none" value={newPost} onChange={handlePostChange} />{showMentions && mentionUsers.length>0 && (<div className="mention-suggestions">{mentionUsers.map(u=><div key={u.id} className="mention-suggestion-item" onClick={()=>insertMention(u.username)}><img src={u.avatar||DEFAULT_AVATAR} className="w-5 h-5 rounded-full" /><span className="text-white text-sm">@{u.username}</span></div>)}</div>)}<div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreen({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2 flex-wrap"><label className={`white-icon-btn text-sm ${uploading?'opacity-50':''}`}><i className="fas fa-paperclip"></i> Файлы<input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');return;} setUploading(true); const up=await uploadMedia(files); setMedia([...media,...up]); setUploading(false); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="white-icon-btn text-sm"><i className="fas fa-chart-simple"></i> Опрос</button><button onClick={()=>setShowHideModal(true)} className="white-icon-btn text-sm"><i className="fas fa-eye-slash"></i> Скрыть</button><button onClick={createPost} className="white-glow-btn px-3 sm:px-4 py-1.5 rounded-full text-sm"><i className="fas fa-paper-plane mr-1"></i> Опубликовать</button></div></div></div></div>
+              <div className="card p-3 mb-4"><div className="flex gap-2"><img src={user.avatar||DEFAULT_AVATAR} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full" /><div className="flex-1 relative"><textarea ref={textareaRef} rows="2" placeholder="Что нового? @ или #" className="w-full p-2 sm:p-3 input-field text-white text-sm resize-none" value={newPost} onChange={handlePostChange} />{showMentions && mentionUsers.length>0 && (<div className="mention-suggestions">{mentionUsers.map(u=><div key={u.id} className="mention-suggestion-item" onClick={()=>insertMention(u.username)}><img src={u.avatar||DEFAULT_AVATAR} className="w-5 h-5 rounded-full" /><span className="text-white text-sm">@{u.username}</span></div>)}</div>)}<div className="flex flex-wrap gap-1 mt-2">{media.map((m,i)=><div key={i} className="media-preview" onClick={()=>setFullscreen({url:m.url,type:m.type})}>{m.type==='video'?<video src={m.url} />:<img src={m.url} />}<button className="remove-media" onClick={(e)=>{e.stopPropagation(); setMedia(media.filter((_,idx)=>idx!==i));}}>×</button></div>)}</div>{tempPoll && <div className="mt-2 p-2 bg-[#252525] rounded-xl flex justify-between"><span className="text-white text-xs">Опрос: {tempPoll.question}</span><button onClick={()=>setTempPoll(null)} className="text-red-400 text-xs">✖</button></div>}<div className="flex gap-2 mt-2 flex-wrap"><label className={`white-icon-btn text-sm ${uploading?'opacity-50':''}`}><i className="fas fa-paperclip"></i> Файлы<input type="file" accept="image/*,video/*" multiple onChange={async(e)=>{const files=Array.from(e.target.files); if(media.length+files.length>5){showToast('Максимум 5');return;} setUploading(true); const up=await uploadMedia(files); setMedia([...media,...up]); setUploading(false); e.target.value='';}} className="hidden" disabled={uploading} /></label><button onClick={()=>setShowPollModal(true)} className="white-icon-btn text-sm"><i className="fas fa-chart-simple"></i> Опрос</button><button onClick={()=>setShowHideModal(true)} className="white-icon-btn text-sm"><i className="fas fa-eye-slash"></i> Скрыть</button><button onClick={createPost} className="white-glow-btn text-sm"><i className="fas fa-paper-plane mr-1"></i> Опубликовать</button></div></div></div></div>
               {orderedPosts.map(p=>{
                 const comments=p.comments||[];
                 const firstThree=comments.filter(c=>!c.reply_to_id).slice(0,3);
@@ -848,7 +858,7 @@
                     <ReadMore text={p.content} maxLength={180} />
                     <MediaCollage media={p.media} onFullscreen={(m)=>setFullscreen(m)} />
                     {p.poll && <PollComponent poll={p.poll} postId={p.id} userId={user.id} onVote={handlePollVote} />}
-                    <div className="flex gap-4 mt-3 text-gray-400 text-sm"><button onClick={()=>likePost(p.id,p.likes||0)} className="flex gap-1.5 action-btn hover:text-red-400 transition"><i className="fas fa-heart"></i> {formatLikes(p.likes||0)}</button><button onClick={()=>{const d=document.getElementById(`c-${p.id}`); if(d)d.classList.toggle('hidden');}} className="flex gap-1.5 action-btn hover:text-blue-400 transition"><i className="far fa-comment"></i> {(p.comments||[]).length}</button></div>
+                    <div className="flex gap-3 mt-3"><button onClick={()=>likePost(p.id,p.likes||0)} className="action-btn"><i className="fas fa-heart mr-1"></i> {formatLikes(p.likes||0)}</button><button onClick={()=>{const d=document.getElementById(`c-${p.id}`); if(d)d.classList.toggle('hidden');}} className="action-btn"><i className="far fa-comment mr-1"></i> {(p.comments||[]).length}</button></div>
                     <div id={`c-${p.id}`} className="hidden mt-2 pt-2 border-t border-gray-800">
                       {firstThree.map(c=>(
                         <div key={c.id} className="mb-2 fade-comment"><div className="flex items-start gap-2 p-2 hover:bg-[#2a2a2a] rounded-xl cursor-pointer" onClick={()=>setCommentsPagePost(p)}><img src={c.user_avatar||DEFAULT_AVATAR} className="w-6 h-6 rounded-full mt-0.5" /><div className="flex-1"><div className="flex items-center gap-2 flex-wrap"><span className="font-bold text-sm text-white">@{c.username}</span><span className="text-xs text-gray-500">{formatDate(c.created_at)}</span></div>{c.reply_to_username&&<div className="reply-quote mt-1 text-xs">@{c.reply_to_username}</div>}<p className="text-gray-300 text-sm mt-1">{c.text.length>80?c.text.substring(0,80)+'...':c.text}</p></div></div></div>
