@@ -716,12 +716,12 @@
     };
 
     const sharePostToChat = async (post, chatUserId) => {
+      // Отправляем только текст, без shared_post_id
       const postLink = `🔗 Поделился(ась) постом\n\n"${post.content?.substring(0, 200)}"${post.content?.length > 200 ? '...' : ''}\n\n❤️ ${formatLikes(post.likes || 0)} лайков | 💬 ${(post.comments || []).length} комментариев`;
       const { error } = await supabase.from('messages').insert({ 
         from_user: user.id, 
         to_user: chatUserId, 
-        content: postLink, 
-        shared_post_id: post.id, 
+        content: postLink,
         read: false, 
         created_at: new Date() 
       });
@@ -991,10 +991,6 @@
                   {messages.map(msg=>(
                     <div key={msg.id} className={`flex ${msg.from_user===user.id?'justify-end':'justify-start'}`}>
                       <div className={`message-bubble ${msg.from_user===user.id?'message-mine':'message-theirs'}`}>
-                        {msg.shared_post_id && (()=>{
-                          const sharedPost = posts.find(p => p.id === msg.shared_post_id);
-                          return sharedPost && <SharedPostCard post={sharedPost} onGoToPost={(pid)=>{setTab('feed'); setScrollingToPost(pid); setChatUser(null);}} />;
-                        })()}
                         {msg.content && <p className="break-words">{msg.content}</p>}
                         <div className="text-[10px] opacity-70 mt-1 text-right">{new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
                       </div>
