@@ -18,13 +18,13 @@
     @keyframes fadeInUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
     .media-preview { position: relative; display: inline-block; margin: 4px; border-radius: 14px; overflow: hidden; border: 1px solid #3a3a3a; width: 80px; height: 80px; cursor: pointer; }
     .media-preview img, .media-preview video { width: 100%; height: 100%; object-fit: cover; }
-    .remove-media { position: absolute; top: -8px; right: -8px; background: #ef4444; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; color: white; z-index: 10; }
+    .remove-media { position: absolute; top: -8px; right: -8px; background: #ef4444; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; color: white; z-index: 10; border: 2px solid #1a1a1a; }
     .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: #1e1e1e; border: 1px solid #3a3a3a; border-radius: 16px; min-width: 160px; z-index: 50; overflow: hidden; }
     .dropdown-item { padding: 10px 16px; display: flex; align-items: center; gap: 10px; color: #e0e0e0; transition: 0.15s; cursor: pointer; }
     .dropdown-item:hover { background: #2a2a2a; }
     .reply-quote { background: #1a1a1a; padding: 6px 10px; border-radius: 12px; border-left: 3px solid #3b82f6; font-size: 11px; color: #aaa; margin-bottom: 6px; display: flex; flex-direction: column; gap: 2px; }
-    .mention { color: #3b82f6; font-weight: 600; cursor: pointer; background: rgba(59,130,246,0.15); padding: 2px 6px; border-radius: 12px; display: inline-block; }
-    .hashtag { color: #eab308; font-weight: 600; cursor: pointer; background: rgba(234,179,8,0.15); padding: 2px 6px; border-radius: 12px; display: inline-block; }
+    .mention { color: #3b82f6; font-weight: 600; cursor: pointer; background: rgba(59,130,246,0.15); padding: 2px 6px; border-radius: 16px; display: inline-block; }
+    .hashtag { color: #eab308; font-weight: 600; cursor: pointer; background: rgba(234,179,8,0.15); padding: 2px 6px; border-radius: 16px; display: inline-block; }
     .white-glow-btn { background: white; color: #111; box-shadow: 0 0 8px rgba(255,255,255,0.3); transition: 0.2s; font-weight: 500; cursor: pointer; border: none; border-radius: 40px; padding: 8px 20px; }
     .white-glow-btn:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(255,255,255,0.5); background: #f0f0f0; }
     .icon-btn { background: white; color: #111; border-radius: 40px; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; border: none; transition: 0.2s; }
@@ -58,6 +58,7 @@
     .read-more-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, #1a1a1a); pointer-events: none; }
     .read-more-btn { background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 20px; font-size: 12px; cursor: pointer; margin-top: 8px; transition: 0.2s; display: inline-block; width: auto; }
     .read-more-btn:hover { background: #2563eb; }
+    .profile-menu { position: absolute; top: 12px; right: 12px; }
     @media (max-width: 640px) {
       .message-bubble { max-width: 90%; }
       .chat-user-item { padding: 10px; }
@@ -546,7 +547,6 @@
       return uploaded;
     };
 
-    // Моментальная загрузка аватара
     const upAvatar = async (file) => { 
       if(!file) return; 
       setAvatarUp(true); 
@@ -722,15 +722,15 @@
 
     const ProfileMenu = () => {
       return (
-        <div className="relative">
+        <div className="profile-menu">
           <button onClick={()=>setShowProfileMenu(!showProfileMenu)} className="text-gray-400 hover:text-white p-2">
-            <i className="fas fa-ellipsis-v"></i>
+            <i className="fas fa-ellipsis-v text-lg"></i>
           </button>
           {showProfileMenu && (
             <div className="absolute right-0 mt-2 w-48 bg-[#1a1a1a] border border-gray-700 rounded-xl z-50 overflow-hidden">
-              <button onClick={()=>{setEditProfile(true); setShowProfileMenu(false);}} className="w-full text-left px-4 py-3 hover:bg-[#2a2a2a] text-white text-sm flex items-center gap-2"><i className="fas fa-user-edit"></i> Редактировать профиль</button>
-              <button onClick={()=>{setSwitchDialog(true); setShowProfileMenu(false);}} className="w-full text-left px-4 py-3 hover:bg-[#2a2a2a] text-white text-sm flex items-center gap-2"><i className="fas fa-exchange-alt"></i> Сменить аккаунт</button>
-              <button onClick={()=>{setShowDeleteAccount(true); setShowProfileMenu(false);}} className="w-full text-left px-4 py-3 hover:bg-[#2a2a2a] text-red-400 text-sm flex items-center gap-2"><i className="fas fa-trash-alt"></i> Удалить аккаунт</button>
+              <button onClick={()=>{setEditProfile(true); setShowProfileMenu(false);}} className="w-full text-left px-4 py-3 hover:bg-[#2a2a2a] text-white text-sm flex items-center gap-2"><i className="fas fa-user-edit w-4"></i> Редактировать профиль</button>
+              <button onClick={()=>{setSwitchDialog(true); setShowProfileMenu(false);}} className="w-full text-left px-4 py-3 hover:bg-[#2a2a2a] text-white text-sm flex items-center gap-2"><i className="fas fa-exchange-alt w-4"></i> Сменить аккаунт</button>
+              <button onClick={()=>{setShowDeleteAccount(true); setShowProfileMenu(false);}} className="w-full text-left px-4 py-3 hover:bg-[#2a2a2a] text-red-400 text-sm flex items-center gap-2"><i className="fas fa-trash-alt w-4"></i> Удалить аккаунт</button>
             </div>
           )}
         </div>
@@ -752,9 +752,7 @@
         <div className="min-h-screen p-4" style={{background: '#0a0a0a'}}>
           <button onClick={() => { setViewProfile(null); setShowProfileSubs(false); setShowProfileFollows(false); }} className="text-gray-400 mb-4 hover:text-white transition"><i className="fas fa-arrow-left"></i> Назад</button>
           <div className="card p-6 text-center mb-6 relative">
-            {profileUser.id === user.id && (
-              <div className="absolute top-4 right-4"><ProfileMenu /></div>
-            )}
+            {profileUser.id === user.id && <ProfileMenu />}
             <img src={profileUser.avatar || DEFAULT_AVATAR} className="w-24 h-24 rounded-full mx-auto border-2 border-blue-500" />
             <h2 className="text-xl font-bold text-white mt-3">{profileUser.full_name || profileUser.username}</h2>
             <p className="text-gray-400 text-sm">@{profileUser.username}</p>
