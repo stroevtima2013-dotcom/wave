@@ -638,6 +638,17 @@
         setPosts(visible);
         setUsers(uRes.data || []);
         setNotifs(nRes.data || []);
+        
+        // Обновляем данные текущего пользователя из базы (чтобы подтянуть подписки)
+        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', user.id).single();
+        if (updatedUser) {
+          user.following = updatedUser.following || [];
+          user.followers = updatedUser.followers || [];
+          user.avatar = updatedUser.avatar;
+          user.full_name = updatedUser.full_name;
+          user.bio = updatedUser.bio;
+        }
+        
         const msgs = mRes.data || [];
         const chatSet = new Set();
         msgs.forEach(m=>{ if(m.from_user!==user.id) chatSet.add(m.from_user); if(m.to_user!==user.id) chatSet.add(m.from_user); if(m.from_user===user.id) chatSet.add(m.to_user); });
@@ -853,21 +864,32 @@
     
     const follow = async (id) => { 
       if(id===user.id){showToast('Нельзя подписаться на себя');return;} 
-      let f=user.following||[]; 
-      let is=f.includes(id); 
-      if(is) { showToast('Вы уже подписаны'); return; }
-      let nf=[...f,id]; 
-      await supabase.from('users').update({following:nf}).eq('id',user.id); 
-      user.following=nf; 
-      let t=users.find(u=>u.id===id); 
-      if(t){
-        let fl=t.followers||[]; 
-        let nfl=[...fl,user.id]; 
-        await supabase.from('users').update({followers:nfl}).eq('id',id);
-        setUsers(prev => prev.map(u => u.id === id ? {...u, followers: nfl} : u));
+      
+      // Проверяем, не подписан ли уже
+      let currentFollowing = user.following || [];
+      if(currentFollowing.includes(id)) { 
+        showToast('Вы уже подписаны'); 
+        return; 
       }
-      showToast('Подписались'); 
-      await loadAll(); 
+      
+      // Обновляем подписки текущего пользователя
+      const newFollowing = [...currentFollowing, id];
+      const { error: err1 } = await supabase.from('users').update({ following: newFollowing }).eq('id', user.id);
+      if(err1) { showToast('Ошибка'); return; }
+      user.following = newFollowing;
+      
+      // Обновляем подписчиков у целевого пользователя
+      const targetUser = users.find(u => u.id === id);
+      if(targetUser) {
+        const newFollowers = [...(targetUser.followers || []), user.id];
+        const { error: err2 } = await supabase.from('users').update({ followers: newFollowers }).eq('id', id);
+        if(!err2) {
+          setUsers(prev => prev.map(u => u.id === id ? {...u, followers: newFollowers} : u));
+        }
+      }
+      
+      showToast('Подписались');
+      await loadAll(); // Перезагружаем всё для синхронизации
     };
     
     const sendMsg = async (content, msgMediaList = []) => {
